@@ -1,23 +1,9 @@
-
 "use client";
 
 import Link from "next/link";
-import {
-  CalendarCheck,
-  Menu,
-  LayoutDashboard,
-  Home,
-  UserCircle,
-  Sun,
-  Moon,
-} from "lucide-react";
+import { CalendarCheck, Menu, LayoutDashboard, Home, UserCircle, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-  SheetClose,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -30,10 +16,13 @@ export function Header() {
 
   useEffect(() => {
     const theme = localStorage.getItem("theme");
-    const isDarkMode = theme === "dark" || (!theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    // Default siempre es light a menos que el usuario haya elegido dark explícitamente
+    const isDarkMode = theme === "dark";
     setIsDark(isDarkMode);
     if (isDarkMode) {
       document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
     }
   }, []);
 
@@ -71,7 +60,9 @@ export function Header() {
               href={item.href}
               className={cn(
                 "flex items-center gap-1.5 transition-all hover:text-primary relative py-1",
-                pathname === item.href ? "text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary after:rounded-full" : "text-muted-foreground"
+                pathname === item.href
+                  ? "text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary after:rounded-full"
+                  : "text-muted-foreground"
               )}
             >
               {item.label}

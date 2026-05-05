@@ -1,18 +1,23 @@
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
-import { Share2, Settings, BarChart3, ArrowRight } from "lucide-react";
+import { Share2, Settings, BarChart3, ArrowRight, MessageCircle } from "lucide-react";
 import BookingFlow from "@/components/booking/BookingFlow";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
+const WHATSAPP_NUMBER = "5491112345678"; // ← cambiá por tu número real
+const WHATSAPP_MSG = encodeURIComponent("Hola! Quiero saber más sobre TurnosYa para mi negocio.");
+const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${WHATSAPP_MSG}`;
+
 export default function Home() {
-  const demoTenantId = 'admin-tenant-1';
+  const demoTenantId = "admin-tenant-1";
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground transition-colors duration-300">
       <Header />
       <main className="flex-grow">
+
         {/* Hero Section */}
         <section className="relative w-full min-h-[calc(100vh-4rem)] flex items-center justify-center overflow-hidden border-b py-12">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(120,120,120,0.05),transparent)] pointer-events-none" />
@@ -28,16 +33,32 @@ export default function Home() {
               <p className="max-w-2xl mx-auto text-muted-foreground text-xl md:text-2xl leading-relaxed">
                 Deja de coordinar citas por WhatsApp. Tu página de reservas lista en minutos para que tus clientes agenden 24/7.
               </p>
-              <div className="flex flex-col sm:flex-row gap-5 w-full justify-center pt-6">
-                <Button size="lg" className="h-16 px-12 text-xl font-bold rounded-2xl shadow-2xl transition-transform hover:scale-105 active:scale-95" asChild>
-                  <Link href="/dashboard">
-                    Ingresar al Panel <ArrowRight className="ml-2 h-6 w-6" />
-                  </Link>
+              <div className="flex flex-col sm:flex-row gap-4 w-full justify-center pt-6">
+                <Button
+                  size="lg"
+                  className="h-16 px-10 text-xl font-bold rounded-2xl shadow-2xl transition-transform hover:scale-105 active:scale-95"
+                  asChild
+                >
+                  <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">
+                    <MessageCircle className="mr-3 h-6 w-6" />
+                    Quiero mi panel de turnos
+                  </a>
                 </Button>
-                <Button size="lg" variant="outline" className="h-16 px-12 text-xl font-bold rounded-2xl border-2 transition-transform hover:scale-105 active:scale-95" asChild>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-16 px-10 text-xl font-bold rounded-2xl border-2 transition-transform hover:scale-105 active:scale-95"
+                  asChild
+                >
                   <a href="#demo-section">Probar Demo Interactiva</a>
                 </Button>
               </div>
+              <p className="text-sm text-muted-foreground">
+                ¿Ya tenés cuenta?{" "}
+                <Link href="/dashboard" className="underline underline-offset-4 hover:text-primary font-medium">
+                  Ingresar al panel →
+                </Link>
+              </p>
             </div>
           </div>
         </section>
@@ -49,17 +70,17 @@ export default function Home() {
               {[
                 {
                   title: "Tu Marca, Tu Link",
-                  desc: "Recibe un enlace profesional personalizado para tu bio de Instagram o WhatsApp.",
+                  desc: "Recibí un enlace profesional personalizado para tu bio de Instagram o WhatsApp.",
                   icon: Share2,
                 },
                 {
                   title: "Control Total",
-                  desc: "Configura servicios, precios, duración y horarios según tu conveniencia.",
+                  desc: "Configurá servicios, precios, duración y horarios según tu conveniencia.",
                   icon: Settings,
                 },
                 {
                   title: "Crecimiento Real",
-                  desc: "Analiza tus ingresos y ocupación semanal con reportes visuales automáticos.",
+                  desc: "Analizá tus ingresos y ocupación con reportes visuales automáticos.",
                   icon: BarChart3,
                 },
               ].map((f, i) => (
@@ -84,10 +105,10 @@ export default function Home() {
                 Prueba la experiencia
               </h2>
               <p className="text-muted-foreground text-xl mb-8">
-                Interactúa con el flujo de reserva real. Así de fácil será para tus clientes agendar un turno.
+                Interactuá con el flujo de reserva real. Así de fácil será para tus clientes agendar un turno.
               </p>
             </div>
-            
+
             <div className="relative max-w-5xl mx-auto">
               <div className="relative bg-card rounded-[2rem] md:rounded-[3rem] shadow-2xl border overflow-hidden">
                 <div className="bg-muted p-4 md:p-6 border-b flex items-center justify-between">
@@ -105,28 +126,48 @@ export default function Home() {
                   <BookingFlow tenantId={demoTenantId} />
                 </div>
               </div>
-              <div className="absolute -top-6 -right-6 w-24 h-24 bg-primary/10 rounded-full blur-3xl" />
-              <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl" />
             </div>
           </div>
         </section>
 
         {/* Final CTA */}
-        <section className="w-full py-32 relative overflow-hidden bg-primary text-primary-foreground">
+        <section className="w-full py-32 relative overflow-hidden bg-foreground text-background">
           <div className="container mx-auto px-4 md:px-6 text-center relative z-10">
-            <h2 className="text-5xl md:text-8xl font-black mb-10 font-headline tracking-tighter bg-background text-foreground p-4 inline-block transform -skew-x-2">
+            <h2 className="text-5xl md:text-8xl font-black mb-6 font-headline tracking-tighter">
               Tu agenda, hoy.
             </h2>
-            <p className="text-primary-foreground/80 mt-8 mb-16 text-2xl max-w-3xl mx-auto font-medium">
-              Contactanos para activar tu página de reservas y empezar a recibir turnos hoy mismo.
+            <p className="text-background/70 mb-12 text-xl md:text-2xl max-w-2xl mx-auto font-medium">
+              Escribinos por WhatsApp y en minutos activamos tu página de reservas.
             </p>
-            <Button size="lg" className="h-20 px-16 text-2xl font-black rounded-[2rem] shadow-2xl transition-all hover:scale-105 bg-background text-foreground hover:bg-background/90" asChild>
-              <Link href="/dashboard">Ingresar al Panel</Link>
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button
+                size="lg"
+                className="h-16 px-12 text-xl font-black rounded-2xl shadow-2xl transition-all hover:scale-105 bg-background text-foreground hover:bg-background/90"
+                asChild
+              >
+                <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="mr-3 h-6 w-6" />
+                  Escribinos por WhatsApp
+                </a>
+              </Button>
+            </div>
           </div>
         </section>
+
       </main>
       <Footer />
+
+      {/* Botón flotante de WhatsApp */}
+      <a
+        href={WHATSAPP_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-foreground text-background hover:bg-foreground/90 px-5 py-3 rounded-full shadow-2xl font-bold text-sm transition-all hover:scale-105 active:scale-95 group"
+        aria-label="Contactar por WhatsApp"
+      >
+        <MessageCircle className="h-5 w-5 shrink-0" />
+        <span className="hidden sm:inline">Quiero mi panel</span>
+      </a>
     </div>
   );
 }

@@ -5,13 +5,14 @@ import { Service, Professional, Appointment } from "@/lib/data";
 import { useAppointments } from "@/hooks/use-appointments";
 import { useServices } from "@/hooks/use-services";
 import { useProfessionals } from "@/hooks/use-professionals";
+import { useSalon } from "@/hooks/use-salon";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, differenceInHours } from "date-fns";
 import { es } from "date-fns/locale";
-import { Trash2, User, Clock, Loader2 } from "lucide-react";
+import { Trash2, User, Clock, Loader2, MessageCircle } from "lucide-react";
 import { parseFirestoreDate } from "@/lib/utils";
 import {
   AlertDialog,
@@ -25,7 +26,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-interface PopulatedAppointment extends Omit<Appointment, 'serviceIds' | 'professionalId'> {
+interface PopulatedAppointment extends Omit<Appointment, "serviceIds" | "professionalId"> {
   services: Service[];
   professional: Professional | undefined;
 }
@@ -35,30 +36,30 @@ interface UserAppointmentsProps {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  completed: 'Completado',
-  confirmed: 'Confirmado',
-  cancelled: 'Cancelado',
-  blocked: 'No disponible',
+  completed: "Completado",
+  confirmed: "Confirmado",
+  cancelled: "Cancelado",
+  blocked: "No disponible",
 };
 
 export function UserAppointments({ tenantId }: UserAppointmentsProps) {
   const { appointments: allAppointments, cancelAppointment, loading: appointmentsLoading, customerId } = useAppointments(tenantId);
   const { services, loading: servicesLoading } = useServices(tenantId);
   const { professionals, loading: professionalsLoading } = useProfessionals(tenantId);
+  const { salon } = useSalon(tenantId);
 
   const [appointments, setAppointments] = useState<PopulatedAppointment[]>([]);
   const [now, setNow] = useState(new Date());
-
   const loading = appointmentsLoading || servicesLoading || professionalsLoading;
 
   useEffect(() => {
     if (!loading && allAppointments) {
       const populated = allAppointments
-        .filter(apt => apt.customerId === customerId)
-        .map(apt => ({
+        .filter((apt) => apt.customerId === customerId)
+        .map((apt) => ({
           ...apt,
-          services: (apt.serviceIds || []).map(id => services.find(s => s.id === id)).filter(Boolean) as Service[],
-          professional: professionals.find(p => p.id === apt.professionalId)
+          services: (apt.serviceIds || []).map((id) => services.find((s) => s.id === id)).filter(Boolean) as Service[],
+          professional: professionals.find((p) => p.id === apt.professionalId),
         }));
       setAppointments(populated);
     }
@@ -69,16 +70,27 @@ export function UserAppointments({ tenantId }: UserAppointmentsProps) {
     return () => clearInterval(timer);
   }, []);
 
-  const handleCancel = (appointment: PopulatedAppointment) => {
-    cancelAppointment(appointment.id);
+  const handleCancel = (apt: PopulatedAppointment) => {
+    cancelAppointment(apt.id);
+
+    // Aviso al negocio por WhatsApp si tiene número configurado
+    if (salon?.whatsappNumber) {
+      const dateObj = parseFirestoreDate(apt.startTime);
+      const msg = encodeURIComponent(
+        `Hola! Te aviso que ${apt.customerName} canceló su turno del ${format(dateObj, "dd/MM 'a las' HH:mm'hs'", { locale: es })} (${apt.services.map((s) => s.name).join(", ")}).`
+      );
+      setTimeout(() => {
+        window.open(`https://wa.me/${salon.whatsappNumber}?text=${msg}`, "_blank");
+      }, 500);
+    }
   };
 
   const upcomingAppointments = appointments
-    .filter(apt => apt.status === 'confirmed' && parseFirestoreDate(apt.startTime) > now)
+    .filter((apt) => apt.status === "confirmed" && parseFirestoreDate(apt.startTime) > now)
     .sort((a, b) => parseFirestoreDate(a.startTime).getTime() - parseFirestoreDate(b.startTime).getTime());
 
   const pastAppointments = appointments
-    .filter(apt => parseFirestoreDate(apt.startTime) <= now || apt.status === 'cancelled')
+    .filter((apt) => parseFirestoreDate(apt.startTime) <= now || apt.status === "cancelled")
     .sort((a, b) => parseFirestoreDate(b.startTime).getTime() - parseFirestoreDate(a.startTime).getTime());
 
   if (loading) {
@@ -106,7 +118,7 @@ export function UserAppointments({ tenantId }: UserAppointmentsProps) {
           <h3 className="text-lg font-semibold mb-4">Próximas Citas ({upcomingAppointments.length})</h3>
           {upcomingAppointments.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2">
-              {upcomingAppointments.map(apt => {
+              {upcomingAppointments.map((apt) => {
                 const dateObj = parseFirestoreDate(apt.startTime);
                 const canCancel = differenceInHours(dateObj, now) >= 12;
                 return (
@@ -126,15 +138,11 @@ export function UserAppointments({ tenantId }: UserAppointmentsProps) {
                       )}
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-muted-foreground" />
-                        <span>{apt.services.map(s => s.name).join(', ')}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground">Método de pago:</span>
-                        <span className="font-medium">{apt.paymentMethod}</span>
+                        <span>{apt.services.map((s) => s.name).join(", ")}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-muted-foreground">Total:</span>
-                        <span className="font-bold">${apt.total?.toLocaleString('es-AR')}</span>
+                        <span className="font-bold">${apt.total?.toLocaleString("es-AR")}</span>
                       </div>
                     </CardContent>
                     <CardFooter>
@@ -144,8 +152,7 @@ export function UserAppointments({ tenantId }: UserAppointmentsProps) {
                             <AlertDialogTrigger asChild>
                               <div className="w-full">
                                 <Button variant="destructive" className="w-full" disabled={!canCancel}>
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  Cancelar turno
+                                  <Trash2 className="w-4 h-4 mr-2" /> Cancelar turno
                                 </Button>
                               </div>
                             </AlertDialogTrigger>
@@ -161,6 +168,12 @@ export function UserAppointments({ tenantId }: UserAppointmentsProps) {
                             <AlertDialogTitle>¿Cancelar el turno?</AlertDialogTitle>
                             <AlertDialogDescription>
                               Esta acción no se puede deshacer. El horario volverá a estar disponible.
+                              {salon?.whatsappNumber && (
+                                <span className="flex items-center gap-1.5 mt-3 text-[#25D366] font-medium">
+                                  <MessageCircle className="w-4 h-4" />
+                                  Se abrirá WhatsApp para avisarle al negocio automáticamente.
+                                </span>
+                              )}
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -185,22 +198,22 @@ export function UserAppointments({ tenantId }: UserAppointmentsProps) {
           <h3 className="text-lg font-semibold mb-4">Historial ({pastAppointments.length})</h3>
           {pastAppointments.length > 0 ? (
             <div className="space-y-3">
-              {pastAppointments.map(apt => {
+              {pastAppointments.map((apt) => {
                 const dateObj = parseFirestoreDate(apt.startTime);
                 return (
                   <Card key={apt.id} className="flex items-center justify-between p-4">
                     <div>
                       <p className="font-semibold capitalize">{format(dateObj, "PPP", { locale: es })}</p>
                       <p className="text-sm text-muted-foreground">
-                        {apt.services.map(s => s.name).join(', ')}
-                        {apt.professional ? ` con ${apt.professional.name}` : ''}
+                        {apt.services.map((s) => s.name).join(", ")}
+                        {apt.professional ? ` con ${apt.professional.name}` : ""}
                       </p>
                     </div>
                     <Badge
                       variant={
-                        apt.status === 'completed' ? 'secondary'
-                        : apt.status === 'confirmed' ? 'outline'
-                        : 'destructive'
+                        apt.status === "completed" ? "secondary"
+                        : apt.status === "confirmed" ? "outline"
+                        : "destructive"
                       }
                     >
                       {STATUS_LABELS[apt.status] ?? apt.status}

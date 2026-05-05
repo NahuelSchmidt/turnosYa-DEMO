@@ -14,11 +14,10 @@ import TimeSlotPicker from "./TimeSlotPicker";
 import BookingSummary from "./BookingSummary";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, User, CalendarDays, Check, Loader2, CreditCard, Wallet, Briefcase } from "lucide-react";
+import { ArrowLeft, User, CalendarDays, Check, Loader2, Briefcase } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 
 type Step = "services" | "professional" | "time" | "confirm";
@@ -35,7 +34,6 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const { addAppointment, getBookedSlotsForDate } = useAppointments(tenantId);
@@ -43,19 +41,17 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
   const { services, loading: servicesLoading } = useServices(tenantId);
   const { professionals, loading: professionalsLoading } = useProfessionals(tenantId);
   const { timeSlots, loading: schedulesLoading } = useSchedules(tenantId);
-  
+
   const router = useRouter();
   const { toast } = useToast();
 
   const total = selectedServices.reduce((sum, s) => sum + s.price, 0);
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration, 0);
 
-  // Slots ya ocupados para el profesional y fecha seleccionados
   const bookedSlots = useMemo(() => {
     return getBookedSlotsForDate(selectedProfessional?.id ?? null, selectedDate);
   }, [selectedProfessional, selectedDate, getBookedSlotsForDate]);
 
-  // Reset selectedTime cuando cambia fecha o profesional para no mantener un slot inválido
   const handleDateChange = (date: Date | undefined) => {
     setSelectedDate(date);
     setSelectedTime(null);
@@ -64,7 +60,7 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
   const primaryColorStyle = useMemo(() => {
     if (!salon?.primaryColor) return {};
     return {
-      '--primary': salon.primaryColor.startsWith('#') ? hexToHsl(salon.primaryColor) : salon.primaryColor,
+      "--primary": salon.primaryColor.startsWith("#") ? hexToHsl(salon.primaryColor) : salon.primaryColor,
     } as React.CSSProperties;
   }, [salon?.primaryColor]);
 
@@ -88,11 +84,10 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
   }
 
   const handleBookingConfirmation = () => {
-    if (!selectedProfessional || !selectedDate || !selectedTime || selectedServices.length === 0 || !customerName || !customerPhone || !paymentMethod) {
+    if (!selectedProfessional || !selectedDate || !selectedTime || selectedServices.length === 0 || !customerName || !customerPhone) {
       return;
     }
-    
-    // Verificar que el slot sigue disponible antes de confirmar
+
     if (bookedSlots.includes(selectedTime)) {
       toast({
         variant: "destructive",
@@ -106,20 +101,20 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
 
     setIsProcessing(true);
 
-    const [hours, minutes] = selectedTime.split(':').map(Number);
+    const [hours, minutes] = selectedTime.split(":").map(Number);
     const startTime = new Date(selectedDate);
     startTime.setHours(hours, minutes, 0, 0);
     const endTime = new Date(startTime.getTime() + totalDuration * 60000);
 
     const appointmentId = addAppointment({
       professionalId: selectedProfessional.id,
-      serviceIds: selectedServices.map(s => s.id),
+      serviceIds: selectedServices.map((s) => s.id),
       startTime,
       endTime,
       total,
       customerName,
       customerPhone,
-      paymentMethod
+      paymentMethod: "A coordinar con el negocio",
     });
 
     if (appointmentId) {
@@ -155,7 +150,7 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
   ];
   const currentStepIndex = steps.findIndex((s) => s.id === step);
   const progressPercentage = ((currentStepIndex + 1) / steps.length) * 100;
-  
+
   const isLoading = servicesLoading || professionalsLoading || schedulesLoading;
 
   if (isLoading) {
@@ -176,10 +171,10 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
         <div className="flex justify-between items-center mt-4">
           {steps.map((s, index) => (
             <div key={s.id} className="flex flex-col items-center gap-1">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${index <= currentStepIndex ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${index <= currentStepIndex ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
                 <s.icon className="w-4 h-4" />
               </div>
-              <span className={`text-[10px] font-bold uppercase tracking-tighter ${index <= currentStepIndex ? 'text-primary' : 'text-muted-foreground'}`}>{s.name}</span>
+              <span className={`text-[10px] font-bold uppercase tracking-tighter ${index <= currentStepIndex ? "text-primary" : "text-muted-foreground"}`}>{s.name}</span>
             </div>
           ))}
         </div>
@@ -206,7 +201,7 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
                 selectedProfessional={selectedProfessional}
                 onSelectProfessional={(p) => {
                   setSelectedProfessional(p);
-                  setSelectedTime(null); // reset time when professional changes
+                  setSelectedTime(null);
                 }}
               />
             )}
@@ -223,32 +218,33 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
             {step === "confirm" && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <h2 className="text-2xl font-bold font-headline">Tus Datos</h2>
+                <p className="text-muted-foreground text-sm">
+                  Completá tus datos para confirmar el turno. El negocio te contactará para coordinar el pago.
+                </p>
                 <div className="grid gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Nombre Completo</Label>
-                    <Input id="name" placeholder="Ej: Juan Pérez" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="h-12" />
+                    <Input
+                      id="name"
+                      placeholder="Ej: Juan Pérez"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      className="h-12"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="whatsapp">WhatsApp</Label>
-                    <Input id="whatsapp" placeholder="Tu número para el recordatorio" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className="h-12" />
+                    <Input
+                      id="whatsapp"
+                      placeholder="Ej: 1123456789"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      className="h-12"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      El negocio puede contactarte por este número para recordatorios.
+                    </p>
                   </div>
-                </div>
-                <div className="space-y-3">
-                  <Label>Método de Pago</Label>
-                  <RadioGroup onValueChange={setPaymentMethod} value={paymentMethod ?? undefined} className="grid grid-cols-2 gap-4">
-                    <div>
-                      <RadioGroupItem value="Mercado Pago" id="mp" className="peer sr-only" />
-                      <Label htmlFor="mp" className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 cursor-pointer transition-all">
-                        <CreditCard className="mb-2 h-6 w-6" /> <span className="text-xs font-bold">Pago Online</span>
-                      </Label>
-                    </div>
-                    <div>
-                      <RadioGroupItem value="Efectivo" id="cash" className="peer sr-only" />
-                      <Label htmlFor="cash" className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 cursor-pointer transition-all">
-                        <Wallet className="mb-2 h-6 w-6" /> <span className="text-xs font-bold">En el local</span>
-                      </Label>
-                    </div>
-                  </RadioGroup>
                 </div>
               </div>
             )}
@@ -265,17 +261,17 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
             <div className="mt-8 flex flex-col gap-3">
               <Button
                 size="lg"
-                className="h-14 font-bold text-lg rounded-xl shadow-lg text-white"
+                className="h-14 font-bold text-lg rounded-xl shadow-lg"
                 onClick={nextStep}
                 disabled={
                   isProcessing ||
                   (step === "services" && selectedServices.length === 0) ||
                   (step === "professional" && !selectedProfessional) ||
                   (step === "time" && (!selectedDate || !selectedTime)) ||
-                  (step === "confirm" && (!customerName || !customerPhone || !paymentMethod))
+                  (step === "confirm" && (!customerName || !customerPhone))
                 }
               >
-                {isProcessing ? <Loader2 className="animate-spin" /> : (step === "confirm" ? "Reservar Ahora" : "Continuar")}
+                {isProcessing ? <Loader2 className="animate-spin" /> : step === "confirm" ? "Confirmar Turno" : "Continuar"}
               </Button>
               {step !== "services" && (
                 <Button variant="ghost" onClick={() => setStep(steps[currentStepIndex - 1].id as Step)} className="text-muted-foreground">
