@@ -68,7 +68,7 @@ export function Footer() {
           </div>
         </div>
         <div className="border-t border-border/50 mt-12 pt-8 text-center text-xs text-muted-foreground font-medium">
-          <p>&copy; {new Date().getFullYear()} TurnosYa. Todos los derechos reservados.</p>
+          <p>&copy; {new Date().getFullYear()} Nexary. Todos los derechos reservados.</p>
         </div>
       </div>
     </footer>
