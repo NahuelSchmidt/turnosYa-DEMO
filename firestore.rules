@@ -1,0 +1,87 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAnonymous() {
+      return isSignedIn() && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    function isRealUser() {
+      return isSignedIn() && !isAnonymous();
+    }
+
+    function isGlobalAdmin() {
+      return isRealUser() && exists(/databases/$(database)/documents/globalAdmins/$(request.auth.uid));
+    }
+
+    function isSalonAdmin(salonId) {
+      return isRealUser() && (
+        get(/databases/$(database)/documents/salons/$(salonId)).data.adminMembers[request.auth.uid] == true
+      );
+    }
+
+    match /userProfiles/{userProfileId} {
+      allow get: if isSignedIn() && request.auth.uid == userProfileId;
+      allow list: if isGlobalAdmin();
+      allow create, update: if isRealUser() && request.auth.uid == userProfileId;
+      allow delete: if isGlobalAdmin();
+    }
+
+    match /globalAdmins/{userId} {
+      allow get: if isRealUser() && request.auth.uid == userId;
+      allow list: if isGlobalAdmin();
+      allow write: if false;
+    }
+
+    match /salons/{salonId} {
+      // Cualquiera puede leer para mostrar la página pública
+      allow get: if true;
+      // Solo admins globales pueden listar todos
+      allow list: if isGlobalAdmin() || (
+        isRealUser() && resource.data.adminMembers[request.auth.uid] == true
+      );
+      // Solo usuarios reales pueden crear su salón
+      allow create: if isRealUser();
+      // Solo el admin del salón o global admin pueden editar/borrar
+      allow update: if isSalonAdmin(salonId) || isGlobalAdmin();
+      allow delete: if isGlobalAdmin();
+
+      match /services/{serviceId} {
+        allow get, list: if true;
+        allow write: if isSalonAdmin(salonId) || isGlobalAdmin();
+      }
+
+      match /professionals/{professionalId} {
+        allow get, list: if true;
+        allow write: if isSalonAdmin(salonId) || isGlobalAdmin();
+      }
+    }
+
+    match /appointments/{appointmentId} {
+      // Solo usuarios autenticados pueden leer sus propios turnos o los del salón
+      allow get: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        isSalonAdmin(resource.data.salonId) ||
+        isGlobalAdmin()
+      );
+      allow list: if isSignedIn();
+      // Cualquier usuario autenticado puede crear una reserva
+      allow create: if isSignedIn() && request.resource.data.customerId == request.auth.uid;
+      // Solo el cliente dueño del turno o el admin del salón pueden cancelar
+      allow update: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        isSalonAdmin(resource.data.salonId) ||
+        isGlobalAdmin()
+      );
+      allow delete: if isGlobalAdmin();
+    }
+
+    match /payments/{paymentId} {
+      allow read, write: if isRealUser();
+    }
+  }
+}

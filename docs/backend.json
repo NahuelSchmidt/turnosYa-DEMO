@@ -1,0 +1,62 @@
+
+{
+  "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Represents a user profile in the TurnosYa application.",
+      "properties": {
+        "id": { "type": "string" },
+        "externalAuthId": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phoneNumber": { "type": "string" },
+        "role": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "externalAuthId", "email", "role", "createdAt"]
+    },
+    "Salon": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Salon",
+      "type": "object",
+      "description": "Represents a hair salon or barbershop.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "primaryColor": { "type": "string" },
+        "timeSlots": { "type": "array", "items": { "type": "string" } },
+        "adminMembers": { "type": "object" },
+        "subscriptionStatus": { 
+          "type": "string", 
+          "enum": ["active", "inactive", "pending", "canceled"],
+          "description": "Estado de la suscripción mensual del negocio."
+        },
+        "subscriptionId": { "type": "string", "description": "ID de la suscripción en Mercado Pago" },
+        "subscriptionExpiresAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "createdAt"]
+    }
+  },
+  "auth": {
+    "providers": ["password", "anonymous"]
+  },
+  "firestore": {
+    "/userProfiles/{userProfileId}": {
+      "schema": { "$ref": "#/backend/entities/UserProfile" },
+      "description": "User profiles"
+    },
+    "/salons/{salonId}": {
+      "schema": { "$ref": "#/backend/entities/Salon" },
+      "description": "Salon business data"
+    }
+  }
+}
