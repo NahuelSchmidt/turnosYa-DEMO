@@ -5,6 +5,8 @@ import { doc, serverTimestamp } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { initialTimeSlots } from '@/lib/data';
 
+const DIAS_KEY = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab']; // getDay() → 0=dom
+
 export function useSchedules(tenantId: string = 'default') {
   const db = useFirestore();
 
@@ -15,6 +17,21 @@ export function useSchedules(tenantId: string = 'default') {
 
   const { data: salon, isLoading } = useDoc<any>(salonRef);
 
+  // Si hay weekSchedule configurado, devuelve los slots del día indicado
+  const getSlotsForDate = (date?: Date): string[] => {
+    if (!date) return salon?.timeSlots || initialTimeSlots;
+
+    const weekSchedule = salon?.weekSchedule;
+    if (!weekSchedule) return salon?.timeSlots || initialTimeSlots;
+
+    const dayKey = DIAS_KEY[date.getDay()];
+    const dayConfig = weekSchedule[dayKey];
+
+    if (!dayConfig?.enabled) return []; // día desactivado = sin turnos
+    return dayConfig.slots || [];
+  };
+
+  // Para compatibilidad con código existente (devuelve todos los slots únicos)
   const timeSlots = salon?.timeSlots || initialTimeSlots;
 
   const updateTimeSlots = (updatedTimeSlots: string[]) => {
@@ -24,5 +41,5 @@ export function useSchedules(tenantId: string = 'default') {
     setDocumentNonBlocking(sRef, { timeSlots: sorted, updatedAt: serverTimestamp() }, { merge: true });
   };
 
-  return { timeSlots, loading: isLoading, updateTimeSlots };
+  return { timeSlots, getSlotsForDate, loading: isLoading, updateTimeSlots };
 }

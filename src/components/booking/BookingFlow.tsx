@@ -40,7 +40,8 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
   const { salon } = useSalon(tenantId);
   const { services, loading: servicesLoading } = useServices(tenantId);
   const { professionals, loading: professionalsLoading } = useProfessionals(tenantId);
-  const { timeSlots, loading: schedulesLoading } = useSchedules(tenantId);
+  const { getSlotsForDate, loading: schedulesLoading } = useSchedules(tenantId);
+  const timeSlots = getSlotsForDate(selectedDate);
 
   const router = useRouter();
   const { toast } = useToast();
