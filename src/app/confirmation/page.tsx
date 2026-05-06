@@ -69,12 +69,12 @@ function ConfirmationContent() {
     const serviceNames = aptServices.map(s => s.name).join(', ');
     const turnoLink = getTurnoLink(appointment.id);
 
-    const ubicacionLine = salon?.address ? `\n📍 Ubicación: ${salon.address}` : '';
+    const ubicacionLine = salon?.address ? `\n📌 Ubicación: ${salon.address}` : '';
     const cancelLine = salon?.whatsappNumber
-      ? `\n\n👉 Para ver, cancelar o reprogramar tu turno, hacé clic acá:\n${turnoLink}\n\nTambién podés cancelarlo escribiéndonos al ${salon.whatsappNumber} con al menos 12hs de anticipación.`
-      : `\n\n👉 Para ver, cancelar o reprogramar tu turno, hacé clic acá:\n${turnoLink}`;
+      ? `\n\n➡️ Para ver, cancelar o reprogramar tu turno, hacé clic acá:\n${turnoLink}\n\nTambién podés cancelarlo escribiéndonos al ${salon.whatsappNumber} con al menos 12hs de anticipación.`
+      : `\n\n➡️ Para ver, cancelar o reprogramar tu turno, hacé clic acá:\n${turnoLink}`;
 
-    const message = `🗓️ *Turno Confirmado*\n\nHola ${customerName}! Tu turno está confirmado:\n\n📅 ${formattedDate}\n💼 ${serviceNames}${professional ? `\n👤 ${professional.name}` : ''}${ubicacionLine}${cancelLine}\n\n¡Te esperamos!`;
+    const message = `✅ *Turno Confirmado*\n\nHola ${customerName}! Tu turno está confirmado:\n\n📆 ${formattedDate}\n✂️ ${serviceNames}${professional ? `\n👤 Con ${professional.name}` : ''}${ubicacionLine}${cancelLine}\n\n¡Te esperamos!`;
 
     setWaSent(true);
     setTimeout(() => {

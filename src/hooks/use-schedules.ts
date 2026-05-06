@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemoFirebase, useDoc, useFirestore } from '@/firebase';
@@ -16,22 +15,13 @@ export function useSchedules(tenantId: string = 'default') {
 
   const { data: salon, isLoading } = useDoc<any>(salonRef);
 
-  // Priorizamos los datos de Firestore, si no hay nada usamos los iniciales
   const timeSlots = salon?.timeSlots || initialTimeSlots;
 
   const updateTimeSlots = (updatedTimeSlots: string[]) => {
     if (!db || !tenantId || tenantId === 'default') return;
-    
-    // Ordenamos los horarios para que siempre se vean bien
     const sorted = [...updatedTimeSlots].sort((a, b) => a.localeCompare(b));
-    
     const sRef = doc(db, 'salons', tenantId);
-    
-    // Usamos merge: true para no borrar otros campos del salón como el nombre o color
-    setDocumentNonBlocking(sRef, { 
-      timeSlots: sorted,
-      updatedAt: serverTimestamp()
-    }, { merge: true });
+    setDocumentNonBlocking(sRef, { timeSlots: sorted, updatedAt: serverTimestamp() }, { merge: true });
   };
 
   return { timeSlots, loading: isLoading, updateTimeSlots };

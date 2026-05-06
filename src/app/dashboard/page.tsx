@@ -30,7 +30,14 @@ function StatsSection({ tenantId }: { tenantId: string }) {
   const { appointments, loading } = useAppointments(tenantId);
   const { chartData, totalRevenue, totalAppointments, uniqueClients, occupancyRate } = useMemo(() => {
     if (loading || !appointments.length) return { chartData: [], totalRevenue: 0, totalAppointments: 0, uniqueClients: 0, occupancyRate: 0 };
-    const confirmed = appointments.filter(a => a.status === 'confirmed' || a.status === 'completed');
+    const now = new Date();
+    // Solo turnos ya realizados (fecha pasada) o completados
+    const confirmed = appointments.filter(a => 
+      (a.status === 'confirmed' && parseFirestoreDate(a.startTime) < now) ||
+      a.status === 'completed'
+    );
+    // Turnos futuros confirmados (para métricas de agenda)
+    const upcoming = appointments.filter(a => a.status === 'confirmed' && parseFirestoreDate(a.startTime) >= now);
     const months = Array.from({ length: 6 }, (_, i) => {
       const d = subMonths(new Date(), 5 - i);
       return { start: startOfMonth(d), end: endOfMonth(d), label: format(d, 'MMM', { locale: es }) };

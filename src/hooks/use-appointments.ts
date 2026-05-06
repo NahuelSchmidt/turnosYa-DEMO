@@ -69,10 +69,17 @@ export function useAppointments(tenantId: string = 'default') {
     });
   };
 
+  const updateAppointmentStatus = (appointmentId: string, status: 'confirmed' | 'completed' | 'cancelled' | 'no-show') => {
+    if (!db) return;
+    const apptRef = doc(db, 'appointments', appointmentId);
+    updateDocumentNonBlocking(apptRef, { status, updatedAt: serverTimestamp() });
+  };
+
   return { 
     appointments, 
     addAppointment, 
-    cancelAppointment, 
+    cancelAppointment,
+    updateAppointmentStatus,
     getBookedSlotsForDate,
     loading: isCollectionLoading || isUserLoading, 
     customerId 
