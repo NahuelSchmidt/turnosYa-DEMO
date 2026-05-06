@@ -4,7 +4,6 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserAppointments } from "@/components/dashboard/UserAppointments";
 import { AdminSettings } from "@/components/dashboard/AdminSettings";
 import { ProfessionalAgenda } from "@/components/dashboard/ProfessionalAgenda";
 import { DollarSign, Calendar, Users, Activity, LogIn, LogOut, Loader2, AlertCircle, ShieldCheck } from "lucide-react";
@@ -14,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useUser, useAuth as useFirebaseAuth, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { collection, query, where } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAppointments } from "@/hooks/use-appointments";
@@ -29,32 +28,24 @@ const chartConfig = {
 
 function StatsSection({ tenantId }: { tenantId: string }) {
   const { appointments, loading } = useAppointments(tenantId);
-
   const { chartData, totalRevenue, totalAppointments, uniqueClients, occupancyRate } = useMemo(() => {
-    if (loading || !appointments.length) {
-      return { chartData: [], totalRevenue: 0, totalAppointments: 0, uniqueClients: 0, occupancyRate: 0 };
-    }
+    if (loading || !appointments.length) return { chartData: [], totalRevenue: 0, totalAppointments: 0, uniqueClients: 0, occupancyRate: 0 };
     const confirmed = appointments.filter(a => a.status === 'confirmed' || a.status === 'completed');
     const months = Array.from({ length: 6 }, (_, i) => {
       const d = subMonths(new Date(), 5 - i);
       return { start: startOfMonth(d), end: endOfMonth(d), label: format(d, 'MMM', { locale: es }) };
     });
     const chartData = months.map(({ start, end, label }) => {
-      const monthApts = confirmed.filter(a => {
-        const d = parseFirestoreDate(a.startTime);
-        return d >= start && d <= end;
-      });
-      return {
-        month: label.charAt(0).toUpperCase() + label.slice(1),
-        Ingresos: monthApts.reduce((s, a) => s + (a.total || 0), 0),
-        Turnos: monthApts.length,
-      };
+      const monthApts = confirmed.filter(a => { const d = parseFirestoreDate(a.startTime); return d >= start && d <= end; });
+      return { month: label.charAt(0).toUpperCase() + label.slice(1), Ingresos: monthApts.reduce((s, a) => s + (a.total || 0), 0), Turnos: monthApts.length };
     });
-    const totalRevenue = confirmed.reduce((s, a) => s + (a.total || 0), 0);
-    const totalAppointments = confirmed.length;
-    const uniqueClients = new Set(confirmed.map(a => a.customerPhone)).size;
-    const occupancyRate = appointments.length > 0 ? Math.round((confirmed.length / appointments.length) * 100) : 0;
-    return { chartData, totalRevenue, totalAppointments, uniqueClients, occupancyRate };
+    return {
+      chartData,
+      totalRevenue: confirmed.reduce((s, a) => s + (a.total || 0), 0),
+      totalAppointments: confirmed.length,
+      uniqueClients: new Set(confirmed.map(a => a.customerPhone)).size,
+      occupancyRate: appointments.length > 0 ? Math.round((confirmed.length / appointments.length) * 100) : 0,
+    };
   }, [appointments, loading]);
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
@@ -63,34 +54,20 @@ function StatsSection({ tenantId }: { tenantId: string }) {
     <div className="grid gap-6">
       <Card>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6">
-          <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl">
-            <DollarSign className="w-6 h-6 text-primary flex-shrink-0" />
-            <div>
-              <p className="text-xs text-muted-foreground uppercase font-bold">Ingresos</p>
-              <p className="text-lg font-black">${totalRevenue.toLocaleString('es-AR')}</p>
+          {[
+            { icon: DollarSign, label: "Ingresos", value: `$${totalRevenue.toLocaleString('es-AR')}` },
+            { icon: Calendar, label: "Turnos", value: totalAppointments },
+            { icon: Users, label: "Clientes", value: uniqueClients },
+            { icon: Activity, label: "Ocupación", value: `${occupancyRate}%` },
+          ].map((stat, i) => (
+            <div key={i} className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl">
+              <stat.icon className="w-6 h-6 text-primary shrink-0" />
+              <div>
+                <p className="text-xs text-muted-foreground uppercase font-bold">{stat.label}</p>
+                <p className="text-lg font-black">{stat.value}</p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl">
-            <Calendar className="w-6 h-6 text-primary flex-shrink-0" />
-            <div>
-              <p className="text-xs text-muted-foreground uppercase font-bold">Turnos</p>
-              <p className="text-lg font-black">{totalAppointments}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl">
-            <Users className="w-6 h-6 text-primary flex-shrink-0" />
-            <div>
-              <p className="text-xs text-muted-foreground uppercase font-bold">Clientes</p>
-              <p className="text-lg font-black">{uniqueClients}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl">
-            <Activity className="w-6 h-6 text-primary flex-shrink-0" />
-            <div>
-              <p className="text-xs text-muted-foreground uppercase font-bold">Ocupación</p>
-              <p className="text-lg font-black">{occupancyRate}%</p>
-            </div>
-          </div>
+          ))}
         </CardContent>
       </Card>
       {chartData.length > 0 && (
@@ -158,101 +135,76 @@ export default function DashboardPage() {
       <Header />
       <main className="flex-grow container mx-auto px-4 md:px-6 py-8">
         <h1 className="text-3xl font-bold mb-8 font-headline">Panel de Control</h1>
-        
-        <Tabs defaultValue={isRealUser ? "professional" : "customer"} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
-            <TabsTrigger value="customer">Mis Turnos (Como Cliente)</TabsTrigger>
-            <TabsTrigger value="professional">Administrar mi Negocio</TabsTrigger>
-          </TabsList>
 
-          <TabsContent value="customer">
-            <Card>
-              <CardHeader>
-                <CardTitle>Historial de Citas</CardTitle>
-                <CardDescription>Tus reservas como cliente.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <UserAppointments tenantId={tenantId || "admin-tenant-1"} />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="professional">
-            {!isRealUser ? (
-              /* LOGIN PANEL */
-              <Card className="max-w-md mx-auto">
-                <CardHeader>
-                  <CardTitle>Acceso para Negocios</CardTitle>
-                  <CardDescription>Ingresá con las credenciales que te proporcionamos.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@negocio.com" className="h-12" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Contraseña</Label>
-                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} className="h-12" />
-                  </div>
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4"/>
-                      <AlertTitle>Error</AlertTitle>
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
-                  <Button onClick={handleLogin} disabled={isLoggingIn} className="w-full h-12 font-bold">
-                    {isLoggingIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
-                    Ingresar
-                  </Button>
-                  <p className="text-center text-sm text-muted-foreground pt-2">
-                    ¿No tenés acceso? Contactá al administrador.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : isSalonsLoading ? (
-              <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-            ) : !tenantId ? (
-              <Card className="max-w-md mx-auto text-center">
-                <CardHeader>
-                  <CardTitle>Sin negocio asignado</CardTitle>
-                  <CardDescription>Tu cuenta no tiene un negocio vinculado. Contactá al administrador.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" onClick={handleLogout} className="w-full">
-                    <LogOut className="mr-2 h-4 w-4" /> Cerrar sesión e intentar con otra cuenta
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-muted/30 p-4 rounded-lg border">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-bold font-headline">{currentSalon?.name}</h2>
-                      <ShieldCheck className="w-4 h-4 text-primary" />
-                    </div>
-                    <p className="text-xs text-muted-foreground uppercase">ID: {tenantId}</p>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={handleLogout} className="text-destructive">
-                    <LogOut className="mr-2 h-4 w-4"/>Cerrar Sesión
-                  </Button>
-                </div>
-
-                <Tabs defaultValue="agenda">
-                  <TabsList className="mb-4">
-                    <TabsTrigger value="agenda">Agenda</TabsTrigger>
-                    <TabsTrigger value="stats">Métricas</TabsTrigger>
-                    <TabsTrigger value="settings">Ajustes y Link</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="agenda"><ProfessionalAgenda tenantId={tenantId} /></TabsContent>
-                  <TabsContent value="stats"><StatsSection tenantId={tenantId} /></TabsContent>
-                  <TabsContent value="settings"><AdminSettings tenantId={tenantId} /></TabsContent>
-                </Tabs>
+        {/* No logueado → login */}
+        {!isRealUser ? (
+          <Card className="max-w-md mx-auto">
+            <CardHeader>
+              <CardTitle>Acceso para Negocios</CardTitle>
+              <CardDescription>Ingresá con las credenciales que te proporcionamos.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@negocio.com" className="h-12" />
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
+              <div className="space-y-2">
+                <Label htmlFor="password">Contraseña</Label>
+                <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleLogin()} className="h-12" />
+              </div>
+              {error && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
+              <Button onClick={handleLogin} disabled={isLoggingIn} className="w-full h-12 font-bold">
+                {isLoggingIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
+                Ingresar
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">¿No tenés acceso? Contactá al administrador.</p>
+            </CardContent>
+          </Card>
+
+        ) : isSalonsLoading ? (
+          <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+
+        ) : !tenantId ? (
+          <Card className="max-w-md mx-auto text-center">
+            <CardHeader>
+              <CardTitle>Sin negocio asignado</CardTitle>
+              <CardDescription>Tu cuenta no tiene un negocio vinculado. Contactá al administrador.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" onClick={handleLogout} className="w-full">
+                <LogOut className="mr-2 h-4 w-4" /> Cerrar sesión
+              </Button>
+            </CardContent>
+          </Card>
+
+        ) : (
+          /* Panel del negocio */
+          <div className="space-y-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-muted/30 p-4 rounded-lg border">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold font-headline">{currentSalon?.name}</h2>
+                  <ShieldCheck className="w-4 h-4 text-primary" />
+                </div>
+                <p className="text-xs text-muted-foreground uppercase">ID: {tenantId}</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={handleLogout} className="text-destructive">
+                <LogOut className="mr-2 h-4 w-4" /> Cerrar Sesión
+              </Button>
+            </div>
+
+            <Tabs defaultValue="agenda">
+              <TabsList className="mb-4">
+                <TabsTrigger value="agenda">Agenda</TabsTrigger>
+                <TabsTrigger value="stats">Métricas</TabsTrigger>
+                <TabsTrigger value="settings">Ajustes y Link</TabsTrigger>
+              </TabsList>
+              <TabsContent value="agenda"><ProfessionalAgenda tenantId={tenantId} /></TabsContent>
+              <TabsContent value="stats"><StatsSection tenantId={tenantId} /></TabsContent>
+              <TabsContent value="settings"><AdminSettings tenantId={tenantId} /></TabsContent>
+            </Tabs>
+          </div>
+        )}
       </main>
       <Footer />
     </div>

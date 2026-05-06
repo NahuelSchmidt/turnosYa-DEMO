@@ -32,7 +32,19 @@ interface ProfessionalAgendaProps {
   tenantId: string;
 }
 
-function CancelDialog({ onConfirm, clientName, clientPhone, appointmentDate }: { onConfirm: () => void; clientName: string; clientPhone?: string; appointmentDate?: string }) {
+// Helper para abrir WA al cancelar desde el dueño
+function openCancelWhatsApp(apt: PopulatedAppointment) {
+  if (!apt.customerPhone) return;
+  const d = parseFirestoreDate(apt.startTime);
+  const dateStr = format(d, "dd/MM 'a las' HH:mm'hs'", { locale: es });
+  const msg = encodeURIComponent(
+    `Hola ${apt.customerName}! Lamentablemente debemos cancelar tu turno del ${dateStr}. Comunicate con nosotros para reprogramarlo.`
+  );
+  setTimeout(() => window.open(`https://wa.me/549${apt.customerPhone.replace(/\D/g, '')}?text=${msg}`, '_blank'), 400);
+}
+
+// ─── CANCEL DIALOG (lista) ───────────────────────────────────────────────────
+function CancelDialog({ apt, onCancel }: { apt: PopulatedAppointment; onCancel: (id: string) => void }) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
@@ -44,12 +56,23 @@ function CancelDialog({ onConfirm, clientName, clientPhone, appointmentDate }: {
         <AlertDialogHeader>
           <AlertDialogTitle>¿Cancelar este turno?</AlertDialogTitle>
           <AlertDialogDescription>
-            Se cancelará el turno de <strong>{clientName}</strong> y el horario quedará disponible nuevamente.
+            Se cancelará el turno de <strong>{apt.customerName}</strong> y el horario quedará disponible nuevamente.
+            {apt.customerPhone && (
+              <span className="flex items-center gap-1.5 mt-3 text-[#25D366] font-medium">
+                <MessageCircle className="w-4 h-4" />
+                Se abrirá WhatsApp para avisar al cliente automáticamente.
+              </span>
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Volver</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>Sí, cancelar</AlertDialogAction>
+          <AlertDialogAction onClick={() => {
+            onCancel(apt.id);
+            openCancelWhatsApp(apt);
+          }}>
+            {apt.customerPhone ? 'Cancelar y avisar por WhatsApp' : 'Sí, cancelar'}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -57,7 +80,6 @@ function CancelDialog({ onConfirm, clientName, clientPhone, appointmentDate }: {
 }
 
 // ─── VISTA LISTA ─────────────────────────────────────────────────────────────
-
 function AppointmentCard({ apt, onCancel }: { apt: PopulatedAppointment; onCancel: (id: string) => void }) {
   const dateObj = parseFirestoreDate(apt.startTime);
   const whatsappUrl = apt.customerPhone
@@ -93,24 +115,25 @@ function AppointmentCard({ apt, onCancel }: { apt: PopulatedAppointment; onCance
           </div>
           <p className="text-sm font-semibold">${apt.total?.toLocaleString('es-AR')}</p>
         </div>
-        <CancelDialog onConfirm={() => onCancel(apt.id)} clientName={apt.customerName} clientPhone={apt.customerPhone} appointmentDate={format(parseFirestoreDate(apt.startTime), "dd/MM 'a las' HH:mm'hs'", { locale: es })} />
+        <CancelDialog apt={apt} onCancel={onCancel} />
       </div>
     </Card>
   );
 }
 
 function ListView({ agenda, onCancel }: { agenda: PopulatedAppointment[]; onCancel: (id: string) => void }) {
+  const now = new Date();
   const todayApts = agenda.filter(a => a.status === 'confirmed' && isToday(parseFirestoreDate(a.startTime)));
   const weekApts = agenda.filter(a =>
     a.status === 'confirmed' &&
     !isToday(parseFirestoreDate(a.startTime)) &&
     isThisWeek(parseFirestoreDate(a.startTime), { weekStartsOn: 1 }) &&
-    parseFirestoreDate(a.startTime) > new Date()
+    parseFirestoreDate(a.startTime) > now
   );
   const upcomingApts = agenda.filter(a =>
     a.status === 'confirmed' &&
     !isThisWeek(parseFirestoreDate(a.startTime), { weekStartsOn: 1 }) &&
-    parseFirestoreDate(a.startTime) > new Date()
+    parseFirestoreDate(a.startTime) > now
   );
 
   return (
@@ -121,48 +144,35 @@ function ListView({ agenda, onCancel }: { agenda: PopulatedAppointment[]; onCanc
         </h3>
         {todayApts.length > 0
           ? <div className="space-y-3">{todayApts.map(a => <AppointmentCard key={a.id} apt={a} onCancel={onCancel} />)}</div>
-          : <p className="text-muted-foreground text-sm py-4 border rounded-xl text-center">Sin turnos para hoy.</p>
-        }
+          : <p className="text-muted-foreground text-sm py-4 border rounded-xl text-center">Sin turnos para hoy.</p>}
       </section>
-
       <section>
-        <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground mb-3">
-          Esta semana ({weekApts.length})
-        </h3>
+        <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground mb-3">Esta semana ({weekApts.length})</h3>
         {weekApts.length > 0 ? (
           <div className="space-y-3">
-            {weekApts.map(a => {
-              const d = parseFirestoreDate(a.startTime);
-              return (
-                <div key={a.id}>
-                  <p className="text-xs font-bold text-muted-foreground uppercase mb-1.5 capitalize pl-1">
-                    {format(d, "eeee dd/MM", { locale: es })}
-                  </p>
-                  <AppointmentCard apt={a} onCancel={onCancel} />
-                </div>
-              );
-            })}
+            {weekApts.map(a => (
+              <div key={a.id}>
+                <p className="text-xs font-bold text-muted-foreground uppercase mb-1.5 capitalize pl-1">
+                  {format(parseFirestoreDate(a.startTime), "eeee dd/MM", { locale: es })}
+                </p>
+                <AppointmentCard apt={a} onCancel={onCancel} />
+              </div>
+            ))}
           </div>
         ) : <p className="text-muted-foreground text-sm py-4 border rounded-xl text-center">Sin turnos esta semana.</p>}
       </section>
-
       {upcomingApts.length > 0 && (
         <section>
-          <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground mb-3">
-            Próximamente ({upcomingApts.length})
-          </h3>
+          <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground mb-3">Próximamente ({upcomingApts.length})</h3>
           <div className="space-y-3">
-            {upcomingApts.map(a => {
-              const d = parseFirestoreDate(a.startTime);
-              return (
-                <div key={a.id}>
-                  <p className="text-xs font-bold text-muted-foreground uppercase mb-1.5 capitalize pl-1">
-                    {format(d, "eeee dd/MM", { locale: es })}
-                  </p>
-                  <AppointmentCard apt={a} onCancel={onCancel} />
-                </div>
-              );
-            })}
+            {upcomingApts.map(a => (
+              <div key={a.id}>
+                <p className="text-xs font-bold text-muted-foreground uppercase mb-1.5 capitalize pl-1">
+                  {format(parseFirestoreDate(a.startTime), "eeee dd/MM", { locale: es })}
+                </p>
+                <AppointmentCard apt={a} onCancel={onCancel} />
+              </div>
+            ))}
           </div>
         </section>
       )}
@@ -171,20 +181,13 @@ function ListView({ agenda, onCancel }: { agenda: PopulatedAppointment[]; onCanc
 }
 
 // ─── VISTA GRILLA SEMANAL ────────────────────────────────────────────────────
-
 const HOURS = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00'];
 const DAYS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 
 function GridView({ agenda, onCancel }: { agenda: PopulatedAppointment[]; onCancel: (id: string) => void }) {
   const [weekOffset, setWeekOffset] = useState(0);
-
-  const weekStart = useMemo(() => {
-    const s = startOfWeek(new Date(), { weekStartsOn: 1 });
-    return addDays(s, weekOffset * 7);
-  }, [weekOffset]);
-
+  const weekStart = useMemo(() => addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), weekOffset * 7), [weekOffset]);
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
-
   const confirmed = agenda.filter(a => a.status === 'confirmed');
 
   const getApt = (day: Date, hour: string) => {
@@ -197,31 +200,22 @@ function GridView({ agenda, onCancel }: { agenda: PopulatedAppointment[]; onCanc
 
   return (
     <div className="space-y-4">
-      {/* Nav semana */}
       <div className="flex items-center justify-between">
-        <Button variant="outline" size="sm" onClick={() => setWeekOffset(o => o - 1)}>
-          <ChevronLeft className="w-4 h-4" />
-        </Button>
+        <Button variant="outline" size="sm" onClick={() => setWeekOffset(o => o - 1)}><ChevronLeft className="w-4 h-4" /></Button>
         <span className="font-bold text-sm capitalize">
           {format(weekStart, "d 'de' MMMM", { locale: es })} — {format(addDays(weekStart, 6), "d 'de' MMMM", { locale: es })}
         </span>
-        <Button variant="outline" size="sm" onClick={() => setWeekOffset(o => o + 1)}>
-          <ChevronRight className="w-4 h-4" />
-        </Button>
+        <Button variant="outline" size="sm" onClick={() => setWeekOffset(o => o + 1)}><ChevronRight className="w-4 h-4" /></Button>
       </div>
-
-      {/* Grilla */}
       <div className="overflow-x-auto rounded-xl border">
         <table className="w-full min-w-[700px] border-collapse text-sm">
           <thead>
             <tr className="border-b bg-muted/40">
-              <th className="w-16 p-3 text-muted-foreground font-medium text-xs"></th>
+              <th className="w-16 p-3"></th>
               {weekDays.map((day, i) => (
                 <th key={i} className={`p-3 font-bold text-center text-xs uppercase tracking-wider ${isToday(day) ? 'text-primary' : 'text-muted-foreground'}`}>
                   <div>{DAYS[i]}</div>
-                  <div className={`text-lg font-black mt-0.5 ${isToday(day) ? 'text-primary' : 'text-foreground'}`}>
-                    {format(day, 'd')}
-                  </div>
+                  <div className={`text-lg font-black mt-0.5 ${isToday(day) ? 'text-primary' : 'text-foreground'}`}>{format(day, 'd')}</div>
                 </th>
               ))}
             </tr>
@@ -235,19 +229,15 @@ function GridView({ agenda, onCancel }: { agenda: PopulatedAppointment[]; onCanc
                   return (
                     <td key={i} className={`p-1.5 align-top border-l ${isToday(day) ? 'bg-primary/3' : ''}`}>
                       {apt && (
-                        <div className="rounded-lg border-l-2 border-primary bg-primary/10 p-2 cursor-default group relative">
+                        <div className="rounded-lg border-l-2 border-primary bg-primary/10 p-2">
                           <p className="font-bold text-xs truncate">{apt.customerName}</p>
                           <p className="text-[10px] text-muted-foreground truncate">{apt.services.map(s => s.name).join(', ')}</p>
-                          {apt.professional && (
-                            <p className="text-[10px] text-muted-foreground truncate">{apt.professional.name}</p>
-                          )}
-                          <div className="mt-1.5 flex gap-1">
+                          {apt.professional && <p className="text-[10px] text-muted-foreground truncate">{apt.professional.name}</p>}
+                          <div className="mt-1.5 flex gap-1.5 flex-wrap">
                             {apt.customerPhone && (
-                              <a
-                                href={`https://wa.me/549${apt.customerPhone.replace(/\D/g,'')}?text=${encodeURIComponent(`Hola ${apt.customerName}! Te recuerdo tu turno para el ${format(parseFirestoreDate(apt.startTime), "dd/MM 'a las' HH:mm'hs'", {locale: es})}.`)}`}
+                              <a href={`https://wa.me/549${apt.customerPhone.replace(/\D/g,'')}?text=${encodeURIComponent(`Hola ${apt.customerName}! Te recuerdo tu turno para el ${format(parseFirestoreDate(apt.startTime), "dd/MM 'a las' HH:mm'hs'", {locale: es})}.`)}`}
                                 target="_blank" rel="noopener noreferrer"
-                                className="text-[10px] text-[#25D366] font-bold flex items-center gap-0.5 hover:underline"
-                              >
+                                className="text-[10px] text-[#25D366] font-bold flex items-center gap-0.5 hover:underline">
                                 <MessageCircle className="w-2.5 h-2.5" /> WA
                               </a>
                             )}
@@ -262,17 +252,19 @@ function GridView({ agenda, onCancel }: { agenda: PopulatedAppointment[]; onCanc
                                   <AlertDialogTitle>¿Cancelar este turno?</AlertDialogTitle>
                                   <AlertDialogDescription>
                                     Se cancelará el turno de <strong>{apt.customerName}</strong>.
+                                    {apt.customerPhone && (
+                                      <span className="flex items-center gap-1.5 mt-3 text-[#25D366] font-medium">
+                                        <MessageCircle className="w-4 h-4" />
+                                        Se abrirá WhatsApp para avisar al cliente.
+                                      </span>
+                                    )}
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Volver</AlertDialogCancel>
                                   <AlertDialogAction onClick={() => {
                                     onCancel(apt.id);
-                                    if (apt.customerPhone) {
-                                      const d = parseFirestoreDate(apt.startTime);
-                                      const msg = encodeURIComponent(`Hola ${apt.customerName}! Lamentablemente debemos cancelar tu turno del ${format(d, "dd/MM 'a las' HH:mm'hs'", {locale: es})}. Comunicate con nosotros para reprogramarlo.`);
-                                      setTimeout(() => window.open(`https://wa.me/549${apt.customerPhone.replace(/\D/g,'')}?text=${msg}`, '_blank'), 500);
-                                    }
+                                    openCancelWhatsApp(apt);
                                   }}>
                                     {apt.customerPhone ? 'Cancelar y avisar por WA' : 'Sí, cancelar'}
                                   </AlertDialogAction>
@@ -295,7 +287,6 @@ function GridView({ agenda, onCancel }: { agenda: PopulatedAppointment[]; onCanc
 }
 
 // ─── COMPONENTE PRINCIPAL ────────────────────────────────────────────────────
-
 export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
   const { appointments, cancelAppointment, loading: appointmentsLoading } = useAppointments(tenantId);
   const { services, loading: servicesLoading } = useServices(tenantId);
@@ -328,35 +319,20 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
 
   return (
     <div className="space-y-6 mt-4">
-      {/* Toggle vista */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {agenda.filter(a => a.status === 'confirmed' && parseFirestoreDate(a.startTime) > new Date()).length} turnos próximos
         </p>
         <div className="flex items-center gap-1 bg-muted p-1 rounded-xl">
-          <Button
-            size="sm"
-            variant={view === 'list' ? 'default' : 'ghost'}
-            className="rounded-lg h-8 px-3"
-            onClick={() => setView('list')}
-          >
+          <Button size="sm" variant={view === 'list' ? 'default' : 'ghost'} className="rounded-lg h-8 px-3" onClick={() => setView('list')}>
             <List className="w-4 h-4 mr-1.5" /> Lista
           </Button>
-          <Button
-            size="sm"
-            variant={view === 'grid' ? 'default' : 'ghost'}
-            className="rounded-lg h-8 px-3"
-            onClick={() => setView('grid')}
-          >
+          <Button size="sm" variant={view === 'grid' ? 'default' : 'ghost'} className="rounded-lg h-8 px-3" onClick={() => setView('grid')}>
             <LayoutGrid className="w-4 h-4 mr-1.5" /> Semana
           </Button>
         </div>
       </div>
-
-      {view === 'list'
-        ? <ListView agenda={agenda} onCancel={cancelAppointment} />
-        : <GridView agenda={agenda} onCancel={cancelAppointment} />
-      }
+      {view === 'list' ? <ListView agenda={agenda} onCancel={cancelAppointment} /> : <GridView agenda={agenda} onCancel={cancelAppointment} />}
     </div>
   );
 }
