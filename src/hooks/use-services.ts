@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemoFirebase, useCollection, useFirestore } from '@/firebase';
-import { collection, doc, writeBatch } from 'firebase/firestore';
+import { collection, doc, writeBatch, getDocs, deleteDoc } from 'firebase/firestore';
 import { Service, initialServices } from '@/lib/data';
 
 export function useServices(tenantId: string = 'default') {
@@ -14,20 +14,28 @@ export function useServices(tenantId: string = 'default') {
 
   const { data, isLoading } = useCollection<Service>(servicesRef);
   
-  // Si es el tenant de demo y no hay datos, devolvemos los iniciales
   const services = (data && data.length > 0) ? data : (tenantId === 'admin-tenant-1' ? initialServices : []);
 
   const updateServices = async (updatedServices: Service[]) => {
     if (!db || !tenantId) return;
     
-    const batch = writeBatch(db);
+    const ref = collection(db, 'salons', tenantId, 'services');
     
-    updatedServices.forEach(service => {
+    // 1. Borrar todos los docs existentes
+    const existing = await getDocs(ref);
+    const deleteBatch = writeBatch(db);
+    existing.docs.forEach(d => deleteBatch.delete(d.ref));
+    await deleteBatch.commit();
+    
+    // 2. Escribir los nuevos
+    if (updatedServices.length > 0) {
+      const writeBatch2 = writeBatch(db);
+      updatedServices.forEach(service => {
         const sRef = doc(db, 'salons', tenantId, 'services', service.id);
-        batch.set(sRef, service, { merge: true });
-    });
-    
-    await batch.commit();
+        writeBatch2.set(sRef, service);
+      });
+      await writeBatch2.commit();
+    }
   };
 
   return { services, loading: isLoading, updateServices };

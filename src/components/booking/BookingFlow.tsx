@@ -186,6 +186,7 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
               <ServiceSelector
                 allServices={services}
                 selectedServices={selectedServices}
+                tenantId={tenantId}
                 onSelectService={(service) => {
                   setSelectedServices((prev) =>
                     prev.find((s) => s.id === service.id)
