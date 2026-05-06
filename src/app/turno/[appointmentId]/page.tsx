@@ -1,14 +1,14 @@
 "use client";
 
-import { use, useEffect, useState, Suspense } from "react";
+import { use, useState } from "react";
 import { useFirestore, useMemoFirebase, useDoc } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { doc, serverTimestamp } from "firebase/firestore";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Calendar, User, Clock, XCircle, MessageCircle, Loader2, Ban } from "lucide-react";
+import { CheckCircle2, Calendar, User, Clock, XCircle, MessageCircle, Loader2, Ban, MapPin } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { parseFirestoreDate } from "@/lib/utils";
@@ -16,27 +16,22 @@ import { useServices } from "@/hooks/use-services";
 import { useProfessionals } from "@/hooks/use-professionals";
 import { useSalon } from "@/hooks/use-salon";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
-import { serverTimestamp, doc as fsDoc } from "firebase/firestore";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+const PROD_DOMAIN = 'https://saas-turnos-ya.vercel.app';
+
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  confirmed: { label: "Confirmado", color: "bg-green-100 text-green-700 border-green-200" },
-  cancelled: { label: "Cancelado", color: "bg-red-100 text-red-700 border-red-200" },
-  completed: { label: "Completado", color: "bg-blue-100 text-blue-700 border-blue-200" },
+  confirmed: { label: "Confirmado",  color: "bg-green-100 text-green-700 border-green-200" },
+  cancelled: { label: "Cancelado",   color: "bg-red-100 text-red-700 border-red-200" },
+  completed: { label: "Completado",  color: "bg-blue-100 text-blue-700 border-blue-200" },
 };
 
 function TurnoContent({ appointmentId }: { appointmentId: string }) {
   const db = useFirestore();
+  const [cancelled, setCancelled] = useState(false);
 
   const aptRef = useMemoFirebase(() => {
     if (!db || !appointmentId) return null;
@@ -44,15 +39,12 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
   }, [db, appointmentId]);
 
   const { data: apt, isLoading: aptLoading } = useDoc<any>(aptRef);
-
   const tenantId = apt?.salonId || "";
-  const { services, loading: servicesLoading } = useServices(tenantId);
-  const { professionals, loading: professionalsLoading } = useProfessionals(tenantId);
+  const { services, loading: sLoading } = useServices(tenantId);
+  const { professionals, loading: pLoading } = useProfessionals(tenantId);
   const { salon } = useSalon(tenantId);
 
-  const loading = aptLoading || servicesLoading || professionalsLoading;
-
-  if (loading) {
+  if (aptLoading || sLoading || pLoading) {
     return (
       <div className="flex flex-col min-h-screen">
         <Header />
@@ -68,7 +60,7 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
     return (
       <div className="flex flex-col min-h-screen">
         <Header />
-        <main className="flex-grow flex items-center justify-center">
+        <main className="flex-grow flex items-center justify-center p-4">
           <Card className="max-w-md w-full text-center p-8">
             <XCircle className="w-16 h-16 text-destructive mx-auto mb-4" />
             <h2 className="text-2xl font-bold mb-2">Turno no encontrado</h2>
@@ -83,18 +75,23 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
   const aptServices = (apt.serviceIds || []).map((id: string) => services.find(s => s.id === id)).filter(Boolean);
   const professional = professionals.find(p => p.id === apt.professionalId);
   const dateObj = parseFirestoreDate(apt.startTime);
-  const isCancelled = apt.status === "cancelled";
-  const statusInfo = STATUS_MAP[apt.status] ?? { label: apt.status, color: "bg-muted" };
+  const currentStatus = cancelled ? "cancelled" : apt.status;
+  const isCancelled = currentStatus === "cancelled";
+  const statusInfo = STATUS_MAP[currentStatus] ?? { label: currentStatus, color: "bg-muted" };
+
+  // Link a la agenda del negocio para volver a reservar
+  const host = typeof window !== 'undefined' ? window.location.origin : PROD_DOMAIN;
+  const domain = host.includes('localhost') ? PROD_DOMAIN : host;
+  const bookLink = `${domain}/book/${tenantId}`;
 
   const handleCancel = () => {
     if (!db) return;
-    const ref = fsDoc(db, "appointments", appointmentId);
-    updateDocumentNonBlocking(ref, { status: "cancelled", updatedAt: serverTimestamp() });
+    updateDocumentNonBlocking(doc(db, "appointments", appointmentId), { status: "cancelled", updatedAt: serverTimestamp() });
+    setCancelled(true);
 
-    // Avisar al negocio por WhatsApp si tiene número
     if (salon?.whatsappNumber) {
       const msg = encodeURIComponent(
-        `Hola! ${apt.customerName} canceló su turno del ${format(dateObj, "dd/MM 'a las' HH:mm'hs'", { locale: es })} (${aptServices.map((s: any) => s.name).join(", ")}).`
+        `Hola! ${apt.customerName} canceló su turno del ${format(dateObj, "dd/MM 'a las' HH:mm'hs'", { locale: es })} (${aptServices.map((s: any) => s?.name).join(", ")}).`
       );
       setTimeout(() => window.open(`https://wa.me/${salon.whatsappNumber}?text=${msg}`, "_blank"), 400);
     }
@@ -106,18 +103,11 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
       <main className="flex-grow container mx-auto px-4 md:px-6 py-16 flex items-center justify-center">
         <Card className="w-full max-w-lg shadow-xl">
           <CardHeader className="text-center items-center pb-4">
-            <div className={`rounded-full p-4 mb-2 ${isCancelled ? 'bg-red-100' : 'bg-green-100'}`}>
-              {isCancelled
-                ? <XCircle className="w-14 h-14 text-red-500" />
-                : <CheckCircle2 className="w-14 h-14 text-green-600" />
-              }
+            <div className={`rounded-full p-4 mb-2 ${isCancelled ? "bg-red-100 dark:bg-red-950/30" : "bg-green-100 dark:bg-green-950/30"}`}>
+              {isCancelled ? <XCircle className="w-14 h-14 text-red-500" /> : <CheckCircle2 className="w-14 h-14 text-green-600" />}
             </div>
-            <Badge className={`${statusInfo.color} border text-sm px-3 py-1 font-bold`}>
-              {statusInfo.label}
-            </Badge>
-            <CardTitle className="text-2xl font-black mt-2 font-headline">
-              {salon?.name || "Tu turno"}
-            </CardTitle>
+            <Badge className={`${statusInfo.color} border text-sm px-3 py-1 font-bold`}>{statusInfo.label}</Badge>
+            <CardTitle className="text-2xl font-black mt-2 font-headline">{salon?.name || "Tu turno"}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="bg-muted/30 rounded-2xl p-5 space-y-3">
@@ -141,11 +131,27 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
                 <Clock className="w-5 h-5 text-primary shrink-0" />
                 <div>
                   <p className="text-xs text-muted-foreground uppercase font-bold">Servicios</p>
-                  <p className="font-bold">{aptServices.map((s: any) => s.name).join(", ")}</p>
+                  <p className="font-bold">{aptServices.map((s: any) => s?.name).join(", ")}</p>
                 </div>
               </div>
+              {salon?.address && (
+                <div className="flex items-center gap-3">
+                  <MapPin className="w-5 h-5 text-primary shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase font-bold">Ubicación</p>
+                    <a
+                      href={`https://maps.google.com/?q=${encodeURIComponent(salon.address)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-bold text-primary underline underline-offset-2 hover:opacity-80"
+                    >
+                      {salon.address}
+                    </a>
+                  </div>
+                </div>
+              )}
               <div className="flex items-center gap-3">
-                <span className="w-5 h-5 text-primary shrink-0 font-black text-center">$</span>
+                <span className="w-5 h-5 text-primary shrink-0 font-black text-lg text-center">$</span>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase font-bold">Total</p>
                   <p className="font-bold">${apt.total?.toLocaleString("es-AR")}</p>
@@ -167,27 +173,26 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
                       Esta acción no se puede deshacer. El horario volverá a estar disponible.
                       {salon?.whatsappNumber && (
                         <span className="flex items-center gap-1.5 mt-3 text-[#25D366] font-medium">
-                          <MessageCircle className="w-4 h-4" />
-                          Se avisará al negocio automáticamente por WhatsApp.
+                          <MessageCircle className="w-4 h-4" /> Se avisará al negocio automáticamente.
                         </span>
                       )}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Volver</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleCancel}>
-                      Sí, cancelar mi turno
-                    </AlertDialogAction>
+                    <AlertDialogAction onClick={handleCancel}>Sí, cancelar mi turno</AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             )}
 
             {isCancelled && (
-              <p className="text-center text-sm text-muted-foreground">
-                Tu turno fue cancelado. Si querés reservar de nuevo,{" "}
-                <a href={`/book/${tenantId}`} className="text-primary underline font-medium">hacé clic acá</a>.
-              </p>
+              <div className="text-center space-y-2">
+                <p className="text-sm text-muted-foreground">Tu turno fue cancelado. ¿Querés reservar otro?</p>
+                <Button asChild className="w-full">
+                  <a href={bookLink}>Sacar nuevo turno</a>
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>

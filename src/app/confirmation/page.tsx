@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, Calendar, User, Clock, Loader2, ExternalLink } from "lucide-react";
+import { CheckCircle2, Calendar, User, Clock, Loader2, ExternalLink, MapPin } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { useAppointments } from "@/hooks/use-appointments";
@@ -22,53 +22,63 @@ interface PopulatedAppointment extends Omit<Appointment, 'serviceIds' | 'profess
   professional: Professional | undefined;
 }
 
+// Dominio real de producción — cambiá si cambia el dominio
+const PROD_DOMAIN = 'https://saas-turnos-ya.vercel.app';
+
+function getTurnoLink(appointmentId: string) {
+  const host = typeof window !== 'undefined' ? window.location.origin : PROD_DOMAIN;
+  const domain = host.includes('localhost') ? PROD_DOMAIN : host;
+  return `${domain}/turno/${appointmentId}`;
+}
+
 function ConfirmationContent() {
   const searchParams = useSearchParams();
   const appointmentId = searchParams.get("appointmentId");
   const tenantId = searchParams.get("tenantId") || "default";
 
-  const { appointments, loading: appointmentsLoading } = useAppointments(tenantId);
-  const { services, loading: servicesLoading } = useServices(tenantId);
-  const { professionals, loading: professionalsLoading } = useProfessionals(tenantId);
+  const { appointments, loading: aLoading } = useAppointments(tenantId);
+  const { services, loading: sLoading } = useServices(tenantId);
+  const { professionals, loading: pLoading } = useProfessionals(tenantId);
   const { salon } = useSalon(tenantId);
 
   const [appointment, setAppointment] = useState<PopulatedAppointment | null>(null);
   const [waSent, setWaSent] = useState(false);
-  const loading = appointmentsLoading || servicesLoading || professionalsLoading;
+  const loading = aLoading || sLoading || pLoading;
 
   useEffect(() => {
     if (!loading && appointmentId) {
-      const found = appointments.find(apt => apt.id === appointmentId);
+      const found = appointments.find(a => a.id === appointmentId);
       if (found) {
-        const populated = {
+        setAppointment({
           ...found,
           services: found.serviceIds.map((id: string) => services.find(s => s.id === id)).filter(Boolean) as Service[],
           professional: professionals.find(p => p.id === found.professionalId),
-        };
-        setAppointment(populated);
+        });
       }
     }
   }, [appointmentId, appointments, services, professionals, loading]);
 
-  // Mandar WA automáticamente cuando se carga el turno (solo una vez)
+  // Mandar WA automáticamente (una vez)
   useEffect(() => {
     if (!appointment || waSent) return;
-    const { customerPhone, customerName, professional, startTime, services } = appointment;
+    const { customerPhone, customerName, professional, startTime, services: aptServices } = appointment;
     if (!customerPhone) return;
 
     const dateObj = parseFirestoreDate(startTime);
     const formattedDate = format(dateObj, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
-    const serviceNames = services.map(s => s.name).join(', ');
-    const turnoLink = `${window.location.origin}/turno/${appointment.id}`;
-    const cancelLine = salon?.whatsappNumber
-      ? `\n\n❌ Para cancelar escribinos al ${salon.whatsappNumber} con al menos 12hs de anticipación.`
-      : `\n\n❌ Para cancelar o reprogramar, hacé clic acá: ${turnoLink}`;
+    const serviceNames = aptServices.map(s => s.name).join(', ');
+    const turnoLink = getTurnoLink(appointment.id);
 
-    const message = `🗓️ *Turno Confirmado*\n\nHola ${customerName}! Tu turno está confirmado:\n\n📅 ${formattedDate}\n💼 ${serviceNames}${professional ? `\n👤 ${professional.name}` : ''}\n\n🔗 Ver tu turno: ${turnoLink}${cancelLine}\n\n¡Te esperamos!`;
+    const ubicacionLine = salon?.address ? `\n📍 Ubicación: ${salon.address}` : '';
+    const cancelLine = salon?.whatsappNumber
+      ? `\n\n👉 Para ver, cancelar o reprogramar tu turno, hacé clic acá:\n${turnoLink}\n\nTambién podés cancelarlo escribiéndonos al ${salon.whatsappNumber} con al menos 12hs de anticipación.`
+      : `\n\n👉 Para ver, cancelar o reprogramar tu turno, hacé clic acá:\n${turnoLink}`;
+
+    const message = `🗓️ *Turno Confirmado*\n\nHola ${customerName}! Tu turno está confirmado:\n\n📅 ${formattedDate}\n💼 ${serviceNames}${professional ? `\n👤 ${professional.name}` : ''}${ubicacionLine}${cancelLine}\n\n¡Te esperamos!`;
 
     setWaSent(true);
     setTimeout(() => {
-      window.open(`https://wa.me/${customerPhone.replace(/\s/g, '')}?text=${encodeURIComponent(message)}`, "_blank");
+      window.open(`https://wa.me/${customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, "_blank");
     }, 800);
   }, [appointment, salon, waSent]);
 
@@ -88,7 +98,7 @@ function ConfirmationContent() {
   }
 
   const appointmentDate = parseFirestoreDate(appointment.startTime);
-  const turnoLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/turno/${appointment.id}`;
+  const turnoLink = getTurnoLink(appointment.id);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -103,7 +113,7 @@ function ConfirmationContent() {
           </CardHeader>
           <CardContent className="space-y-6">
             <p className="text-muted-foreground text-lg">
-              Te mandamos el recordatorio a tu WhatsApp con el link para gestionar tu turno.
+              Te enviamos el recordatorio a tu WhatsApp con el link para gestionar tu turno.
             </p>
 
             <Card className="text-left bg-muted/50">
@@ -122,21 +132,23 @@ function ConfirmationContent() {
                   <Clock className="w-5 h-5 text-primary shrink-0" />
                   <span><strong>Servicios:</strong> {appointment.services.map(s => s.name).join(', ')}</span>
                 </div>
+                {salon?.address && (
+                  <div className="flex items-center gap-3">
+                    <MapPin className="w-5 h-5 text-primary shrink-0" />
+                    <span><strong>Ubicación:</strong> {salon.address}</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Link del turno */}
             <div className="bg-muted/30 rounded-xl p-4 text-left space-y-2">
               <p className="text-xs font-bold uppercase text-muted-foreground">Tu link para ver o cancelar el turno</p>
               <div className="flex items-center gap-2">
                 <code className="text-xs bg-background border rounded px-2 py-1 flex-1 truncate">{turnoLink}</code>
                 <Button size="sm" variant="outline" asChild>
-                  <a href={turnoLink} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
+                  <a href={turnoLink} target="_blank" rel="noopener noreferrer"><ExternalLink className="w-4 h-4" /></a>
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">También lo encontrás en el mensaje de WhatsApp que te enviamos.</p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">

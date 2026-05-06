@@ -44,15 +44,9 @@ export default function ProfessionalSelector({
             }`}
           >
             <CardContent className="flex flex-col items-center justify-center p-6">
-              <Avatar className="w-24 h-24 mb-4">
-                <AvatarImage
-                  src={prof.avatarUrl}
-                  alt={prof.name}
-                  width={100}
-                  height={100}
-                />
-                <AvatarFallback>{prof.name.charAt(0)}</AvatarFallback>
-              </Avatar>
+              <div className="w-24 h-24 mb-4 rounded-full bg-muted flex items-center justify-center text-5xl">
+                {(prof as any).emoji || prof.name.charAt(0)}
+              </div>
               <h3 className="font-semibold text-lg text-center">{prof.name}</h3>
               <p className="text-sm text-muted-foreground text-center">
                 {prof.specialty}

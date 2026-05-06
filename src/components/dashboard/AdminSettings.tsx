@@ -57,16 +57,16 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
   const [copied, setCopied] = useState(false);
   const [isSavingSalon, setIsSavingSalon] = useState(false);
 
-  const [salonForm, setSalonForm] = useState({ name: "", primaryColor: "#000000", whatsappNumber: "" });
+  const [salonForm, setSalonForm] = useState({ name: "", primaryColor: "#000000", whatsappNumber: "", address: "" });
   const emptyServiceForm: ServiceForm = { name: "", description: "", price: 0, duration: 0, serviceType: 'normal' };
   const [serviceForm, setServiceForm] = useState<ServiceForm>(emptyServiceForm);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
-  const [professionalForm, setProfessionalForm] = useState<Omit<Professional, "id">>({ name: "", specialty: "", avatarUrl: "", avatarHint: "" });
+  const [professionalForm, setProfessionalForm] = useState<Omit<Professional, "id">>({ name: "", specialty: "", avatarUrl: "", avatarHint: "", emoji: "" });
   const [editingProfessionalId, setEditingProfessionalId] = useState<string | null>(null);
   const [newTimeSlot, setNewTimeSlot] = useState("");
 
   useEffect(() => {
-    if (salon) setSalonForm({ name: salon.name || "", primaryColor: salon.primaryColor || "#000000", whatsappNumber: salon.whatsappNumber || "" });
+    if (salon) setSalonForm({ name: salon.name || "", primaryColor: salon.primaryColor || "#000000", whatsappNumber: salon.whatsappNumber || "", address: salon.address || "" });
   }, [salon]);
 
   const copyToClipboard = () => {
@@ -147,6 +147,11 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
           <div className="space-y-2">
             <Label>Nombre del Negocio</Label>
             <Input value={salonForm.name} onChange={e => setSalonForm({ ...salonForm, name: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Dirección / Ubicación</Label>
+            <Input placeholder="Ej: Av. Corrientes 1234, Buenos Aires" value={salonForm.address} onChange={e => setSalonForm({ ...salonForm, address: e.target.value })} />
+            <p className="text-xs text-muted-foreground">Se muestra al cliente en la confirmación del turno y en el mensaje de WhatsApp.</p>
           </div>
           <div className="space-y-3">
             <Label>Color de Marca</Label>
@@ -319,7 +324,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
           <div className="grid gap-2">
             {(professionals || []).map(p => (
               <div key={p.id} className="flex items-center gap-4 p-3 rounded-xl border bg-card">
-                <Avatar className="h-10 w-10"><AvatarImage src={p.avatarUrl} /><AvatarFallback>{p.name.charAt(0)}</AvatarFallback></Avatar>
+                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-xl shrink-0">{(p as any).emoji || p.name.charAt(0)}</div>
                 <div className="flex-grow"><p className="font-bold">{p.name}</p><p className="text-xs text-muted-foreground">{p.specialty}</p></div>
                 <div className="flex gap-1">
                   <Button variant="ghost" size="icon" onClick={() => { setEditingProfessionalId(p.id); setProfessionalForm(p); }}><Edit className="w-4 h-4" /></Button>
@@ -333,7 +338,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1"><Label>Nombre</Label><Input placeholder="Nombre" value={professionalForm.name} onChange={e => setProfessionalForm({ ...professionalForm, name: e.target.value })} /></div>
               <div className="space-y-1"><Label>Especialidad</Label><Input placeholder="Ej: Estilista" value={professionalForm.specialty} onChange={e => setProfessionalForm({ ...professionalForm, specialty: e.target.value })} /></div>
-              <div className="space-y-1 md:col-span-2"><Label className="flex items-center gap-2"><ImageIcon className="w-4 h-4" /> Foto (link, opcional)</Label><Input placeholder="https://..." value={professionalForm.avatarUrl} onChange={e => setProfessionalForm({ ...professionalForm, avatarUrl: e.target.value })} /></div>
+              <div className="space-y-1"><Label>Emoji representativo</Label><Input placeholder="Ej: ✂️ 💇 💆 🧔" value={professionalForm.emoji || ''} onChange={e => setProfessionalForm({ ...professionalForm, emoji: e.target.value })} className="text-2xl" /></div>
             </div>
             <div className="flex gap-2">
               <Button onClick={handleProfessionalSubmit} variant="secondary" className="flex-1">{editingProfessionalId ? "Actualizar" : "Agregar al Equipo"}</Button>

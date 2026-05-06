@@ -33,18 +33,23 @@ interface ProfessionalAgendaProps {
 }
 
 // Helper para abrir WA al cancelar desde el dueño
-function openCancelWhatsApp(apt: PopulatedAppointment) {
+const PROD_DOMAIN = 'https://saas-turnos-ya.vercel.app';
+
+function openCancelWhatsApp(apt: PopulatedAppointment, tenantId: string) {
   if (!apt.customerPhone) return;
   const d = parseFirestoreDate(apt.startTime);
   const dateStr = format(d, "dd/MM 'a las' HH:mm'hs'", { locale: es });
+  const host = typeof window !== 'undefined' ? window.location.origin : PROD_DOMAIN;
+  const domain = host.includes('localhost') ? PROD_DOMAIN : host;
+  const bookLink = `${domain}/book/${tenantId}`;
   const msg = encodeURIComponent(
-    `Hola ${apt.customerName}! Lamentablemente debemos cancelar tu turno del ${dateStr}. Comunicate con nosotros para reprogramarlo.`
+    `Hola ${apt.customerName}! Lamentablemente debemos cancelar tu turno del ${dateStr}. Si querés reservar otro turno podés hacerlo desde acá: ${bookLink}`
   );
   setTimeout(() => window.open(`https://wa.me/549${apt.customerPhone.replace(/\D/g, '')}?text=${msg}`, '_blank'), 400);
 }
 
 // ─── CANCEL DIALOG (lista) ───────────────────────────────────────────────────
-function CancelDialog({ apt, onCancel }: { apt: PopulatedAppointment; onCancel: (id: string) => void }) {
+function CancelDialog({ apt, onCancel, tenantId }: { apt: PopulatedAppointment; onCancel: (id: string) => void; tenantId: string }) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
@@ -69,7 +74,7 @@ function CancelDialog({ apt, onCancel }: { apt: PopulatedAppointment; onCancel: 
           <AlertDialogCancel>Volver</AlertDialogCancel>
           <AlertDialogAction onClick={() => {
             onCancel(apt.id);
-            openCancelWhatsApp(apt);
+            openCancelWhatsApp(apt, tenantId);
           }}>
             {apt.customerPhone ? 'Cancelar y avisar por WhatsApp' : 'Sí, cancelar'}
           </AlertDialogAction>
@@ -80,7 +85,7 @@ function CancelDialog({ apt, onCancel }: { apt: PopulatedAppointment; onCancel: 
 }
 
 // ─── VISTA LISTA ─────────────────────────────────────────────────────────────
-function AppointmentCard({ apt, onCancel }: { apt: PopulatedAppointment; onCancel: (id: string) => void }) {
+function AppointmentCard({ apt, onCancel, tenantId }: { apt: PopulatedAppointment; onCancel: (id: string) => void; tenantId: string }) {
   const dateObj = parseFirestoreDate(apt.startTime);
   const whatsappUrl = apt.customerPhone
     ? `https://wa.me/549${apt.customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${apt.customerName}! Te recuerdo tu turno para el ${format(dateObj, "dd/MM 'a las' HH:mm'hs'", { locale: es })}.`)}`
@@ -115,13 +120,13 @@ function AppointmentCard({ apt, onCancel }: { apt: PopulatedAppointment; onCance
           </div>
           <p className="text-sm font-semibold">${apt.total?.toLocaleString('es-AR')}</p>
         </div>
-        <CancelDialog apt={apt} onCancel={onCancel} />
+        <CancelDialog apt={apt} onCancel={onCancel} tenantId={tenantId} />
       </div>
     </Card>
   );
 }
 
-function ListView({ agenda, onCancel }: { agenda: PopulatedAppointment[]; onCancel: (id: string) => void }) {
+function ListView({ agenda, onCancel, tenantId }: { agenda: PopulatedAppointment[]; onCancel: (id: string) => void; tenantId: string }) {
   const now = new Date();
   const todayApts = agenda.filter(a => a.status === 'confirmed' && isToday(parseFirestoreDate(a.startTime)));
   const weekApts = agenda.filter(a =>
@@ -143,7 +148,7 @@ function ListView({ agenda, onCancel }: { agenda: PopulatedAppointment[]; onCanc
           Hoy · {format(new Date(), "dd 'de' MMMM", { locale: es })} ({todayApts.length})
         </h3>
         {todayApts.length > 0
-          ? <div className="space-y-3">{todayApts.map(a => <AppointmentCard key={a.id} apt={a} onCancel={onCancel} />)}</div>
+          ? <div className="space-y-3">{todayApts.map(a => <AppointmentCard key={a.id} apt={a} onCancel={onCancel} tenantId={tenantId} />)}</div>
           : <p className="text-muted-foreground text-sm py-4 border rounded-xl text-center">Sin turnos para hoy.</p>}
       </section>
       <section>
@@ -155,7 +160,7 @@ function ListView({ agenda, onCancel }: { agenda: PopulatedAppointment[]; onCanc
                 <p className="text-xs font-bold text-muted-foreground uppercase mb-1.5 capitalize pl-1">
                   {format(parseFirestoreDate(a.startTime), "eeee dd/MM", { locale: es })}
                 </p>
-                <AppointmentCard apt={a} onCancel={onCancel} />
+                <AppointmentCard apt={a} onCancel={onCancel} tenantId={tenantId} />
               </div>
             ))}
           </div>
@@ -170,7 +175,7 @@ function ListView({ agenda, onCancel }: { agenda: PopulatedAppointment[]; onCanc
                 <p className="text-xs font-bold text-muted-foreground uppercase mb-1.5 capitalize pl-1">
                   {format(parseFirestoreDate(a.startTime), "eeee dd/MM", { locale: es })}
                 </p>
-                <AppointmentCard apt={a} onCancel={onCancel} />
+                <AppointmentCard apt={a} onCancel={onCancel} tenantId={tenantId} />
               </div>
             ))}
           </div>
@@ -184,7 +189,7 @@ function ListView({ agenda, onCancel }: { agenda: PopulatedAppointment[]; onCanc
 const HOURS = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00'];
 const DAYS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 
-function GridView({ agenda, onCancel }: { agenda: PopulatedAppointment[]; onCancel: (id: string) => void }) {
+function GridView({ agenda, onCancel, tenantId }: { agenda: PopulatedAppointment[]; onCancel: (id: string) => void; tenantId: string }) {
   const [weekOffset, setWeekOffset] = useState(0);
   const weekStart = useMemo(() => addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), weekOffset * 7), [weekOffset]);
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
@@ -264,7 +269,7 @@ function GridView({ agenda, onCancel }: { agenda: PopulatedAppointment[]; onCanc
                                   <AlertDialogCancel>Volver</AlertDialogCancel>
                                   <AlertDialogAction onClick={() => {
                                     onCancel(apt.id);
-                                    openCancelWhatsApp(apt);
+                                    openCancelWhatsApp(apt, tenantId);
                                   }}>
                                     {apt.customerPhone ? 'Cancelar y avisar por WA' : 'Sí, cancelar'}
                                   </AlertDialogAction>
@@ -332,7 +337,7 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
           </Button>
         </div>
       </div>
-      {view === 'list' ? <ListView agenda={agenda} onCancel={cancelAppointment} /> : <GridView agenda={agenda} onCancel={cancelAppointment} />}
+      {view === 'list' ? <ListView agenda={agenda} onCancel={cancelAppointment} tenantId={tenantId} /> : <GridView agenda={agenda} onCancel={cancelAppointment} tenantId={tenantId} />}
     </div>
   );
 }
