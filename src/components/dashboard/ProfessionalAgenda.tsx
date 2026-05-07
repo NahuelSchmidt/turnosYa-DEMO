@@ -8,8 +8,10 @@ import { Appointment, Service, Professional } from '@/lib/data';
 import { format, isToday, isThisWeek, startOfWeek, addDays, isSameDay, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
-import { Loader2, User, Clock, Phone, MessageCircle, List, LayoutGrid, ChevronLeft, ChevronRight, CheckCircle2, XCircle, AlertCircle, ChevronDown } from 'lucide-react';
+import { Loader2, User, Clock, Phone, MessageCircle, List, LayoutGrid, ChevronLeft, ChevronRight, CheckCircle2, XCircle, AlertCircle, ChevronDown, Plus } from 'lucide-react';
+import { NewAppointmentModal } from './NewAppointmentModal';
 import { parseFirestoreDate } from '@/lib/utils';
+import { useSalon } from '@/hooks/use-salon';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -183,11 +185,17 @@ function AppointmentCard({ apt, onUpdate, tenantId }: {
       </div>
 
       {/* Acciones */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
         {whatsappUrl && (
-          <a href={whatsappUrl} target="_blank" rel="noopener noreferrer"
-            className="text-[#25D366] hover:opacity-70 transition-opacity" title="Enviar recordatorio">
-            <MessageCircle className="w-4 h-4" />
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-semibold text-white hover:opacity-80 transition-opacity"
+            style={{ backgroundColor: '#25D366' }}
+          >
+            <MessageCircle className="w-3 h-3" />
+            Enviar recordatorio
           </a>
         )}
         {apt.customerPhone && (
@@ -384,8 +392,10 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
   const { appointments, updateAppointmentStatus, loading: aLoading } = useAppointments(tenantId);
   const { services, loading: sLoading } = useServices(tenantId);
   const { professionals, loading: pLoading } = useProfessionals(tenantId);
+  const { salon } = useSalon(tenantId);
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [localOverrides, setLocalOverrides] = useState<Record<string, AppStatus>>({});
+  const [showNewAppointment, setShowNewAppointment] = useState(false);
   const loading = aLoading || sLoading || pLoading;
 
   // Combina datos de Firestore con overrides locales para UI instantánea
@@ -430,13 +440,18 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
             })}
           </div>
         </div>
-        <div className="flex items-center gap-1 bg-muted p-1 rounded-xl">
-          <Button size="sm" variant={view === 'list' ? 'default' : 'ghost'} className="rounded-lg h-8 px-3" onClick={() => setView('list')}>
-            <List className="w-4 h-4 mr-1.5" /> Lista
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => setShowNewAppointment(true)} className="h-8 px-3">
+            <Plus className="w-4 h-4 mr-1.5" /> Nuevo Turno
           </Button>
-          <Button size="sm" variant={view === 'grid' ? 'default' : 'ghost'} className="rounded-lg h-8 px-3" onClick={() => setView('grid')}>
-            <LayoutGrid className="w-4 h-4 mr-1.5" /> Semana
-          </Button>
+          <div className="flex items-center gap-1 bg-muted p-1 rounded-xl">
+            <Button size="sm" variant={view === 'list' ? 'default' : 'ghost'} className="rounded-lg h-8 px-3" onClick={() => setView('list')}>
+              <List className="w-4 h-4 mr-1.5" /> Lista
+            </Button>
+            <Button size="sm" variant={view === 'grid' ? 'default' : 'ghost'} className="rounded-lg h-8 px-3" onClick={() => setView('grid')}>
+              <LayoutGrid className="w-4 h-4 mr-1.5" /> Semana
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -444,6 +459,15 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
         ? <ListView agenda={agenda} onUpdate={handleUpdate} tenantId={tenantId} />
         : <GridView agenda={agenda} onUpdate={handleUpdate} tenantId={tenantId} />
       }
+
+      <NewAppointmentModal
+        open={showNewAppointment}
+        onClose={() => setShowNewAppointment(false)}
+        tenantId={tenantId}
+        services={services || []}
+        professionals={professionals || []}
+        blockedSlots={(salon as any)?.blockedSlots || []}
+      />
     </div>
   );
 }

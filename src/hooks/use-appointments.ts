@@ -27,19 +27,49 @@ export function useAppointments(tenantId: string = 'default') {
 
   /**
    * Devuelve los horarios "HH:MM" ya ocupados para un profesional en una fecha dada.
-   * Sólo cuenta los turnos con status 'confirmed'.
+   * Bloquea el slot exacto y todos los slots dentro de la duración del turno.
    */
-  const getBookedSlotsForDate = (professionalId: string | null, date: Date | undefined): string[] => {
+  const getBookedSlotsForDate = (
+    professionalId: string | null,
+    date: Date | undefined,
+    timeSlots: string[] = [],
+    blockedSlots: { date: string; time: string }[] = [],
+  ): string[] => {
     if (!date || !professionalId) return [];
     const dateStr = format(date, 'yyyy-MM-dd');
-    return appointments
+    const blocked = new Set<string>();
+
+    appointments
       .filter((apt) => {
         if (apt.status !== 'confirmed') return false;
         if (apt.professionalId !== professionalId) return false;
         const aptDate = toDate(apt.startTime);
         return format(aptDate, 'yyyy-MM-dd') === dateStr;
       })
-      .map((apt) => format(toDate(apt.startTime), 'HH:mm'));
+      .forEach((apt) => {
+        const startMs = toDate(apt.startTime).getTime();
+        const endMs = toDate(apt.endTime).getTime();
+
+        if (timeSlots.length === 0) {
+          blocked.add(format(toDate(apt.startTime), 'HH:mm'));
+        } else {
+          timeSlots.forEach((slot) => {
+            const [h, m] = slot.split(':').map(Number);
+            const slotDate = new Date(toDate(apt.startTime));
+            slotDate.setHours(h, m, 0, 0);
+            const slotMs = slotDate.getTime();
+            if (slotMs >= startMs && slotMs < endMs) {
+              blocked.add(slot);
+            }
+          });
+        }
+      });
+
+    blockedSlots
+      .filter((bs) => bs.date === dateStr)
+      .forEach((bs) => blocked.add(bs.time));
+
+    return Array.from(blocked);
   };
 
   const addAppointment = (newAppointment: Omit<Appointment, 'id' | 'customerId' | 'status'>) => {

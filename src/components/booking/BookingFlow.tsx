@@ -49,9 +49,22 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
   const total = selectedServices.reduce((sum, s) => sum + s.price, 0);
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration, 0);
 
+  const blockedDates: string[] = (salon as any)?.blockedDates || [];
+  const selectedDateStr = selectedDate ? selectedDate.toISOString().slice(0, 10) : '';
+  const isDateBlocked = blockedDates.includes(selectedDateStr);
+
+  const availableProfessionals = useMemo(() => {
+    if (!selectedServices.length) return professionals;
+    const withIds = selectedServices.filter(s => s.professionalIds && s.professionalIds.length > 0);
+    if (withIds.length === 0 || withIds.length !== selectedServices.length) return professionals;
+    const idSets = withIds.map(s => new Set(s.professionalIds!));
+    return professionals.filter(p => idSets.every(set => set.has(p.id)));
+  }, [selectedServices, professionals]);
+
   const bookedSlots = useMemo(() => {
-    return getBookedSlotsForDate(selectedProfessional?.id ?? null, selectedDate);
-  }, [selectedProfessional, selectedDate, getBookedSlotsForDate]);
+    const salonBlockedSlots = (salon as any)?.blockedSlots || [];
+    return getBookedSlotsForDate(selectedProfessional?.id ?? null, selectedDate, timeSlots, salonBlockedSlots);
+  }, [selectedProfessional, selectedDate, timeSlots, getBookedSlotsForDate, salon]);
 
   const handleDateChange = (date: Date | undefined) => {
     setSelectedDate(date);
@@ -137,7 +150,15 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
   };
 
   const nextStep = () => {
-    if (step === "services" && selectedServices.length > 0) setStep("professional");
+    if (step === "services" && selectedServices.length > 0) {
+      if (availableProfessionals.length === 1) {
+        setSelectedProfessional(availableProfessionals[0]);
+        setSelectedTime(null);
+        setStep("time");
+      } else {
+        setStep("professional");
+      }
+    }
     else if (step === "professional" && selectedProfessional) setStep("time");
     else if (step === "time" && selectedDate && selectedTime) setStep("confirm");
     else if (step === "confirm") handleBookingConfirmation();
@@ -199,7 +220,7 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
             )}
             {step === "professional" && (
               <ProfessionalSelector
-                allProfessionals={professionals}
+                allProfessionals={availableProfessionals}
                 selectedProfessional={selectedProfessional}
                 onSelectProfessional={(p) => {
                   setSelectedProfessional(p);
@@ -208,14 +229,21 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
               />
             )}
             {step === "time" && (
-              <TimeSlotPicker
-                timeSlots={timeSlots}
-                selectedDate={selectedDate}
-                onSelectDate={handleDateChange}
-                selectedTime={selectedTime}
-                onSelectTime={setSelectedTime}
-                bookedSlots={bookedSlots}
-              />
+              isDateBlocked ? (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 flex items-center justify-center h-full min-h-[200px]">
+                  <p className="text-muted-foreground text-center text-sm">No hay disponibilidad para esta fecha.</p>
+                </div>
+              ) : (
+                <TimeSlotPicker
+                  timeSlots={timeSlots}
+                  selectedDate={selectedDate}
+                  onSelectDate={handleDateChange}
+                  selectedTime={selectedTime}
+                  onSelectTime={setSelectedTime}
+                  bookedSlots={bookedSlots}
+                  blockedDates={blockedDates}
+                />
+              )
             )}
             {step === "confirm" && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">

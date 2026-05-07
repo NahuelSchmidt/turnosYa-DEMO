@@ -5,6 +5,7 @@ export interface Service {
   price: number;
   duration: number;
   type?: 'whatsapp' | 'combo' | 'oferta';
+  professionalIds?: string[];
 }
 
 export interface Professional {
@@ -14,6 +15,11 @@ export interface Professional {
   avatarUrl: string;
   avatarHint: string;
   emoji?: string; // emoji en lugar de foto
+}
+
+export interface BlockedSlot {
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM
 }
 
 export interface Appointment {

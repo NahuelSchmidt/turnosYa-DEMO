@@ -11,11 +11,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit, Users, Briefcase, Link as LinkIcon, Copy, Check, Palette, Plus, ExternalLink, Clock, Loader2, Phone, MessageCircle, Tag, Percent } from "lucide-react";
+import { Trash2, Edit, Users, Briefcase, Link as LinkIcon, Copy, Check, Palette, Plus, ExternalLink, Clock, Loader2, Phone, MessageCircle, Tag, Percent, Ban } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface AdminSettingsProps {
   tenantId: string;
@@ -76,6 +81,15 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
     Object.fromEntries(DIAS_KEY.map(d => [d, '']))
   );
 
+  // Días bloqueados
+  const [blockedDates, setBlockedDates] = useState<string[]>([]);
+  const [dateToBlock, setDateToBlock] = useState<Date | undefined>(undefined);
+
+  // Horarios bloqueados
+  const [blockedSlots, setBlockedSlots] = useState<{ date: string; time: string }[]>([]);
+  const [slotDateToBlock, setSlotDateToBlock] = useState<string>('');
+  const [slotTimeToBlock, setSlotTimeToBlock] = useState<string>('');
+
   useEffect(() => {
     if (salon) {
       setSalonForm({
@@ -86,6 +100,12 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
       });
       if (salon.weekSchedule) {
         setWeekSchedule(salon.weekSchedule);
+      }
+      if (salon.blockedDates) {
+        setBlockedDates(salon.blockedDates);
+      }
+      if (salon.blockedSlots) {
+        setBlockedSlots(salon.blockedSlots);
       }
     }
   }, [salon]);
@@ -124,10 +144,44 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
     setWeekSchedule(updated);
   };
 
+  const addBlockedDate = () => {
+    if (!dateToBlock) return;
+    const dateStr = format(dateToBlock, 'yyyy-MM-dd');
+    if (blockedDates.includes(dateStr)) return;
+    const updated = [...blockedDates, dateStr].sort();
+    setBlockedDates(updated);
+    setDateToBlock(undefined);
+  };
+
+  const removeBlockedDate = (dateStr: string) => {
+    setBlockedDates(prev => prev.filter(d => d !== dateStr));
+  };
+
+  const addBlockedSlot = () => {
+    if (!slotDateToBlock || !slotTimeToBlock) return;
+    const already = blockedSlots.some(bs => bs.date === slotDateToBlock && bs.time === slotTimeToBlock);
+    if (already) return;
+    setBlockedSlots(prev => [...prev, { date: slotDateToBlock, time: slotTimeToBlock }].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)));
+    setSlotDateToBlock('');
+    setSlotTimeToBlock('');
+  };
+
+  const removeBlockedSlot = (date: string, time: string) => {
+    setBlockedSlots(prev => prev.filter(bs => !(bs.date === date && bs.time === time)));
+  };
+
+  const saveBlockedDates = () => {
+    setIsSaving(true);
+    const slots = generateSlotsFromSchedule(weekSchedule);
+    updateSalon({ ...salonForm, weekSchedule, timeSlots: slots, blockedDates, blockedSlots });
+    toast({ title: "Días y horarios bloqueados guardados" });
+    setTimeout(() => setIsSaving(false), 1000);
+  };
+
   const handleSalonUpdate = () => {
     setIsSaving(true);
     const slots = generateSlotsFromSchedule(weekSchedule);
-    updateSalon({ ...salonForm, weekSchedule, timeSlots: slots });
+    updateSalon({ ...salonForm, weekSchedule, timeSlots: slots, blockedDates });
     toast({ title: "Cambios Guardados" });
     setTimeout(() => setIsSaving(false), 1000);
   };
@@ -139,8 +193,8 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  type SForm = { name: string; description: string; price: number; duration: number; serviceType: ServiceType };
-  const emptyForm: SForm = { name: "", description: "", price: 0, duration: 0, serviceType: 'normal' };
+  type SForm = { name: string; description: string; price: number; duration: number; serviceType: ServiceType; professionalIds: string[] };
+  const emptyForm: SForm = { name: "", description: "", price: 0, duration: 0, serviceType: 'normal', professionalIds: [] };
   const [serviceForm, setServiceForm] = useState<SForm>(emptyForm);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
 
@@ -168,6 +222,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
       price: serviceForm.serviceType === 'whatsapp' ? 0 : serviceForm.price,
       duration: serviceForm.serviceType === 'whatsapp' ? 0 : serviceForm.duration,
       ...(isSpecial && { type: serviceForm.serviceType }),
+      ...(serviceForm.professionalIds.length > 0 && { professionalIds: serviceForm.professionalIds }),
     };
     const updated = editingServiceId
       ? (services || []).map(s => s.id === editingServiceId ? serviceData : s)
@@ -370,6 +425,131 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
         </CardContent>
       </Card>
 
+      {/* ── DÍAS BLOQUEADOS ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Ban className="w-5 h-5 text-destructive" /> Días Bloqueados</CardTitle>
+          <CardDescription>Bloqueá feriados, vacaciones o días sin atención. Los clientes no podrán reservar en estas fechas.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="flex justify-center">
+              <Calendar
+                mode="single"
+                selected={dateToBlock}
+                onSelect={setDateToBlock}
+                locale={es}
+                disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                modifiers={{ blocked: blockedDates.map(s => new Date(s + 'T12:00:00')) }}
+                modifiersClassNames={{ blocked: 'bg-destructive/20 text-destructive font-bold rounded-md' }}
+                className="rounded-md border"
+              />
+            </div>
+            <div className="flex-1 space-y-3">
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={!dateToBlock}
+                onClick={addBlockedDate}
+                className="w-full md:w-auto"
+              >
+                <Ban className="w-4 h-4 mr-2" />
+                Bloquear día seleccionado
+              </Button>
+              {blockedDates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Sin días bloqueados.</p>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Días bloqueados ({blockedDates.length})</p>
+                  <div className="flex flex-wrap gap-2">
+                    {blockedDates.map(dateStr => {
+                      const d = new Date(dateStr + 'T12:00:00');
+                      return (
+                        <div key={dateStr} className="flex items-center gap-1.5 bg-destructive/10 border border-destructive/30 text-destructive px-3 py-1.5 rounded-lg text-sm font-medium">
+                          <span className="capitalize">{format(d, "dd 'de' MMMM yyyy", { locale: es })}</span>
+                          <button onClick={() => removeBlockedDate(dateStr)} className="ml-1 hover:opacity-70 transition-opacity">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          {/* ── Horarios bloqueados ── */}
+          <div className="border-t pt-4 space-y-4">
+            <div>
+              <p className="font-bold text-sm flex items-center gap-2"><Clock className="w-4 h-4 text-destructive" /> Horarios Bloqueados</p>
+              <p className="text-xs text-muted-foreground mt-1">Bloqueá un horario puntual en una fecha específica sin bloquear el día completo.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label>Fecha</Label>
+                <Input
+                  type="date"
+                  value={slotDateToBlock}
+                  onChange={e => setSlotDateToBlock(e.target.value)}
+                  min={format(new Date(), 'yyyy-MM-dd')}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Horario</Label>
+                <Select value={slotTimeToBlock} onValueChange={setSlotTimeToBlock}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Seleccionar horario..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {generateSlotsFromSchedule(weekSchedule).length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">Sin horarios configurados.</div>
+                    ) : (
+                      generateSlotsFromSchedule(weekSchedule).map(slot => (
+                        <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={!slotDateToBlock || !slotTimeToBlock}
+              onClick={addBlockedSlot}
+              className="w-full sm:w-auto"
+            >
+              <Ban className="w-4 h-4 mr-2" /> Bloquear horario
+            </Button>
+            {blockedSlots.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sin horarios bloqueados.</p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Horarios bloqueados ({blockedSlots.length})</p>
+                <div className="flex flex-wrap gap-2">
+                  {blockedSlots.map(bs => {
+                    const d = new Date(bs.date + 'T12:00:00');
+                    return (
+                      <div key={`${bs.date}-${bs.time}`} className="flex items-center gap-1.5 bg-destructive/10 border border-destructive/30 text-destructive px-3 py-1.5 rounded-lg text-sm font-medium">
+                        <span className="capitalize">{format(d, "dd/MM/yyyy", { locale: es })} · {bs.time}</span>
+                        <button onClick={() => removeBlockedSlot(bs.date, bs.time)} className="ml-1 hover:opacity-70 transition-opacity">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Button onClick={saveBlockedDates} disabled={isSaving} variant="outline" className="w-full">
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Guardar Días y Horarios Bloqueados
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* ── SERVICIOS ── */}
       <Card>
         <CardHeader>
@@ -398,7 +578,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
                   <div className="flex gap-1 shrink-0">
                     <Button variant="ghost" size="icon" onClick={() => {
                       setEditingServiceId(s.id);
-                      setServiceForm({ name: s.name, description: s.description, price: s.price, duration: s.duration, serviceType: typeKey });
+                      setServiceForm({ name: s.name, description: s.description, price: s.price, duration: s.duration, serviceType: typeKey, professionalIds: (s as any).professionalIds || [] });
                     }}>
                       <Edit className="w-4 h-4" />
                     </Button>
@@ -450,6 +630,30 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
                     <Input type="number" value={serviceForm.duration || ""} onChange={e => setServiceForm({ ...serviceForm, duration: Number(e.target.value) })} />
                   </div>
                 </>
+              )}
+              {(professionals || []).length > 0 && (
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Profesionales asignados <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(professionals || []).map(p => (
+                      <label key={p.id} className="flex items-center gap-2 p-2 rounded-lg border cursor-pointer hover:bg-muted/20 transition-colors">
+                        <Checkbox
+                          checked={serviceForm.professionalIds.includes(p.id)}
+                          onCheckedChange={(checked) => {
+                            setServiceForm(prev => ({
+                              ...prev,
+                              professionalIds: checked
+                                ? [...prev.professionalIds, p.id]
+                                : prev.professionalIds.filter(id => id !== p.id),
+                            }));
+                          }}
+                        />
+                        <span className="text-sm truncate">{(p as any).emoji || ''} {p.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Si no seleccionás ninguno, el servicio estará disponible con todos.</p>
+                </div>
               )}
             </div>
             {serviceForm.serviceType === 'whatsapp' && (

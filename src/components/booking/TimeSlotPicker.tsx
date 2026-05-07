@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useCallback } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
@@ -12,6 +13,7 @@ interface TimeSlotPickerProps {
   selectedTime: string | null;
   onSelectTime: (time: string) => void;
   bookedSlots?: string[];
+  blockedDates?: string[];
 }
 
 export default function TimeSlotPicker({
@@ -21,7 +23,47 @@ export default function TimeSlotPicker({
   selectedTime,
   onSelectTime,
   bookedSlots = [],
+  blockedDates = [],
 }: TimeSlotPickerProps) {
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const now = new Date();
+  const todayDateStr = format(now, 'yyyy-MM-dd');
+  const selectedDateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
+  const isSelectedDateToday = selectedDateStr === todayDateStr;
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const isPastSlot = (slot: string): boolean => {
+    if (!isSelectedDateToday) return false;
+    const [h, m] = slot.split(':').map(Number);
+    return h * 60 + m <= nowMinutes;
+  };
+
+  const handleDayClick = useCallback(
+    (date: Date | undefined) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        onSelectDate(date);
+      }, 300);
+    },
+    [onSelectDate]
+  );
+
+  const isCalendarDayDisabled = (date: Date): boolean => {
+    if (date < new Date(new Date().setHours(0, 0, 0, 0))) return true;
+    const dateStr = format(date, 'yyyy-MM-dd');
+    if (blockedDates.includes(dateStr)) return true;
+    if (dateStr === todayDateStr && timeSlots.length > 0) {
+      const allUnavailable = timeSlots.every((slot) => {
+        if (bookedSlots.includes(slot)) return true;
+        const [h, m] = slot.split(':').map(Number);
+        return h * 60 + m <= nowMinutes;
+      });
+      return allUnavailable;
+    }
+    return false;
+  };
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
       <h2 className="text-2xl font-bold mb-4 font-headline">Elige Fecha y Hora</h2>
@@ -30,9 +72,9 @@ export default function TimeSlotPicker({
           <Calendar
             mode="single"
             selected={selectedDate}
-            onSelect={onSelectDate}
+            onSelect={handleDayClick}
             className="rounded-md border"
-            disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+            disabled={isCalendarDayDisabled}
             locale={es}
           />
         </div>
@@ -51,14 +93,16 @@ export default function TimeSlotPicker({
             <div className="grid grid-cols-3 gap-2">
               {timeSlots.map((slot) => {
                 const isBooked = bookedSlots.includes(slot);
+                const isPast = isPastSlot(slot);
+                const isDisabled = isBooked || isPast;
                 const isSelected = selectedTime === slot;
                 return (
                   <div key={slot} className="relative">
                     <Button
                       variant={isSelected ? "default" : "outline"}
-                      onClick={() => !isBooked && onSelectTime(slot)}
-                      disabled={isBooked}
-                      className={isBooked ? "opacity-40 cursor-not-allowed line-through text-muted-foreground" : ""}
+                      onClick={() => !isDisabled && onSelectTime(slot)}
+                      disabled={isDisabled}
+                      className={isDisabled ? "opacity-40 cursor-not-allowed line-through text-muted-foreground" : ""}
                     >
                       {slot}
                     </Button>

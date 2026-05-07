@@ -17,7 +17,7 @@ import { signInWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopu
 import { collection, query, where } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAppointments } from "@/hooks/use-appointments";
-import { format, subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { format, subMonths, startOfMonth, endOfMonth, isToday } from "date-fns";
 import { es } from "date-fns/locale";
 import { parseFirestoreDate } from "@/lib/utils";
 
@@ -116,6 +116,12 @@ export default function DashboardPage() {
   const currentSalon = userSalons?.[0];
   const tenantId = currentSalon?.id;
 
+  const { appointments: allAppointments } = useAppointments(tenantId || '');
+  const hasTodayConfirmed = useMemo(
+    () => allAppointments.some(a => isToday(parseFirestoreDate(a.startTime)) && a.status === 'confirmed'),
+    [allAppointments]
+  );
+
   const handleLogin = async () => {
     if (!email || !password) { setError("Completá todos los campos."); return; }
     setIsLoggingIn(true);
@@ -202,7 +208,14 @@ export default function DashboardPage() {
 
             <Tabs defaultValue="agenda">
               <TabsList className="mb-4">
-                <TabsTrigger value="agenda">Agenda</TabsTrigger>
+                <TabsTrigger value="agenda">
+                  <span className="flex items-center gap-1.5">
+                    Agenda
+                    {hasTodayConfirmed && (
+                      <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    )}
+                  </span>
+                </TabsTrigger>
                 <TabsTrigger value="stats">Métricas</TabsTrigger>
                 <TabsTrigger value="settings">Ajustes y Link</TabsTrigger>
               </TabsList>
