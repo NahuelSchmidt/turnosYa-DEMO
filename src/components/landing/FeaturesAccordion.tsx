@@ -77,18 +77,15 @@ const FEATURES = [
           <div className="w-7 h-7 rounded-full bg-[#25D366] flex items-center justify-center text-white text-xs font-bold shrink-0">TY</div>
           <div className="bg-white rounded-2xl rounded-bl-none p-3 shadow-sm max-w-[90%]">
             <p className="text-[10px] text-[#25D366] font-bold mb-1">TurnosYa</p>
-            <p className="text-xs font-bold text-gray-800">✅ Turno Confirmado</p>
+            <p className="text-xs font-bold text-gray-800">Turno Confirmado ✅</p>
             <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">
-              Hola María! Tu turno está confirmado:<br/>
-              📆 sábado 10 de mayo a las 15:00hs<br/>
-              ✂️ Corte de Pelo<br/>
-              👤 Con Carlos M.<br/>
-              📌 Av. Corrientes 1234
+              Hola María! Tu turno:<br/>
+              🗓 sábado 10 de mayo 15:00hs<br/>
+              💈 Corte de Pelo<br/>
+              Con Carlos M.<br/>
+              📍 Av. Corrientes 1234
             </p>
-            <p className="text-[10px] text-gray-600 mt-2">
-              ➡️ Ver, cancelar o reprogramar:<br/>
-              <span className="text-blue-600 underline">turnosya.com/turno/abc123</span>
-            </p>
+            <p className="text-[10px] text-blue-600 mt-1 underline">turnosya.com/turno/abc123</p>
             <p className="text-[9px] text-gray-400 text-right mt-1">10:32 ✓✓</p>
           </div>
         </div>
@@ -120,7 +117,7 @@ const FEATURES = [
           <p className="text-[10px] text-muted-foreground mb-2 font-bold">Tendencia 6 meses</p>
           <div className="flex items-end gap-1 h-14">
             {[30, 45, 38, 60, 72, 87].map((h, i) => (
-              <div key={i} className="flex-1 bg-primary rounded-t transition-all" style={{ height: `${h}%` }} />
+              <div key={i} className="flex-1 bg-primary rounded-t" style={{ height: `${h}%` }} />
             ))}
           </div>
         </div>
@@ -141,10 +138,10 @@ const FEATURES = [
           { name: "Diego R.", specialty: "Colorista", emoji: "🎨" },
         ].map((p, i) => (
           <div key={i} className={cn("flex items-center gap-3 p-3 rounded-xl border-2 text-xs", i === 0 ? "border-foreground bg-foreground text-background" : "border-border")}>
-            <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-lg", i === 0 ? "bg-background" : "bg-muted")}>
+            <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-lg shrink-0", i === 0 ? "bg-background" : "bg-muted")}>
               {p.emoji}
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <p className="font-bold">{p.name}</p>
               <p className={i === 0 ? "text-background/70" : "text-muted-foreground"}>{p.specialty}</p>
             </div>
@@ -184,9 +181,9 @@ export function FeaturesAccordion() {
   const [active, setActive] = useState(0);
 
   return (
-    <section className="w-full py-28 border-b">
+    <section className="w-full py-20 border-b">
       <div className="container mx-auto px-4 md:px-6">
-        <div className="text-center mb-16">
+        <div className="text-center mb-12">
           <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3">FUNCIONALIDADES</p>
           <h2 className="text-4xl md:text-6xl font-black font-headline tracking-tighter">
             Herramientas pensadas<br className="hidden md:block" /> para tu negocio
@@ -196,8 +193,9 @@ export function FeaturesAccordion() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-12 items-start max-w-6xl mx-auto">
-          {/* Preview — izquierda en desktop */}
+        <div className="grid md:grid-cols-2 gap-8 items-start max-w-6xl mx-auto">
+
+          {/* Preview — solo en desktop, sticky */}
           <div className="hidden md:block">
             <div className="sticky top-24">
               <div key={active} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -206,44 +204,46 @@ export function FeaturesAccordion() {
             </div>
           </div>
 
-          {/* Accordion — derecha */}
+          {/* Accordion */}
           <div className="space-y-2">
             {FEATURES.map((f, i) => {
               const isActive = active === i;
               const Icon = f.icon;
               return (
-                <button
-                  key={f.id}
-                  onClick={() => setActive(i)}
-                  className={cn(
-                    "w-full text-left p-5 rounded-2xl border-2 transition-all duration-200",
-                    isActive
-                      ? "border-foreground bg-foreground text-background shadow-lg"
-                      : "border-border hover:border-foreground/20 hover:bg-muted/30"
-                  )}
-                >
-                  <div className="flex items-start gap-4">
-                    <div className={cn("p-2 rounded-xl shrink-0 transition-colors mt-0.5", isActive ? "bg-background/20" : "bg-muted")}>
+                <div key={f.id} className={cn(
+                  "rounded-2xl border-2 transition-all duration-200 overflow-hidden",
+                  isActive ? "border-foreground shadow-lg" : "border-border hover:border-foreground/20"
+                )}>
+                  {/* Header — siempre visible */}
+                  <button
+                    onClick={() => setActive(i)}
+                    className={cn(
+                      "w-full text-left p-4 flex items-center gap-4",
+                      isActive ? "bg-foreground text-background" : "bg-background hover:bg-muted/30"
+                    )}
+                  >
+                    <div className={cn("p-2 rounded-xl shrink-0", isActive ? "bg-background/20" : "bg-muted")}>
                       <Icon className={cn("w-5 h-5", isActive ? "text-background" : "text-primary")} />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={cn("font-bold text-base leading-snug", isActive ? "text-background" : "text-foreground")}>
-                        {f.title}
+                    <p className={cn("font-bold text-base leading-snug", isActive ? "text-background" : "text-foreground")}>
+                      {f.title}
+                    </p>
+                  </button>
+
+                  {/* Body — solo cuando activo */}
+                  {isActive && (
+                    <div className="bg-background border-t border-foreground/10 animate-in fade-in duration-200">
+                      {/* Descripción — siempre visible cuando activo */}
+                      <p className="text-sm text-muted-foreground leading-relaxed p-4 pb-2">
+                        {f.desc}
                       </p>
-                      {isActive && (
-                        <p className="text-sm mt-2 text-background/70 leading-relaxed animate-in fade-in duration-200">
-                          {f.desc}
-                        </p>
-                      )}
-                      {/* Preview en mobile solo cuando activo */}
-                      {isActive && (
-                        <div className="mt-4 md:hidden animate-in fade-in duration-200">
-                          {f.preview}
-                        </div>
-                      )}
+                      {/* Preview — solo en mobile */}
+                      <div className="md:hidden p-4 pt-2">
+                        {f.preview}
+                      </div>
                     </div>
-                  </div>
-                </button>
+                  )}
+                </div>
               );
             })}
           </div>

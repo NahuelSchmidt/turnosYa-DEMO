@@ -181,8 +181,8 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="grid md:grid-cols-3">
-          <div className="md:col-span-2 p-6 md:p-8 min-h-[400px]">
+        <div className="flex flex-col md:grid md:grid-cols-3">
+          <div className="md:col-span-2 p-4 md:p-8 min-h-[350px]">
             {step === "services" && (
               <ServiceSelector
                 allServices={services}
@@ -251,19 +251,27 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
               </div>
             )}
           </div>
-          <div className="md:col-span-1 bg-muted/30 p-6 border-t md:border-t-0 md:border-l flex flex-col justify-between">
-            <BookingSummary
-              services={selectedServices}
-              professional={selectedProfessional}
-              date={selectedDate}
-              time={selectedTime}
-              total={total}
-              totalDuration={totalDuration}
-            />
-            <div className="mt-8 flex flex-col gap-3">
+          <div className="md:col-span-1 bg-muted/30 p-4 md:p-6 border-t md:border-t-0 md:border-l flex flex-col justify-between sticky bottom-0 md:static">
+            {/* En mobile solo mostramos el total y el botón */}
+            <div className="hidden md:block">
+              <BookingSummary
+                services={selectedServices}
+                professional={selectedProfessional}
+                date={selectedDate}
+                time={selectedTime}
+                total={total}
+                totalDuration={totalDuration}
+              />
+            </div>
+            {/* Mobile: total compacto */}
+            <div className="md:hidden flex items-center justify-between mb-3">
+              <span className="text-sm font-bold text-muted-foreground">Total</span>
+              <span className="text-xl font-black">${total.toLocaleString('es-AR')}</span>
+            </div>
+            <div className="flex flex-col gap-2 md:mt-8">
               <Button
                 size="lg"
-                className="h-14 font-bold text-lg rounded-xl shadow-lg"
+                className="h-12 md:h-14 font-bold text-base md:text-lg rounded-xl shadow-lg"
                 onClick={nextStep}
                 disabled={
                   isProcessing ||
@@ -276,7 +284,7 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
                 {isProcessing ? <Loader2 className="animate-spin" /> : step === "confirm" ? "Confirmar Turno" : "Continuar"}
               </Button>
               {step !== "services" && (
-                <Button variant="ghost" onClick={() => setStep(steps[currentStepIndex - 1].id as Step)} className="text-muted-foreground">
+                <Button variant="ghost" onClick={() => setStep(steps[currentStepIndex - 1].id as Step)} className="text-muted-foreground h-9 text-sm">
                   <ArrowLeft className="mr-2 h-4 w-4" /> Volver atrás
                 </Button>
               )}
