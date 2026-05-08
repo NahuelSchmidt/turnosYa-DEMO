@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Share2, Settings, BarChart3, ArrowRight, Phone, CalendarCheck, Users, BarChart2, CheckCircle } from "lucide-react";
 import BookingFlow from "@/components/booking/BookingFlow";
 import { FeaturesAccordion } from "@/components/landing/FeaturesAccordion";
+import { PricingSection } from "@/components/landing/PricingSection";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
@@ -192,6 +193,8 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        <PricingSection />
 
         {/* ── DEMO ── */}
         <section id="demo-section" className="w-full py-32 bg-muted/20">

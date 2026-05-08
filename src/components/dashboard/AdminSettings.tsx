@@ -6,6 +6,8 @@ import { useProfessionals } from "@/hooks/use-professionals";
 import { useSchedules } from "@/hooks/use-schedules";
 import { useSalon } from "@/hooks/use-salon";
 import { Service, Professional } from "@/lib/data";
+import { LockedFeature } from "@/components/ui/locked-feature";
+import { usePlan } from "@/hooks/use-plan";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,6 +63,7 @@ interface DaySchedule {
 const DEFAULT_SCHEDULE: DaySchedule = { enabled: false, slots: [] };
 
 export function AdminSettings({ tenantId }: AdminSettingsProps) {
+  const { features } = usePlan(tenantId);
   const { salon, updateSalon } = useSalon(tenantId);
   const { services, updateServices } = useServices(tenantId);
   const { professionals, updateProfessionals } = useProfessionals(tenantId);
@@ -273,49 +276,53 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
           </div>
 
           {/* Color picker mejorado */}
-          <div className="space-y-3">
-            <Label>Color de Marca</Label>
-            <div className="grid grid-cols-6 gap-2">
-              {COLOR_PRESETS.map(p => (
-                <button
-                  key={p.hex}
-                  onClick={() => setSalonForm({ ...salonForm, primaryColor: p.hex })}
-                  title={p.name}
-                  className={cn(
-                    "relative h-10 rounded-xl transition-all",
-                    salonForm.primaryColor === p.hex
-                      ? "ring-2 ring-offset-2 ring-foreground scale-110"
-                      : "hover:scale-105 opacity-80 hover:opacity-100"
-                  )}
-                  style={{ backgroundColor: p.hex }}
-                >
-                  {salonForm.primaryColor === p.hex && (
-                    <Check className="w-4 h-4 text-white absolute inset-0 m-auto drop-shadow" />
-                  )}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-3 mt-2">
-              <div className="w-10 h-10 rounded-xl border shadow-inner" style={{ backgroundColor: salonForm.primaryColor }} />
-              <div className="flex-1">
-                <Label className="text-xs text-muted-foreground">Color personalizado</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <input
-                    type="color"
-                    value={salonForm.primaryColor}
-                    onChange={e => setSalonForm({ ...salonForm, primaryColor: e.target.value })}
-                    className="w-8 h-8 rounded cursor-pointer border p-0.5"
-                  />
-                  <Input
-                    value={salonForm.primaryColor}
-                    onChange={e => setSalonForm({ ...salonForm, primaryColor: e.target.value })}
-                    className="font-mono text-sm h-8 w-28"
-                    maxLength={7}
-                  />
+          {features.hasBrandColor ? (
+            <div className="space-y-3">
+              <Label>Color de Marca</Label>
+              <div className="grid grid-cols-6 gap-2">
+                {COLOR_PRESETS.map(p => (
+                  <button
+                    key={p.hex}
+                    onClick={() => setSalonForm({ ...salonForm, primaryColor: p.hex })}
+                    title={p.name}
+                    className={cn(
+                      "relative h-10 rounded-xl transition-all",
+                      salonForm.primaryColor === p.hex
+                        ? "ring-2 ring-offset-2 ring-foreground scale-110"
+                        : "hover:scale-105 opacity-80 hover:opacity-100"
+                    )}
+                    style={{ backgroundColor: p.hex }}
+                  >
+                    {salonForm.primaryColor === p.hex && (
+                      <Check className="w-4 h-4 text-white absolute inset-0 m-auto drop-shadow" />
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-3 mt-2">
+                <div className="w-10 h-10 rounded-xl border shadow-inner" style={{ backgroundColor: salonForm.primaryColor }} />
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground">Color personalizado</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input
+                      type="color"
+                      value={salonForm.primaryColor}
+                      onChange={e => setSalonForm({ ...salonForm, primaryColor: e.target.value })}
+                      className="w-8 h-8 rounded cursor-pointer border p-0.5"
+                    />
+                    <Input
+                      value={salonForm.primaryColor}
+                      onChange={e => setSalonForm({ ...salonForm, primaryColor: e.target.value })}
+                      className="font-mono text-sm h-8 w-28"
+                      maxLength={7}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <LockedFeature featureName="Color de Marca Personalizado" requiredPlan="premium" />
+          )}
 
           <Button onClick={handleSalonUpdate} disabled={isSaving}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Guardar Identidad
@@ -426,6 +433,9 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
       </Card>
 
       {/* ── DÍAS BLOQUEADOS ── */}
+      {!features.hasBlockedDates ? (
+        <LockedFeature featureName="Días y Horarios Bloqueados" requiredPlan="pro" />
+      ) : (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Ban className="w-5 h-5 text-destructive" /> Días Bloqueados</CardTitle>
@@ -549,6 +559,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
           </Button>
         </CardContent>
       </Card>
+      )}
 
       {/* ── SERVICIOS ── */}
       <Card>
@@ -597,7 +608,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
               <Label>Tipo</Label>
               <RadioGroup value={serviceForm.serviceType} onValueChange={v => setServiceForm({ ...serviceForm, serviceType: v as ServiceType })}
                 className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {SERVICE_TYPES.map(t => (
+                {SERVICE_TYPES.filter(t => features.hasCombosAndOffers || (t.key !== 'combo' && t.key !== 'oferta')).map(t => (
                   <div key={t.key}>
                     <RadioGroupItem value={t.key} id={`type-${t.key}`} className="peer sr-only" />
                     <Label htmlFor={`type-${t.key}`}
@@ -707,8 +718,18 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
                 <p className="text-xs text-muted-foreground mt-1">Pegá un emoji que represente a este profesional.</p>
               </div>
             </div>
+            {!editingProfId && (professionals || []).length >= features.maxProfessionals && (
+              <p className="text-sm text-destructive font-medium">Límite de profesionales alcanzado para tu plan.</p>
+            )}
             <div className="flex gap-2">
-              <Button onClick={handleProfSubmit} variant="secondary" className="flex-1">{editingProfId ? "Actualizar" : "Agregar al Equipo"}</Button>
+              <Button
+                onClick={handleProfSubmit}
+                variant="secondary"
+                className="flex-1"
+                disabled={!editingProfId && (professionals || []).length >= features.maxProfessionals}
+              >
+                {editingProfId ? "Actualizar" : "Agregar al Equipo"}
+              </Button>
               {editingProfId && <Button variant="ghost" onClick={() => { setEditingProfId(null); setProfForm({ name: "", specialty: "", avatarUrl: "", avatarHint: "", emoji: "" } as any); }}>Cancelar</Button>}
             </div>
           </div>

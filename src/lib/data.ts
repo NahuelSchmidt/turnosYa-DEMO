@@ -1,3 +1,41 @@
+export type PlanType = 'basic' | 'pro' | 'premium';
+
+export const PLAN_FEATURES = {
+  basic: {
+    label: 'Basic',
+    maxProfessionals: 1,
+    maxAppointmentsPerMonth: 50,
+    hasMetrics: false,
+    hasBlockedDates: false,
+    hasCombosAndOffers: false,
+    hasWeeklyView: false,
+    hasBrandColor: false,
+    hasAdminBooking: false,
+  },
+  pro: {
+    label: 'Pro',
+    maxProfessionals: 3,
+    maxAppointmentsPerMonth: 999999,
+    hasMetrics: true,
+    hasBlockedDates: true,
+    hasCombosAndOffers: true,
+    hasWeeklyView: true,
+    hasBrandColor: false,
+    hasAdminBooking: true,
+  },
+  premium: {
+    label: 'Premium',
+    maxProfessionals: 999999,
+    maxAppointmentsPerMonth: 999999,
+    hasMetrics: true,
+    hasBlockedDates: true,
+    hasCombosAndOffers: true,
+    hasWeeklyView: true,
+    hasBrandColor: true,
+    hasAdminBooking: true,
+  },
+} as const;
+
 export interface Service {
   id: string;
   name: string;

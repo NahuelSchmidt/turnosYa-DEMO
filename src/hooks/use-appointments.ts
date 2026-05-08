@@ -4,7 +4,7 @@ import { useMemoFirebase, useCollection, useFirestore, useUser } from '@/firebas
 import { collection, query, where, serverTimestamp, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Appointment } from '@/lib/data';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 export function useAppointments(tenantId: string = 'default') {
   const db = useFirestore();
@@ -72,7 +72,7 @@ export function useAppointments(tenantId: string = 'default') {
     return Array.from(blocked);
   };
 
-  const addAppointment = (newAppointment: Omit<Appointment, 'id' | 'customerId' | 'status'>) => {
+  const addAppointment = (newAppointment: Omit<Appointment, 'id' | 'customerId' | 'status' | 'salonId'>) => {
     if (!db || !user) return null;
     
     const apptDocRef = doc(collection(db, 'appointments'));
@@ -105,14 +105,26 @@ export function useAppointments(tenantId: string = 'default') {
     updateDocumentNonBlocking(apptRef, { status, updatedAt: serverTimestamp() });
   };
 
-  return { 
-    appointments, 
-    addAppointment, 
+  const appointmentsThisMonth = (() => {
+    const now = new Date();
+    const start = startOfMonth(now);
+    const end = endOfMonth(now);
+    return appointments.filter(a => {
+      if (a.status !== 'confirmed') return false;
+      const d = toDate(a.startTime);
+      return d >= start && d <= end;
+    }).length;
+  })();
+
+  return {
+    appointments,
+    addAppointment,
     cancelAppointment,
     updateAppointmentStatus,
     getBookedSlotsForDate,
-    loading: isCollectionLoading || isUserLoading, 
-    customerId 
+    appointmentsThisMonth,
+    loading: isCollectionLoading || isUserLoading,
+    customerId
   };
 }
 

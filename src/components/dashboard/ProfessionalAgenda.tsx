@@ -12,7 +12,9 @@ import { Loader2, User, Clock, Phone, MessageCircle, List, LayoutGrid, ChevronLe
 import { NewAppointmentModal } from './NewAppointmentModal';
 import { parseFirestoreDate } from '@/lib/utils';
 import { useSalon } from '@/hooks/use-salon';
+import { usePlan } from '@/hooks/use-plan';
 import { cn } from '@/lib/utils';
+import { AlertTriangle } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -162,48 +164,54 @@ function AppointmentCard({ apt, onUpdate, tenantId }: {
 
   return (
     <div className={cn(
-      "flex items-center gap-3 p-3 rounded-xl border border-l-4 transition-shadow hover:shadow-sm",
-      cfg.cardClass, cfg.borderClass
+      "rounded-xl border border-l-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-default p-3 space-y-2",
+      cfg.cardClass, cfg.borderClass, "hover:brightness-105"
     )}>
-      {/* Hora */}
-      <div className="shrink-0 text-center w-14">
-        <p className={cn("text-lg font-black tabular-nums leading-none", cfg.timeClass)}>
-          {format(dateObj, 'HH:mm')}
-        </p>
-        <p className="text-[10px] text-muted-foreground">hs</p>
-      </div>
+      {/* Fila principal: hora + info + acciones compactas */}
+      <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+        {/* Fila superior en mobile: hora + info */}
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {/* Hora */}
+          <div className="shrink-0 text-center w-12">
+            <p className={cn("text-base font-black tabular-nums leading-none", cfg.timeClass)}>
+              {format(dateObj, 'HH:mm')}
+            </p>
+            <p className="text-[10px] text-muted-foreground">hs</p>
+          </div>
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p className="font-bold text-sm truncate">{apt.customerName}</p>
-        <p className="text-xs text-muted-foreground truncate">{apt.services.map(s => s.name).join(', ')}</p>
-        {apt.professional && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-            <User className="w-3 h-3" /> {apt.professional.name}
-          </p>
-        )}
-      </div>
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-sm truncate">{apt.customerName}</p>
+            <p className="text-xs text-muted-foreground truncate">{apt.services.map(s => s.name).join(', ')}</p>
+            {apt.professional && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                <User className="w-3 h-3" /> {apt.professional.name}
+              </p>
+            )}
+          </div>
+        </div>
 
-      {/* Acciones */}
-      <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-        {whatsappUrl && (
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-semibold text-white hover:opacity-80 transition-opacity"
-            style={{ backgroundColor: '#25D366' }}
-          >
-            <MessageCircle className="w-3 h-3" />
-            Enviar recordatorio
-          </a>
-        )}
-        {apt.customerPhone && (
-          <a href={`tel:${apt.customerPhone}`} className="text-muted-foreground hover:text-foreground transition-colors" title="Llamar">
-            <Phone className="w-4 h-4" />
-          </a>
-        )}
-        <StatusBadge apt={apt} onUpdate={onUpdate} tenantId={tenantId} />
+        {/* Acciones: segunda fila en mobile, misma fila en desktop */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {whatsappUrl && (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold text-white hover:opacity-80 transition-opacity"
+              style={{ backgroundColor: '#25D366' }}
+            >
+              <MessageCircle className="w-3 h-3" />
+              Enviar recordatorio
+            </a>
+          )}
+          {apt.customerPhone && (
+            <a href={`tel:${apt.customerPhone}`} className="text-muted-foreground hover:text-foreground transition-colors p-1" title="Llamar">
+              <Phone className="w-4 h-4" />
+            </a>
+          )}
+          <StatusBadge apt={apt} onUpdate={onUpdate} tenantId={tenantId} />
+        </div>
       </div>
     </div>
   );
@@ -389,10 +397,11 @@ function GridView({ agenda, onUpdate, tenantId }: {
 
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
 export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
-  const { appointments, updateAppointmentStatus, loading: aLoading } = useAppointments(tenantId);
+  const { appointments, updateAppointmentStatus, appointmentsThisMonth, loading: aLoading } = useAppointments(tenantId);
   const { services, loading: sLoading } = useServices(tenantId);
   const { professionals, loading: pLoading } = useProfessionals(tenantId);
   const { salon } = useSalon(tenantId);
+  const { features } = usePlan(tenantId);
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [localOverrides, setLocalOverrides] = useState<Record<string, AppStatus>>({});
   const [showNewAppointment, setShowNewAppointment] = useState(false);
@@ -423,13 +432,33 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
   }
 
   const upcomingCount = agenda.filter(a => a.status === 'confirmed' && parseFirestoreDate(a.startTime) > new Date()).length;
+  const hasMonthlyLimit = features.maxAppointmentsPerMonth < 999999;
+  const isAtMonthlyLimit = hasMonthlyLimit && appointmentsThisMonth >= features.maxAppointmentsPerMonth;
 
   return (
     <div className="space-y-6 mt-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          <p className="text-sm text-muted-foreground">{upcomingCount} turnos próximos</p>
-          <div className="flex items-center gap-1.5 flex-wrap">
+      {/* Indicador de turnos del mes para plan Basic */}
+      {hasMonthlyLimit && (
+        <div className={cn(
+          "flex items-center gap-3 px-4 py-3 rounded-xl border text-sm",
+          isAtMonthlyLimit
+            ? "bg-destructive/10 border-destructive/30 text-destructive"
+            : "bg-muted/40 border-muted-foreground/20 text-muted-foreground"
+        )}>
+          {isAtMonthlyLimit && <AlertTriangle className="w-4 h-4 shrink-0" />}
+          <span>
+            <span className="font-bold">{appointmentsThisMonth} / {features.maxAppointmentsPerMonth}</span>
+            {" "}turnos este mes
+            {isAtMonthlyLimit && " — Límite alcanzado. Tus clientes no pueden reservar nuevos turnos."}
+          </span>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        {/* Izquierda: contador + leyenda (leyenda solo en sm+) */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-sm text-muted-foreground font-medium">{upcomingCount} próximos</p>
+          <div className="hidden sm:flex items-center gap-1.5 flex-wrap">
             {(Object.entries(STATUS_CONFIG) as [AppStatus, typeof STATUS_CONFIG[AppStatus]][]).map(([key, val]) => {
               const Icon = val.icon;
               return (
@@ -440,18 +469,26 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
             })}
           </div>
         </div>
+        {/* Derecha: botones de acción */}
         <div className="flex items-center gap-2">
-          <Button size="sm" onClick={() => setShowNewAppointment(true)} className="h-8 px-3">
-            <Plus className="w-4 h-4 mr-1.5" /> Nuevo Turno
-          </Button>
-          <div className="flex items-center gap-1 bg-muted p-1 rounded-xl">
-            <Button size="sm" variant={view === 'list' ? 'default' : 'ghost'} className="rounded-lg h-8 px-3" onClick={() => setView('list')}>
-              <List className="w-4 h-4 mr-1.5" /> Lista
+          {features.hasAdminBooking && (
+            <Button size="sm" onClick={() => setShowNewAppointment(true)} className="h-8 px-3">
+              <Plus className="w-4 h-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Nuevo Turno</span>
             </Button>
-            <Button size="sm" variant={view === 'grid' ? 'default' : 'ghost'} className="rounded-lg h-8 px-3" onClick={() => setView('grid')}>
-              <LayoutGrid className="w-4 h-4 mr-1.5" /> Semana
-            </Button>
-          </div>
+          )}
+          {features.hasWeeklyView && (
+            <div className="flex items-center gap-1 bg-muted p-1 rounded-xl">
+              <Button size="sm" variant={view === 'list' ? 'default' : 'ghost'} className="rounded-lg h-8 px-2.5" onClick={() => setView('list')}>
+                <List className="w-4 h-4 sm:mr-1.5" />
+                <span className="hidden sm:inline">Lista</span>
+              </Button>
+              <Button size="sm" variant={view === 'grid' ? 'default' : 'ghost'} className="rounded-lg h-8 px-2.5" onClick={() => setView('grid')}>
+                <LayoutGrid className="w-4 h-4 sm:mr-1.5" />
+                <span className="hidden sm:inline">Semana</span>
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 

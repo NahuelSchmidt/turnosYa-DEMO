@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Calendar, Users, MessageCircle, BarChart3, Link2, Star } from "lucide-react";
 
@@ -179,9 +179,35 @@ const FEATURES = [
 
 export function FeaturesAccordion() {
   const [active, setActive] = useState(0);
+  const autoplayRef = useRef<NodeJS.Timeout | null>(null);
+  const pauseRef = useRef<NodeJS.Timeout | null>(null);
+
+  const startAutoplay = () => {
+    autoplayRef.current = setInterval(() => {
+      setActive(prev => (prev + 1) % FEATURES.length);
+    }, 3000);
+  };
+
+  const pauseAutoplay = () => {
+    if (autoplayRef.current) clearInterval(autoplayRef.current);
+    if (pauseRef.current) clearTimeout(pauseRef.current);
+    pauseRef.current = setTimeout(() => {
+      startAutoplay();
+    }, 8000);
+  };
+
+  useEffect(() => {
+    startAutoplay();
+    return () => {
+      if (autoplayRef.current) clearInterval(autoplayRef.current);
+      if (pauseRef.current) clearTimeout(pauseRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <section className="w-full py-20 border-b">
+      <style>{`@keyframes dot-progress { from { width: 0% } to { width: 100% } }`}</style>
       <div className="container mx-auto px-4 md:px-6">
         <div className="text-center mb-12">
           <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3">FUNCIONALIDADES</p>
@@ -216,7 +242,7 @@ export function FeaturesAccordion() {
                 )}>
                   {/* Header — siempre visible */}
                   <button
-                    onClick={() => setActive(i)}
+                    onClick={() => { pauseAutoplay(); setActive(i); }}
                     className={cn(
                       "w-full text-left p-4 flex items-center gap-4",
                       isActive ? "bg-foreground text-background" : "bg-background hover:bg-muted/30"
@@ -246,6 +272,28 @@ export function FeaturesAccordion() {
                 </div>
               );
             })}
+
+            {/* Dots indicator */}
+            <div className="flex justify-center gap-2 pt-2">
+              {FEATURES.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => { pauseAutoplay(); setActive(i); }}
+                  aria-label={`Feature ${i + 1}`}
+                  className={cn(
+                    "relative h-1.5 rounded-full overflow-hidden transition-all duration-300 bg-border",
+                    active === i ? "w-8" : "w-1.5 hover:bg-muted-foreground/50"
+                  )}
+                >
+                  {active === i && (
+                    <span
+                      className="absolute inset-y-0 left-0 rounded-full bg-foreground"
+                      style={{ animation: "dot-progress 3s linear forwards" }}
+                    />
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

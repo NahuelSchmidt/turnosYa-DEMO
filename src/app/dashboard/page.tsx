@@ -7,6 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AdminSettings } from "@/components/dashboard/AdminSettings";
 import { ProfessionalAgenda } from "@/components/dashboard/ProfessionalAgenda";
 import { DollarSign, Calendar, Users, Activity, LogIn, LogOut, Loader2, AlertCircle, ShieldCheck } from "lucide-react";
+import { PlanBadge } from "@/components/ui/plan-badge";
+import { LockedFeature } from "@/components/ui/locked-feature";
+import { usePlan } from "@/hooks/use-plan";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Input } from "@/components/ui/input";
@@ -80,12 +83,12 @@ function StatsSection({ tenantId }: { tenantId: string }) {
       {chartData.length > 0 && (
         <Card>
           <CardHeader><CardTitle>Tendencias (últimos 6 meses)</CardTitle></CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="h-[300px] w-full">
-              <BarChart data={chartData}>
+          <CardContent className="px-2 sm:px-6">
+            <ChartContainer config={chartConfig} className="h-[260px] w-full">
+              <BarChart data={chartData} margin={{ left: -10, right: 8, top: 4, bottom: 0 }}>
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} />
-                <YAxis yAxisId="left" orientation="left" />
+                <XAxis dataKey="month" tickLine={false} tickMargin={8} axisLine={false} tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="left" orientation="left" tick={{ fontSize: 11 }} width={52} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="Ingresos" fill="var(--color-Ingresos)" radius={4} yAxisId="left" />
                 <Bar dataKey="Turnos" fill="var(--color-Turnos)" radius={4} yAxisId="left" />
@@ -115,6 +118,8 @@ export default function DashboardPage() {
   const { data: userSalons, isLoading: isSalonsLoading } = useCollection(salonsQuery);
   const currentSalon = userSalons?.[0];
   const tenantId = currentSalon?.id;
+
+  const { plan, features } = usePlan(tenantId || '');
 
   const { appointments: allAppointments } = useAppointments(tenantId || '');
   const hasTodayConfirmed = useMemo(
@@ -198,6 +203,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2">
                   <h2 className="text-xl font-bold font-headline">{currentSalon?.name}</h2>
                   <ShieldCheck className="w-4 h-4 text-primary" />
+                  <PlanBadge plan={plan} />
                 </div>
                 <p className="text-xs text-muted-foreground uppercase">ID: {tenantId}</p>
               </div>
@@ -207,8 +213,8 @@ export default function DashboardPage() {
             </div>
 
             <Tabs defaultValue="agenda">
-              <TabsList className="mb-4">
-                <TabsTrigger value="agenda">
+              <TabsList className="mb-4 w-full">
+                <TabsTrigger value="agenda" className="flex-1">
                   <span className="flex items-center gap-1.5">
                     Agenda
                     {hasTodayConfirmed && (
@@ -216,11 +222,18 @@ export default function DashboardPage() {
                     )}
                   </span>
                 </TabsTrigger>
-                <TabsTrigger value="stats">Métricas</TabsTrigger>
-                <TabsTrigger value="settings">Ajustes y Link</TabsTrigger>
+                <TabsTrigger value="stats" className="flex-1">Métricas</TabsTrigger>
+                <TabsTrigger value="settings" className="flex-1">
+                  <span className="sm:hidden">Ajustes</span>
+                  <span className="hidden sm:inline">Ajustes y Link</span>
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="agenda"><ProfessionalAgenda tenantId={tenantId} /></TabsContent>
-              <TabsContent value="stats"><StatsSection tenantId={tenantId} /></TabsContent>
+              <TabsContent value="stats">
+                {features.hasMetrics
+                  ? <StatsSection tenantId={tenantId} />
+                  : <LockedFeature featureName="Métricas y Estadísticas" requiredPlan="pro" />}
+              </TabsContent>
               <TabsContent value="settings"><AdminSettings tenantId={tenantId} /></TabsContent>
             </Tabs>
           </div>

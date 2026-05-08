@@ -7,16 +7,36 @@ import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/s
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
-import { useUser } from "@/firebase";
+import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
+import { PlanBadge } from "@/components/ui/plan-badge";
+import { usePlan } from "@/hooks/use-plan";
+import { PlanType } from "@/lib/data";
+
+function useSalonPlan() {
+  const { user } = useUser();
+  const db = useFirestore();
+
+  const salonsQuery = useMemoFirebase(() => {
+    if (!db || !user?.uid || user.isAnonymous) return null;
+    return query(collection(db, "salons"), where(`adminMembers.${user.uid}`, "==", true));
+  }, [db, user?.uid, user?.isAnonymous]);
+
+  const { data: userSalons } = useCollection(salonsQuery);
+  const tenantId = userSalons?.[0]?.id;
+  const { plan } = usePlan(tenantId || '');
+
+  return { tenantId, plan: tenantId ? plan : null };
+}
 
 export function Header() {
   const pathname = usePathname();
   const [isDark, setIsDark] = useState(false);
   const { user } = useUser();
+  const { tenantId, plan } = useSalonPlan();
 
   useEffect(() => {
     const theme = localStorage.getItem("theme");
-    // Default siempre es light a menos que el usuario haya elegido dark explícitamente
     const isDarkMode = theme === "dark";
     setIsDark(isDarkMode);
     if (isDarkMode) {
@@ -42,6 +62,8 @@ export function Header() {
     { href: "/", label: "Inicio", icon: Home },
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   ];
+
+  const isRealUser = user && !user.isAnonymous;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -76,12 +98,17 @@ export function Header() {
             <span className="sr-only">Cambiar tema</span>
           </Button>
 
-          <Button variant="ghost" size="icon" asChild className="text-muted-foreground hover:bg-muted/50 rounded-full">
-            <Link href="/dashboard">
-              <UserCircle className="h-5 w-5" />
-              <span className="sr-only">Mi Perfil</span>
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            {isRealUser && plan && (
+              <PlanBadge plan={plan as PlanType} className="hidden sm:inline-flex" />
+            )}
+            <Button variant="ghost" size="icon" asChild className="text-muted-foreground hover:bg-muted/50 rounded-full">
+              <Link href="/dashboard">
+                <UserCircle className="h-5 w-5" />
+                <span className="sr-only">Mi Perfil</span>
+              </Link>
+            </Button>
+          </div>
 
           <Sheet>
             <SheetTrigger asChild>
@@ -96,6 +123,11 @@ export function Header() {
                   <CalendarCheck className="h-8 w-8 text-primary" />
                   <span className="font-headline text-2xl tracking-tighter">TurnosYa</span>
                 </Link>
+                {isRealUser && plan && (
+                  <div className="px-2">
+                    <PlanBadge plan={plan as PlanType} />
+                  </div>
+                )}
                 <nav className="grid gap-2">
                   {navItems.map((item) => (
                     <SheetClose asChild key={item.href}>
