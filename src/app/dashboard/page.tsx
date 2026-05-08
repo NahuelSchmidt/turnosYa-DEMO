@@ -61,34 +61,34 @@ function StatsSection({ tenantId }: { tenantId: string }) {
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-6 overflow-hidden">
       <Card>
-        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6">
+        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4">
           {[
             { icon: DollarSign, label: "Ingresos", value: `$${totalRevenue.toLocaleString('es-AR')}` },
             { icon: Calendar, label: "Turnos", value: totalAppointments },
             { icon: Users, label: "Clientes", value: uniqueClients },
             { icon: Activity, label: "Ocupación", value: `${occupancyRate}%` },
           ].map((stat, i) => (
-            <div key={i} className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl">
+            <div key={i} className="flex items-center gap-2 p-2 md:p-3 bg-muted/30 rounded-xl">
               <stat.icon className="w-6 h-6 text-primary shrink-0" />
               <div>
                 <p className="text-xs text-muted-foreground uppercase font-bold">{stat.label}</p>
-                <p className="text-lg font-black">{stat.value}</p>
+                <p className="text-base md:text-lg font-black">{stat.value}</p>
               </div>
             </div>
           ))}
         </CardContent>
       </Card>
       {chartData.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle>Tendencias (últimos 6 meses)</CardTitle></CardHeader>
+        <Card className="overflow-hidden">
+          <CardHeader><CardTitle className="text-base md:text-xl">Tendencias (últimos 6 meses)</CardTitle></CardHeader>
           <CardContent className="px-2 sm:px-6">
-            <ChartContainer config={chartConfig} className="h-[260px] w-full">
-              <BarChart data={chartData} margin={{ left: -10, right: 8, top: 4, bottom: 0 }}>
+            <ChartContainer config={chartConfig} className="h-[200px] md:h-[300px] w-full overflow-hidden">
+              <BarChart data={chartData} margin={{ right: 10, left: -10 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="month" tickLine={false} tickMargin={8} axisLine={false} tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="left" orientation="left" tick={{ fontSize: 11 }} width={52} />
+                <YAxis yAxisId="left" orientation="left" width={45} tick={{ fontSize: 10 }} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="Ingresos" fill="var(--color-Ingresos)" radius={4} yAxisId="left" />
                 <Bar dataKey="Turnos" fill="var(--color-Turnos)" radius={4} yAxisId="left" />
