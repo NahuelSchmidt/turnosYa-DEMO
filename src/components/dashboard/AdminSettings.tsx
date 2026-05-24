@@ -74,7 +74,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [salonForm, setSalonForm] = useState({ name: "", primaryColor: "#000000", whatsappNumber: "", address: "" });
+  const [salonForm, setSalonForm] = useState({ name: "", primaryColor: "#000000", whatsappNumber: "", address: "", paymentAlias: "" });
 
   // Horarios por día
   const [weekSchedule, setWeekSchedule] = useState<Record<string, DaySchedule>>(
@@ -100,6 +100,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
         primaryColor: salon.primaryColor || "#000000",
         whatsappNumber: salon.whatsappNumber || "",
         address: salon.address || "",
+        paymentAlias: (salon as any).paymentAlias || "",
       });
       if (salon.weekSchedule) {
         setWeekSchedule(salon.weekSchedule);
@@ -339,6 +340,11 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
         <CardContent className="space-y-3">
           <Input placeholder="5491123456789" value={salonForm.whatsappNumber}
             onChange={e => setSalonForm({ ...salonForm, whatsappNumber: e.target.value.replace(/\D/g, "") })} className="font-mono" />
+          <div className="space-y-2">
+            <Label>Alias o CBU de pago</Label>
+            <Input placeholder="Ej: negocio.reiki.mp" value={salonForm.paymentAlias}
+              onChange={e => setSalonForm({ ...salonForm, paymentAlias: e.target.value })} />
+          </div>
           <Button onClick={handleSalonUpdate} disabled={isSaving} variant="secondary">
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Guardar Número
           </Button>
