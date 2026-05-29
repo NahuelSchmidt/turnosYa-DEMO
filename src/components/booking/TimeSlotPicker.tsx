@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
 
 interface TimeSlotPickerProps {
@@ -25,7 +25,8 @@ export default function TimeSlotPicker({
   bookedSlots = [],
   blockedDates = [],
 }: TimeSlotPickerProps) {
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastClickRef = useRef<Date | null>(null);
+  const lastClickTimeRef = useRef<number>(0);
 
   const now = new Date();
   const todayDateStr = format(now, 'yyyy-MM-dd');
@@ -39,15 +40,22 @@ export default function TimeSlotPicker({
     return h * 60 + m <= nowMinutes;
   };
 
-  const handleDayClick = useCallback(
-    (date: Date | undefined) => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => {
-        onSelectDate(date);
-      }, 300);
-    },
-    [onSelectDate]
-  );
+  const handleDateSelect = (date: Date | undefined) => {
+    if (!date) return;
+
+    const now = Date.now();
+    if (
+      lastClickRef.current &&
+      isSameDay(date, lastClickRef.current) &&
+      now - lastClickTimeRef.current < 500
+    ) {
+      return;
+    }
+
+    lastClickRef.current = date;
+    lastClickTimeRef.current = now;
+    onSelectDate(date);
+  };
 
   const isCalendarDayDisabled = (date: Date): boolean => {
     if (date < new Date(new Date().setHours(0, 0, 0, 0))) return true;
@@ -72,7 +80,7 @@ export default function TimeSlotPicker({
           <Calendar
             mode="single"
             selected={selectedDate}
-            onSelect={handleDayClick}
+            onSelect={handleDateSelect}
             className="rounded-md border"
             disabled={isCalendarDayDisabled}
             locale={es}

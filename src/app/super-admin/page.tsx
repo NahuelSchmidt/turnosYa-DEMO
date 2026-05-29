@@ -28,6 +28,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+const planLabels: Record<string, { label: string; className: string }> = {
+  basic: { label: 'Basic', className: 'bg-gray-100 text-gray-600 border-gray-300' },
+  pro: { label: 'Pro', className: 'bg-blue-100 text-blue-700 border-blue-300' },
+  premium: { label: 'Premium ⭐', className: 'bg-amber-100 text-amber-700 border-amber-300' },
+};
+
 export default function SuperAdminPage() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
@@ -162,14 +168,19 @@ export default function SuperAdminPage() {
                       ID: {salon.id}
                     </Badge>
                   </div>
-                  <CardTitle className="text-2xl font-black font-headline leading-tight group-hover:text-primary transition-colors">{salon.name}</CardTitle>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <CardTitle className="text-2xl font-black font-headline leading-tight group-hover:text-primary transition-colors">{salon.name}</CardTitle>
+                    <Badge variant="outline" className={`text-[10px] py-0.5 px-2 font-black ${planLabels[salon.plan || 'basic'].className}`}>
+                      {planLabels[salon.plan || 'basic'].label}
+                    </Badge>
+                  </div>
                   <CardDescription className="flex items-center gap-2 font-medium">
                     <Calendar className="w-4 h-4 text-primary" />
                     {salon.createdAt?.toDate ? format(salon.createdAt.toDate(), "dd MMM yyyy", { locale: es }) : 'Registro Reciente'}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6 pt-6">
-                  <div className="grid grid-cols-2 gap-4 py-6 border-y border-border/50">
+                  <div className="grid grid-cols-3 gap-4 py-6 border-y border-border/50">
                     <div className="flex flex-col">
                       <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-1">Branding</span>
                       <div className="flex items-center gap-3">
@@ -183,6 +194,12 @@ export default function SuperAdminPage() {
                         <span className="text-xl font-black">{salon.timeSlots?.length || 0}</span>
                         <span className="text-[10px] font-bold text-muted-foreground">TURNOS</span>
                       </div>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-1">Plan</span>
+                      <Badge variant="outline" className={`text-[10px] py-0.5 px-2 font-black w-fit ${planLabels[salon.plan || 'basic'].className}`}>
+                        {planLabels[salon.plan || 'basic'].label}
+                      </Badge>
                     </div>
                   </div>
 
