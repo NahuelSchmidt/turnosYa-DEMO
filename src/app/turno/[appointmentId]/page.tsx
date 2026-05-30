@@ -78,6 +78,8 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
   const currentStatus = cancelled ? "cancelled" : apt.status;
   const isCancelled = currentStatus === "cancelled";
   const statusInfo = STATUS_MAP[currentStatus] ?? { label: currentStatus, color: "bg-muted" };
+  const hoursUntilAppointment = (dateObj.getTime() - new Date().getTime()) / (1000 * 60 * 60);
+  const canCancel = hoursUntilAppointment >= 12;
 
   // Link a la agenda del negocio para volver a reservar
   const host = typeof window !== 'undefined' ? window.location.origin : PROD_DOMAIN;
@@ -174,28 +176,47 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
             </div>
 
             {!isCancelled && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" className="w-full border-destructive text-destructive hover:bg-destructive/10">
-                    <Ban className="mr-2 h-4 w-4" /> Cancelar mi turno
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>¿Cancelar tu turno?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Esta acción no se puede deshacer. El horario volverá a estar disponible.
-                      <span className="flex items-center gap-1.5 mt-3 text-[#25D366] font-medium">
-                        <MessageCircle className="w-4 h-4" /> Se avisará al negocio automáticamente.
-                      </span>
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Volver</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleCancel}>Sí, cancelar mi turno</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              canCancel ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" className="w-full border-destructive text-destructive hover:bg-destructive/10">
+                      <Ban className="mr-2 h-4 w-4" /> Cancelar mi turno
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Cancelar tu turno?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta acción no se puede deshacer. El horario volverá a estar disponible.
+                        <span className="flex items-center gap-1.5 mt-3 text-[#25D366] font-medium">
+                          <MessageCircle className="w-4 h-4" /> Se avisará al negocio automáticamente.
+                        </span>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Volver</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleCancel}>Sí, cancelar mi turno</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : (
+                <div className="rounded-xl border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800 p-4 text-sm text-center space-y-2">
+                  <p className="font-bold text-orange-700 dark:text-orange-400">No podés cancelar este turno</p>
+                  <p className="text-orange-600 dark:text-orange-500">
+                    Solo se puede cancelar con al menos 12hs de anticipación. Para cancelarlo contactá al negocio directamente.
+                  </p>
+                  {salon?.whatsappNumber && (
+                    <a
+                      href={`https://wa.me/${salon.whatsappNumber}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 mt-1 text-[#25D366] font-bold hover:underline"
+                    >
+                      <MessageCircle className="w-4 h-4" /> Contactar al negocio
+                    </a>
+                  )}
+                </div>
+              )
             )}
 
             {isCancelled && (
