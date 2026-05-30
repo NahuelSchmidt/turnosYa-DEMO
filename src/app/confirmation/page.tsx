@@ -71,7 +71,7 @@ function ConfirmationContent() {
 
     const ubicacionLine = salon?.address ? `\n📍 Ubicacion: ${salon.address}` : '';
     const cancelLine = salon?.whatsappNumber
-      ? `\n\nPara ver, cancelar o reprogramar tu turno, hace clic aca:\n${turnoLink}\n\nTambien podes cancelarlo escribiendonos al ${salon.whatsappNumber} con al menos 12hs de anticipacion.`
+      ? `\n\nPara ver, cancelar o reprogramar tu turno, hace clic aca:\n${turnoLink}\n\nTambien podes cancelarlo escribiendonos a este numero con al menos 12hs de anticipacion.`
       : `\n\nPara ver, cancelar o reprogramar tu turno, hace clic aca:\n${turnoLink}`;
     const aliasLine = (salon as any)?.paymentAlias ? `\n\n💳 Para abonar, usa el siguiente alias: ${(salon as any).paymentAlias}` : '';
 
