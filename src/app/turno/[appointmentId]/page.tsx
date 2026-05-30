@@ -101,6 +101,14 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
         serviceNames: aptServices.map((s: any) => s?.name).join(", "),
       }),
     });
+
+    // También abrir chat de WhatsApp para que el cliente escriba si quiere
+    if (salon?.whatsappNumber) {
+      const msg = encodeURIComponent(
+        `Hola! ${apt.customerName} canceló su turno del ${format(dateObj, "dd/MM 'a las' HH:mm'hs'", { locale: es })} (${aptServices.map((s: any) => s?.name).join(", ")}).`
+      );
+      setTimeout(() => window.open(`https://wa.me/${salon.whatsappNumber}?text=${msg}`, "_blank"), 600);
+    }
   };
 
   return (
