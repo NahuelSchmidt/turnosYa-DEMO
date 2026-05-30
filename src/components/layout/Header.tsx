@@ -70,8 +70,9 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center mx-auto px-4">
         <div className="mr-auto flex items-center gap-2">
-          <Link href="/" className="flex items-center font-bold group">
-            <Image src="/logo.png" alt="Turnify" width={130} height={40} className="transition-transform group-hover:scale-105 object-contain" />
+          <Link href="/" className="flex items-center gap-2.5 font-bold group">
+            <Image src="/logo.png" alt="Turnify" width={36} height={36} className="transition-transform group-hover:scale-110 object-contain" />
+            <span style={{ fontFamily: 'PT Sans, sans-serif', letterSpacing: '0.05em', fontSize: '1.2rem', fontWeight: 700 }}>Turnify</span>
           </Link>
         </div>
 
@@ -120,7 +121,8 @@ export function Header() {
             <SheetContent side="left" className="rounded-r-3xl">
               <div className="flex flex-col gap-8 pt-10">
                 <Link href="/" className="flex items-center gap-3 font-bold px-2">
-                  <Image src="/logo.png" alt="Turnify" width={140} height={44} className="object-contain" />
+                  <Image src="/logo.png" alt="Turnify" width={40} height={40} className="object-contain" />
+                  <span style={{ fontFamily: 'PT Sans, sans-serif', letterSpacing: '0.05em', fontSize: '1.4rem', fontWeight: 700 }}>Turnify</span>
                 </Link>
                 {isRealUser && plan && (
                   <div className="px-2">
