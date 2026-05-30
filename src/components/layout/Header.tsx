@@ -71,7 +71,8 @@ export function Header() {
       <div className="container flex h-16 items-center mx-auto px-4">
         <div className="mr-auto flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2.5 font-bold group">
-            <Image src="/logo.png" alt="Turnify" width={52} height={52} className="transition-transform group-hover:scale-110 object-contain" />
+            <Image src="/logo.png" alt="Turnify" width={52} height={52} className="transition-transform group-hover:scale-110 object-contain dark:hidden" />
+            <Image src="/logo-white.png" alt="Turnify" width={52} height={52} className="transition-transform group-hover:scale-110 object-contain hidden dark:block" />
             <span style={{ fontFamily: 'PT Sans, sans-serif', letterSpacing: '0.05em', fontSize: '1.2rem', fontWeight: 700 }}>Turnify</span>
           </Link>
         </div>
@@ -121,7 +122,8 @@ export function Header() {
             <SheetContent side="left" className="rounded-r-3xl">
               <div className="flex flex-col gap-8 pt-10">
                 <Link href="/" className="flex items-center gap-3 font-bold px-2">
-                  <Image src="/logo.png" alt="Turnify" width={40} height={40} className="object-contain" />
+                  <Image src="/logo.png" alt="Turnify" width={40} height={40} className="object-contain dark:hidden" />
+                  <Image src="/logo-white.png" alt="Turnify" width={40} height={40} className="object-contain hidden dark:block" />
                   <span style={{ fontFamily: 'PT Sans, sans-serif', letterSpacing: '0.05em', fontSize: '1.4rem', fontWeight: 700 }}>Turnify</span>
                 </Link>
                 {isRealUser && plan && (

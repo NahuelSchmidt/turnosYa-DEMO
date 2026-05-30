@@ -9,7 +9,8 @@ export function Footer() {
         <div className="grid gap-12 md:grid-cols-3">
           <div className="flex flex-col gap-4">
             <Link href="/" className="flex items-center gap-2 font-bold">
-              <Image src="/logo.png" alt="Turnify" width={32} height={32} className="object-contain" />
+              <Image src="/logo.png" alt="Turnify" width={32} height={32} className="object-contain dark:hidden" />
+              <Image src="/logo-white.png" alt="Turnify" width={32} height={32} className="object-contain hidden dark:block" />
               <span style={{ fontFamily: 'PT Sans, sans-serif', letterSpacing: '0.04em', fontSize: '1.1rem', fontWeight: 700 }}>Turnify</span>
             </Link>
             <p className="text-muted-foreground text-sm max-w-xs leading-relaxed">
