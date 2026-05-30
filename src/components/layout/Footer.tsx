@@ -9,7 +9,8 @@ export function Footer() {
         <div className="grid gap-12 md:grid-cols-3">
           <div className="flex flex-col gap-4">
             <Link href="/" className="flex items-center gap-2 font-bold">
-              <Image src="/logo.png" alt="Turnify" width={120} height={40} className="object-contain" />
+              <Image src="/logo.png" alt="Turnify" width={32} height={32} className="object-contain" />
+              <span style={{ fontFamily: 'PT Sans, sans-serif', letterSpacing: '0.04em', fontSize: '1.1rem', fontWeight: 700 }}>Turnify</span>
             </Link>
             <p className="text-muted-foreground text-sm max-w-xs leading-relaxed">
               La plataforma para que profesionales independientes gestionen sus turnos, servicios y clientes de forma automatizada y profesional.
