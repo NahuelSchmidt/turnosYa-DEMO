@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { CalendarCheck, Menu, LayoutDashboard, Home, UserCircle, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
@@ -70,7 +71,7 @@ export function Header() {
       <div className="container flex h-16 items-center mx-auto px-4">
         <div className="mr-auto flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2 font-bold group">
-            <CalendarCheck className="h-6 w-6 text-primary transition-transform group-hover:scale-110" />
+            <Image src="/logo.png" alt="Turnify" width={28} height={28} className="transition-transform group-hover:scale-110" />
             <span className="font-headline text-lg tracking-tighter">Turnify</span>
           </Link>
         </div>
@@ -120,7 +121,7 @@ export function Header() {
             <SheetContent side="left" className="rounded-r-3xl">
               <div className="flex flex-col gap-8 pt-10">
                 <Link href="/" className="flex items-center gap-3 font-bold px-2">
-                  <CalendarCheck className="h-8 w-8 text-primary" />
+                  <Image src="/logo.png" alt="Turnify" width={32} height={32} />
                   <span className="font-headline text-2xl tracking-tighter">Turnify</span>
                 </Link>
                 {isRealUser && plan && (

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { CalendarCheck, Twitter, Instagram, Facebook } from "lucide-react";
+import Image from "next/image";
+import { Twitter, Instagram, Facebook } from "lucide-react";
 
 export function Footer() {
   return (
@@ -8,7 +9,7 @@ export function Footer() {
         <div className="grid gap-12 md:grid-cols-3">
           <div className="flex flex-col gap-4">
             <Link href="/" className="flex items-center gap-2 font-bold">
-              <CalendarCheck className="h-6 w-6 text-primary" />
+              <Image src="/logo.png" alt="Turnify" width={24} height={24} />
               <span className="font-headline text-xl">Turnify</span>
             </Link>
             <p className="text-muted-foreground text-sm max-w-xs leading-relaxed">
