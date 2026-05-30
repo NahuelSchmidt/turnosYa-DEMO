@@ -121,26 +121,16 @@ function StatusBadge({ apt, onUpdate, tenantId }: {
           </DropdownMenuItem>
         )}
 
-        {/* Cancelar — dos opciones */}
+        {/* Cancelar */}
         {status !== 'cancelled' && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => {
-                openCancelWhatsApp(apt, tenantId);
-                onUpdate(apt.id, 'cancelled');
-              }}
+              onClick={() => onUpdate(apt.id, 'cancelled')}
               className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600"
             >
               <XCircle className="w-4 h-4" />
-              <span>Cancelar y avisar al cliente</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => onUpdate(apt.id, 'cancelled')}
-              className="flex items-center gap-2 cursor-pointer text-red-400 focus:text-red-400"
-            >
-              <XCircle className="w-4 h-4" />
-              <span>Cancelar sin avisar</span>
+              <span>Cancelar turno</span>
             </DropdownMenuItem>
           </>
         )}
@@ -364,20 +354,14 @@ function GridView({ agenda, onUpdate, tenantId }: {
                               value={apt.status}
                               onChange={e => {
                                 const val = e.target.value;
-                                if (val === 'cancelled-notify') {
-                                  openCancelWhatsApp(apt, tenantId);
-                                  onUpdate(apt.id, 'cancelled');
-                                } else {
-                                  onUpdate(apt.id, val as AppStatus);
-                                }
+                                onUpdate(apt.id, val as AppStatus);
                               }}
                               className="mt-1.5 w-full text-[9px] rounded border border-input bg-background px-1 py-0.5"
                             >
                               <option value="confirmed">Pendiente</option>
                               <option value="completed">Completado</option>
                               <option value="no-show">No asistió</option>
-                              <option value="cancelled">Cancelar sin avisar</option>
-                              <option value="cancelled-notify">Cancelar y avisar</option>
+                              <option value="cancelled">Cancelar turno</option>
                             </select>
                           </div>
                         );
