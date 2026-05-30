@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit, Users, Briefcase, Link as LinkIcon, Copy, Check, Palette, Plus, ExternalLink, Clock, Loader2, Phone, MessageCircle, Tag, Percent, Ban, Wifi, WifiOff, QrCode, RefreshCw } from "lucide-react";
+import { Trash2, Edit, Users, Briefcase, Link as LinkIcon, Copy, Check, Palette, Plus, ExternalLink, Clock, Loader2, Phone, MessageCircle, Tag, Percent, Ban } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -75,9 +75,6 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
   const [isSaving, setIsSaving] = useState(false);
 
   const [salonForm, setSalonForm] = useState({ name: "", primaryColor: "#000000", whatsappNumber: "", address: "", paymentAlias: "", evolutionInstanceName: "" });
-  const [waStatus, setWaStatus] = useState<'loading' | 'authorized' | 'notAuthorized' | 'notConfigured' | 'error'>('notConfigured');
-  const [waQr, setWaQr] = useState<string | null>(null);
-  const [waQrLoading, setWaQrLoading] = useState(false);
 
   // Horarios por día
   const [weekSchedule, setWeekSchedule] = useState<Record<string, DaySchedule>>(
@@ -194,43 +191,6 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
     setTimeout(() => setIsSaving(false), 1000);
   };
 
-  const checkWaStatus = async () => {
-    setWaStatus('loading');
-    try {
-      const res = await fetch(`/api/whatsapp/status/${tenantId}`);
-      const data = await res.json();
-      setWaStatus(data.state || 'error');
-    } catch {
-      setWaStatus('error');
-    }
-  };
-
-  const loadWaQr = async () => {
-    setWaQrLoading(true);
-    setWaQr(null);
-    try {
-      const res = await fetch(`/api/whatsapp/qr/${tenantId}`);
-      const data = await res.json();
-      // Evolution API devuelve { base64: 'data:image/png;base64,...' } o { state: 'open' }
-      if (data.base64) {
-        setWaQr(data.base64);
-      } else if (data.instance?.state === 'open') {
-        setWaStatus('authorized');
-      }
-    } catch {
-      // silencioso
-    } finally {
-      setWaQrLoading(false);
-    }
-  };
-
-  // Verificar estado de WhatsApp cuando se carguen las credenciales
-  useEffect(() => {
-    if (salonForm.evolutionInstanceName) {
-      checkWaStatus();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [salonForm.evolutionInstanceName]);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(bookingLink);
@@ -390,133 +350,6 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
           <Button onClick={handleSalonUpdate} disabled={isSaving} variant="secondary">
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Guardar Número
           </Button>
-        </CardContent>
-      </Card>
-
-      {/* ── WHATSAPP AUTOMÁTICO ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <QrCode className="w-5 h-5 text-primary" /> WhatsApp Automático
-          </CardTitle>
-          <CardDescription>
-            Conectá el WhatsApp del negocio para enviar confirmaciones y recordatorios en forma automática.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Nombre de instancia */}
-          <div className="space-y-1">
-            <Label>Nombre de instancia</Label>
-            <div className="flex gap-2">
-              <Input
-                placeholder={`Ej: ${tenantId}`}
-                value={salonForm.evolutionInstanceName}
-                onChange={e => setSalonForm({ ...salonForm, evolutionInstanceName: e.target.value.toLowerCase().replace(/\s/g, '-') })}
-                className="font-mono text-sm"
-              />
-              <Button
-                onClick={async () => {
-                  if (!salonForm.evolutionInstanceName) return;
-                  await fetch('/api/whatsapp/create-instance', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ instanceName: salonForm.evolutionInstanceName }),
-                  });
-                  handleSalonUpdate();
-                  setTimeout(() => checkWaStatus(), 1500);
-                }}
-                disabled={isSaving || !salonForm.evolutionInstanceName}
-                variant="secondary"
-                size="sm"
-              >
-                Crear y guardar
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">Usá el ID del negocio o un nombre único sin espacios.</p>
-          </div>
-
-          {/* Estado y QR — solo si hay instancia configurada */}
-          {salonForm.evolutionInstanceName && (
-            <div className="border rounded-xl p-4 space-y-4 bg-muted/20">
-              {/* Status */}
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  {waStatus === 'authorized' ? (
-                    <>
-                      <Wifi className="w-4 h-4 text-green-600" />
-                      <span className="text-sm font-medium text-green-700 dark:text-green-400">WhatsApp conectado</span>
-                    </>
-                  ) : waStatus === 'loading' ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Verificando estado...</span>
-                    </>
-                  ) : waStatus === 'notConfigured' ? (
-                    <>
-                      <WifiOff className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Sin configurar</span>
-                    </>
-                  ) : (
-                    <>
-                      <WifiOff className="w-4 h-4 text-orange-500" />
-                      <span className="text-sm font-medium text-orange-600 dark:text-orange-400">No conectado — escaneá el QR</span>
-                    </>
-                  )}
-                </div>
-                <Button variant="ghost" size="sm" onClick={checkWaStatus} disabled={waStatus === 'loading'}>
-                  <RefreshCw className={cn("w-3 h-3 mr-1", waStatus === 'loading' && "animate-spin")} /> Actualizar
-                </Button>
-              </div>
-
-              {/* QR o botón para mostrarlo */}
-              {waStatus !== 'authorized' && (
-                <div className="space-y-3">
-                  {waQr ? (
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">Escaneá este QR con el WhatsApp del negocio:</p>
-                      <div className="flex justify-center">
-                        <img
-                          src={waQr}
-                          alt="QR WhatsApp"
-                          className="w-48 h-48 rounded-xl border bg-white p-2"
-                        />
-                      </div>
-                      <p className="text-xs text-center text-muted-foreground">
-                        El QR expira en ~20 seg. Si expira, hacé click en "Obtener QR" de nuevo.
-                      </p>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={loadWaQr} disabled={waQrLoading} className="flex-1">
-                          <RefreshCw className={cn("w-3 h-3 mr-1", waQrLoading && "animate-spin")} /> Renovar QR
-                        </Button>
-                        <Button variant="default" size="sm" onClick={checkWaStatus} className="flex-1">
-                          <Wifi className="w-3 h-3 mr-1" /> Ya escanée
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <Button onClick={loadWaQr} disabled={waQrLoading} className="w-full">
-                      {waQrLoading
-                        ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Cargando QR...</>
-                        : <><QrCode className="w-4 h-4 mr-2" /> Obtener QR para escanear</>
-                      }
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {waStatus === 'authorized' && (
-                <p className="text-xs text-muted-foreground">
-                  Los mensajes de confirmación y recordatorios se enviarán automáticamente desde el WhatsApp del negocio.
-                </p>
-              )}
-            </div>
-          )}
-
-          {!salonForm.evolutionInstanceName && (
-            <p className="text-xs text-muted-foreground bg-muted/30 rounded-lg p-3">
-              Creá una instancia en <strong>green-api.com</strong>, copiá el Instance ID y el Token, y guardalos acá. Después el dueño del negocio escanea el QR con su WhatsApp.
-            </p>
-          )}
         </CardContent>
       </Card>
 
