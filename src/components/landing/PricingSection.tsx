@@ -46,6 +46,9 @@ const PLANS = [
       "Combos y ofertas",
       "Días y horarios bloqueados",
       "Agregar turnos desde el panel",
+      "📱 Confirmaciones automáticas por WhatsApp",
+      "📱 Recordatorios automáticos 24hs y mismo día",
+      "📱 Resumen diario de agenda",
       "Soporte por WhatsApp",
       "+ Pago único de configuración",
     ],
@@ -64,6 +67,7 @@ const PLANS = [
     features: [
       "Profesionales ilimitados",
       "Todo lo del Pro",
+      "📱 WhatsApp automático incluido",
       "Color de marca personalizado",
       "Configuración inicial incluida",
       "Capacitación por videollamada (30min)",
