@@ -349,23 +349,17 @@ function GridView({ agenda, onUpdate, tenantId }: {
                                   <MessageCircle className="w-2.5 h-2.5" /> WA
                                 </a>
                               )}
-                              {apt.status === 'confirmed' && (
-                                <button
-                                  onClick={() => onUpdate(apt.id, 'cancelled')}
-                                  className="text-[9px] text-red-500 hover:underline ml-auto"
-                                >
-                                  ✕ Cancelar
-                                </button>
-                              )}
-                              {apt.status === 'confirmed' && (
-                                <button
-                                  onClick={() => onUpdate(apt.id, 'completed')}
-                                  className="text-[9px] text-green-600 hover:underline"
-                                >
-                                  ✓ Listo
-                                </button>
-                              )}
                             </div>
+                            <select
+                              value={apt.status}
+                              onChange={e => onUpdate(apt.id, e.target.value as AppStatus)}
+                              className="mt-1 w-full text-[9px] rounded border border-input bg-background px-1 py-0.5"
+                            >
+                              <option value="confirmed">Pendiente</option>
+                              <option value="completed">Completado</option>
+                              <option value="no-show">No asistió</option>
+                              <option value="cancelled">Cancelar turno</option>
+                            </select>
                           </div>
                         );
                       })}
