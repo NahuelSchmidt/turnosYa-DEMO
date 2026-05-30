@@ -74,7 +74,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [salonForm, setSalonForm] = useState({ name: "", primaryColor: "#000000", whatsappNumber: "", address: "", paymentAlias: "", evolutionInstanceName: "" });
+  const [salonForm, setSalonForm] = useState({ name: "", primaryColor: "#000000", whatsappNumber: "", address: "", paymentAlias: "", evolutionInstanceName: "", whatsappEmoji: "" });
 
   // Horarios por día
   const [weekSchedule, setWeekSchedule] = useState<Record<string, DaySchedule>>(
@@ -102,6 +102,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
         address: salon.address || "",
         paymentAlias: (salon as any).paymentAlias || "",
         evolutionInstanceName: (salon as any).evolutionInstanceName || "",
+        whatsappEmoji: (salon as any).whatsappEmoji || "",
       });
       if (salon.weekSchedule) {
         setWeekSchedule(salon.weekSchedule);
@@ -346,6 +347,12 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
             <Label>Alias o CBU de pago</Label>
             <Input placeholder="Ej: negocio.reiki.mp" value={salonForm.paymentAlias}
               onChange={e => setSalonForm({ ...salonForm, paymentAlias: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Emoji del negocio <span className="text-xs text-muted-foreground">(se muestra en los mensajes de WhatsApp)</span></Label>
+            <Input placeholder="Ej: 💆 ✂️ 💅 🧴 🏋️" value={salonForm.whatsappEmoji}
+              onChange={e => setSalonForm({ ...salonForm, whatsappEmoji: e.target.value })} className="text-xl w-24" maxLength={4} />
+            <p className="text-xs text-muted-foreground">Pegá un emoji que represente tu negocio.</p>
           </div>
           <Button onClick={handleSalonUpdate} disabled={isSaving} variant="secondary">
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Guardar Número
