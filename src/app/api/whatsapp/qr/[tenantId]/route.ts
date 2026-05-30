@@ -27,6 +27,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ ten
   }
 
   const data = await res.json();
-  // data.base64 contiene el QR en base64
-  return NextResponse.json(data);
+  // Evolution API devuelve { qrcode: { base64: 'data:image/png;base64,...' } }
+  return NextResponse.json({ base64: data.qrcode?.base64 || null });
 }
