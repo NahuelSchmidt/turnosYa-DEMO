@@ -91,6 +91,31 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
 
     if (id) {
       toast({ title: "Turno creado", description: `Turno para ${customerName} agendado correctamente.` });
+
+      // Enviar WhatsApp de confirmación al cliente si tiene teléfono
+      if (customerPhone) {
+        const formattedDate = format(startTime, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
+        const serviceName = selectedService?.name || '';
+        const professional = professionals.find(p => p.id === selectedProfessionalId);
+        const turnoLink = `${window.location.origin}/turno/${id}`;
+        const message = `*Turno Confirmado* ✅\n\nHola ${customerName}! Tu turno esta confirmado:\n\n🗓 ${formattedDate}\n📋 ${serviceName}${professional ? `\n👤 Con ${professional.name}` : ''}\n\nGestioná tu turno: ${turnoLink}\n\n¡Te esperamos!`;
+
+        fetch('/api/whatsapp/send-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: customerPhone,
+            message,
+            tenantId,
+            customerName,
+            customerPhone,
+            appointmentDate: formattedDate,
+            serviceNames: serviceName,
+            professionalName: professional?.name,
+          }),
+        });
+      }
+
       handleClose();
     } else {
       toast({ variant: "destructive", title: "Error al crear el turno" });

@@ -420,6 +420,22 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
   const handleUpdate = (id: string, status: AppStatus) => {
     setLocalOverrides(prev => ({ ...prev, [id]: status }));
     if (updateAppointmentStatus) updateAppointmentStatus(id, status);
+
+    // Si el dueño cancela, notificar al cliente automáticamente
+    if (status === 'cancelled') {
+      const apt = agenda.find(a => a.id === id);
+      if (apt?.customerPhone) {
+        const dateObj = parseFirestoreDate(apt.startTime);
+        const formattedDate = format(dateObj, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
+        const serviceNames = apt.services.map((s: any) => s?.name).join(', ');
+        const message = `❌ *Turno Cancelado*\n\nHola ${apt.customerName}, lamentablemente tu turno del ${formattedDate} fue cancelado.\n\n📋 ${serviceNames}\n\nPodés sacar un nuevo turno cuando quieras. ¡Disculpá las molestias!`;
+        fetch('/api/whatsapp/send-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: apt.customerPhone, message, tenantId }),
+        });
+      }
+    }
   };
 
   if (loading) {
