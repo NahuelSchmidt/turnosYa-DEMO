@@ -75,7 +75,7 @@ function ConfirmationContent() {
       : `\n\nPara ver, cancelar o reprogramar tu turno, hace clic aca:\n${turnoLink}`;
     const aliasLine = (salon as any)?.paymentAlias ? `\n\n💳 Para abonar, usa el siguiente alias: ${(salon as any).paymentAlias}` : '';
 
-    const message = `*Turno Confirmado* ✅\n\nHola ${customerName}! Tu turno esta confirmado:\n\n🗓 ${formattedDate}\n💈 ${serviceNames}${professional ? `\nCon ${professional.name}` : ''}${ubicacionLine}${cancelLine}${aliasLine}\n\n¡Te esperamos!`;
+    const message = `*Turno Confirmado* ✅\n\nHola ${customerName}! Tu turno esta confirmado:\n\n🗓 ${formattedDate}\n📋 ${serviceNames}${professional ? `\nCon ${professional.name}` : ''}${ubicacionLine}${cancelLine}${aliasLine}\n\n¡Te esperamos!`;
 
     setWaSent(true);
 
