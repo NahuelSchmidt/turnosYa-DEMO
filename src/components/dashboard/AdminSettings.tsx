@@ -74,7 +74,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [salonForm, setSalonForm] = useState({ name: "", primaryColor: "#000000", whatsappNumber: "", address: "", paymentAlias: "", evolutionInstanceName: "", whatsappEmoji: "" });
+  const [salonForm, setSalonForm] = useState({ name: "", primaryColor: "#000000", whatsappNumber: "", address: "", paymentAlias: "", evolutionInstanceName: "", whatsappEmoji: "", description: "", coverImageUrl: "" });
 
   // Horarios por día
   const [weekSchedule, setWeekSchedule] = useState<Record<string, DaySchedule>>(
@@ -103,6 +103,8 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
         paymentAlias: (salon as any).paymentAlias || "",
         evolutionInstanceName: (salon as any).evolutionInstanceName || "",
         whatsappEmoji: (salon as any).whatsappEmoji || "",
+        description: (salon as any).description || "",
+        coverImageUrl: (salon as any).coverImageUrl || "",
       });
       if (salon.weekSchedule) {
         setWeekSchedule(salon.weekSchedule);
@@ -274,6 +276,21 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
             <Input value={salonForm.name} onChange={e => setSalonForm({ ...salonForm, name: e.target.value })} />
           </div>
           <div className="space-y-2">
+            <Label>Descripción <span className="text-xs text-muted-foreground">(se muestra en tu página de perfil)</span></Label>
+            <textarea
+              placeholder="Ej: Somos un centro de estética especializado en tratamientos faciales y corporales..."
+              value={salonForm.description}
+              onChange={e => setSalonForm({ ...salonForm, description: e.target.value })}
+              rows={3}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Imagen de portada <span className="text-xs text-muted-foreground">(URL de imagen)</span></Label>
+            <Input placeholder="https://..." value={salonForm.coverImageUrl} onChange={e => setSalonForm({ ...salonForm, coverImageUrl: e.target.value })} />
+            <p className="text-xs text-muted-foreground">Pegá el link de una foto para la portada de tu perfil público.</p>
+          </div>
+          <div className="space-y-2">
             <Label>Dirección / Ubicación</Label>
             <Input placeholder="Ej: Av. Corrientes 1234, Buenos Aires" value={salonForm.address} onChange={e => setSalonForm({ ...salonForm, address: e.target.value })} />
             <p className="text-xs text-muted-foreground">Se muestra al cliente en la confirmación y en el mensaje de WhatsApp.</p>
@@ -357,6 +374,22 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
           <Button onClick={handleSalonUpdate} disabled={isSaving} variant="secondary">
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Guardar Número
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* ── PERFIL PÚBLICO ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><ExternalLink className="w-5 h-5 text-primary" /> Tu Página de Perfil</CardTitle>
+          <CardDescription>Página pública con info del negocio, servicios y reseñas.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input readOnly value={typeof window !== "undefined" ? `${window.location.origin}/negocio/${tenantId}` : ""} className="bg-background font-mono text-xs h-11" />
+            <Button variant="outline" asChild className="h-11">
+              <a href={`/negocio/${tenantId}`} target="_blank"><ExternalLink className="w-4 h-4 mr-2" /> Ver perfil</a>
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
