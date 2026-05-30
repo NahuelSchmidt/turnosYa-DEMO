@@ -71,7 +71,7 @@ export function Header() {
       <div className="container flex h-16 items-center mx-auto px-4">
         <div className="mr-auto flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2.5 font-bold group">
-            <Image src="/logo.png" alt="Turnify" width={36} height={36} className="transition-transform group-hover:scale-110 object-contain" />
+            <Image src="/logo.png" alt="Turnify" width={52} height={52} className="transition-transform group-hover:scale-110 object-contain" />
             <span style={{ fontFamily: 'PT Sans, sans-serif', letterSpacing: '0.05em', fontSize: '1.2rem', fontWeight: 700 }}>Turnify</span>
           </Link>
         </div>
