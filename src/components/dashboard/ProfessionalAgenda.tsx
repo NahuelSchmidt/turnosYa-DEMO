@@ -428,7 +428,8 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
         const dateObj = parseFirestoreDate(apt.startTime);
         const formattedDate = format(dateObj, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
         const serviceNames = apt.services.map((s: any) => s?.name).join(', ');
-        const message = `❌ *Turno Cancelado*\n\nHola ${apt.customerName}, lamentablemente tu turno del ${formattedDate} fue cancelado.\n\n📋 ${serviceNames}\n\nPodés sacar un nuevo turno cuando quieras. ¡Disculpá las molestias!`;
+        const bookLink = `${window.location.origin}/book/${tenantId}`;
+        const message = `❌ *Turno Cancelado*\n\nHola ${apt.customerName}, lamentablemente tu turno del ${formattedDate} fue cancelado.\n\n📋 ${serviceNames}\n\nPodés sacar un nuevo turno cuando quieras acá:\n${bookLink}\n\n¡Disculpá las molestias!`;
         fetch('/api/whatsapp/send-confirmation', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
