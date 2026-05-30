@@ -110,7 +110,7 @@ export default function TimeSlotPicker({
                       variant={isSelected ? "default" : "outline"}
                       onClick={() => !isDisabled && onSelectTime(slot)}
                       disabled={isDisabled}
-                      className={isDisabled ? "opacity-40 cursor-not-allowed line-through text-muted-foreground" : ""}
+                      className={`w-full ${isDisabled ? "opacity-40 cursor-not-allowed line-through text-muted-foreground" : ""}`}
                     >
                       {slot}
                     </Button>
