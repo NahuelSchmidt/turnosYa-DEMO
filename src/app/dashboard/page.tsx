@@ -20,9 +20,11 @@ import { signInWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopu
 import { collection, query, where } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAppointments } from "@/hooks/use-appointments";
+import { useServices } from "@/hooks/use-services";
 import { format, subMonths, startOfMonth, endOfMonth, isToday } from "date-fns";
 import { es } from "date-fns/locale";
 import { parseFirestoreDate } from "@/lib/utils";
+import { Trophy, Clock, Star, TrendingUp } from "lucide-react";
 
 const chartConfig = {
   Ingresos: { label: "Ingresos ($)", color: "hsl(var(--primary))" },
@@ -97,6 +99,152 @@ function StatsSection({ tenantId }: { tenantId: string }) {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+function AdvancedStatsSection({ tenantId }: { tenantId: string }) {
+  const { appointments, loading } = useAppointments(tenantId);
+  const { services } = useServices(tenantId);
+
+  const { topClients, topServices, peakHours, peakDays } = useMemo(() => {
+    if (loading || !appointments.length) return { topClients: [], topServices: [], peakHours: [], peakDays: [] };
+
+    const confirmed = appointments.filter(a =>
+      a.status === 'confirmed' || a.status === 'completed'
+    );
+
+    // Top clientes
+    const clientMap: Record<string, { name: string; count: number; total: number }> = {};
+    confirmed.forEach(a => {
+      const key = a.customerPhone || a.customerName;
+      if (!clientMap[key]) clientMap[key] = { name: a.customerName, count: 0, total: 0 };
+      clientMap[key].count++;
+      clientMap[key].total += a.total || 0;
+    });
+    const topClients = Object.values(clientMap).sort((a, b) => b.count - a.count).slice(0, 5);
+
+    // Servicios más pedidos
+    const serviceMap: Record<string, { name: string; count: number }> = {};
+    confirmed.forEach(a => {
+      (a.serviceIds || []).forEach((id: string) => {
+        const svc = services?.find(s => s.id === id);
+        const name = svc?.name || id;
+        if (!serviceMap[id]) serviceMap[id] = { name, count: 0 };
+        serviceMap[id].count++;
+      });
+    });
+    const topServices = Object.values(serviceMap).sort((a, b) => b.count - a.count).slice(0, 5);
+
+    // Horas pico
+    const hourMap: Record<number, number> = {};
+    confirmed.forEach(a => {
+      const h = parseFirestoreDate(a.startTime).getHours();
+      hourMap[h] = (hourMap[h] || 0) + 1;
+    });
+    const peakHours = Object.entries(hourMap)
+      .map(([h, count]) => ({ hour: `${h}:00`, count }))
+      .sort((a, b) => b.count - a.count).slice(0, 5);
+
+    // Días más ocupados
+    const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const dayMap: Record<number, number> = {};
+    confirmed.forEach(a => {
+      const d = parseFirestoreDate(a.startTime).getDay();
+      dayMap[d] = (dayMap[d] || 0) + 1;
+    });
+    const peakDays = Object.entries(dayMap)
+      .map(([d, count]) => ({ day: DIAS[Number(d)], count }))
+      .sort((a, b) => b.count - a.count).slice(0, 5);
+
+    return { topClients, topServices, peakHours, peakDays };
+  }, [appointments, services, loading]);
+
+  if (loading) return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+
+  return (
+    <div className="grid gap-6 mt-6">
+      <h3 className="text-lg font-bold flex items-center gap-2"><TrendingUp className="w-5 h-5 text-primary" /> Estadísticas Avanzadas</h3>
+      <div className="grid md:grid-cols-2 gap-6">
+
+        {/* Top clientes */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><Trophy className="w-4 h-4 text-primary" /> Clientes más frecuentes</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {topClients.length === 0 ? <p className="text-sm text-muted-foreground">Sin datos aún.</p> : topClients.map((c, i) => (
+              <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-muted-foreground w-5">#{i + 1}</span>
+                  <span className="text-sm font-bold truncate">{c.name}</span>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xs font-bold">{c.count} turno{c.count !== 1 ? 's' : ''}</p>
+                  <p className="text-xs text-muted-foreground">${c.total.toLocaleString('es-AR')}</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Servicios más pedidos */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><Star className="w-4 h-4 text-primary" /> Servicios más pedidos</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {topServices.length === 0 ? <p className="text-sm text-muted-foreground">Sin datos aún.</p> : topServices.map((s, i) => (
+              <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-muted-foreground w-5">#{i + 1}</span>
+                  <span className="text-sm font-bold truncate">{s.name}</span>
+                </div>
+                <span className="text-xs font-bold shrink-0">{s.count} vece{s.count !== 1 ? 's' : 'z'}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Horas pico */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><Clock className="w-4 h-4 text-primary" /> Horas pico</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {peakHours.length === 0 ? <p className="text-sm text-muted-foreground">Sin datos aún.</p> : peakHours.map((h, i) => (
+              <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+                <span className="text-xs font-black text-muted-foreground w-5">#{i + 1}</span>
+                <span className="text-sm font-bold">{h.hour}hs</span>
+                <div className="flex-1 bg-muted rounded-full h-2">
+                  <div className="bg-primary h-2 rounded-full" style={{ width: `${(h.count / peakHours[0].count) * 100}%` }} />
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">{h.count}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Días más ocupados */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><Calendar className="w-4 h-4 text-primary" /> Días más ocupados</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {peakDays.length === 0 ? <p className="text-sm text-muted-foreground">Sin datos aún.</p> : peakDays.map((d, i) => (
+              <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+                <span className="text-xs font-black text-muted-foreground w-5">#{i + 1}</span>
+                <span className="text-sm font-bold">{d.day}</span>
+                <div className="flex-1 bg-muted rounded-full h-2">
+                  <div className="bg-primary h-2 rounded-full" style={{ width: `${(d.count / peakDays[0].count) * 100}%` }} />
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">{d.count}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+      </div>
     </div>
   );
 }
@@ -230,9 +378,17 @@ export default function DashboardPage() {
               </TabsList>
               <TabsContent value="agenda"><ProfessionalAgenda tenantId={tenantId} /></TabsContent>
               <TabsContent value="stats">
-                {features.hasMetrics
-                  ? <StatsSection tenantId={tenantId} />
-                  : <LockedFeature featureName="Métricas y Estadísticas" requiredPlan="pro" />}
+                {features.hasMetrics ? (
+                  <>
+                    <StatsSection tenantId={tenantId} />
+                    {plan === 'premium'
+                      ? <AdvancedStatsSection tenantId={tenantId} />
+                      : <LockedFeature featureName="Estadísticas Avanzadas (clientes frecuentes, servicios más pedidos, horas pico)" requiredPlan="premium" />
+                    }
+                  </>
+                ) : (
+                  <LockedFeature featureName="Métricas y Estadísticas" requiredPlan="pro" />
+                )}
               </TabsContent>
               <TabsContent value="settings"><AdminSettings tenantId={tenantId} /></TabsContent>
             </Tabs>
