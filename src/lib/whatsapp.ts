@@ -21,7 +21,9 @@ export async function sendWhatsAppMessage(
     return false;
   }
 
-  const chatId = phone.replace(/\D/g, '');
+  let chatId = phone.replace(/\D/g, '');
+  // Agregar código de país Argentina si no tiene prefijo internacional
+  if (chatId.length <= 10) chatId = '54' + chatId;
 
   try {
     const res = await fetch(`${EVOLUTION_URL}/message/sendText/${instanceName}`, {
