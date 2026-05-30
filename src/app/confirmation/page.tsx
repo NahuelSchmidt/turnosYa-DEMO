@@ -83,7 +83,16 @@ function ConfirmationContent() {
     fetch('/api/whatsapp/send-confirmation', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: customerPhone, message, tenantId }),
+      body: JSON.stringify({
+        phone: customerPhone,
+        message,
+        tenantId,
+        customerName,
+        customerPhone,
+        appointmentDate: formattedDate,
+        serviceNames,
+        professionalName: professional?.name,
+      }),
     }).then(res => {
       if (!res.ok) {
         // Fallback: abrir wa.me si la API no está configurada

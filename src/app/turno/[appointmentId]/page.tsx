@@ -89,12 +89,18 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
     updateDocumentNonBlocking(doc(db, "appointments", appointmentId), { status: "cancelled", updatedAt: serverTimestamp() });
     setCancelled(true);
 
-    if (salon?.whatsappNumber) {
-      const msg = encodeURIComponent(
-        `Hola! ${apt.customerName} canceló su turno del ${format(dateObj, "dd/MM 'a las' HH:mm'hs'", { locale: es })} (${aptServices.map((s: any) => s?.name).join(", ")}).`
-      );
-      setTimeout(() => window.open(`https://wa.me/${salon.whatsappNumber}?text=${msg}`, "_blank"), 400);
-    }
+    // Notificar al negocio automáticamente
+    fetch('/api/whatsapp/notify-cancellation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tenantId,
+        customerName: apt.customerName,
+        customerPhone: apt.customerPhone,
+        appointmentDate: format(dateObj, "dd/MM 'a las' HH:mm'hs'", { locale: es }),
+        serviceNames: aptServices.map((s: any) => s?.name).join(", "),
+      }),
+    });
   };
 
   return (
@@ -171,11 +177,9 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
                     <AlertDialogTitle>¿Cancelar tu turno?</AlertDialogTitle>
                     <AlertDialogDescription>
                       Esta acción no se puede deshacer. El horario volverá a estar disponible.
-                      {salon?.whatsappNumber && (
-                        <span className="flex items-center gap-1.5 mt-3 text-[#25D366] font-medium">
-                          <MessageCircle className="w-4 h-4" /> Se avisará al negocio automáticamente.
-                        </span>
-                      )}
+                      <span className="flex items-center gap-1.5 mt-3 text-[#25D366] font-medium">
+                        <MessageCircle className="w-4 h-4" /> Se avisará al negocio automáticamente.
+                      </span>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
