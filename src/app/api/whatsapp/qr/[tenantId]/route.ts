@@ -27,6 +27,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ ten
   }
 
   const data = await res.json();
-  // Evolution API devuelve { qrcode: { base64: 'data:image/png;base64,...' } }
-  return NextResponse.json({ base64: data.qrcode?.base64 || null });
+  // Evolution API devuelve { base64: 'data:image/png;base64,...', count: N }
+  return NextResponse.json({ base64: data.base64 || null });
 }
