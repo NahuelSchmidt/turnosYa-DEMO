@@ -70,9 +70,8 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center mx-auto px-4">
         <div className="mr-auto flex items-center gap-2">
-          <Link href="/" className="flex items-center gap-2 font-bold group">
-            <Image src="/logo.png" alt="Turnify" width={28} height={28} className="transition-transform group-hover:scale-110" />
-            <span className="font-headline text-lg tracking-tighter">Turnify</span>
+          <Link href="/" className="flex items-center font-bold group">
+            <Image src="/logo.png" alt="Turnify" width={120} height={40} className="transition-transform group-hover:scale-105 object-contain" />
           </Link>
         </div>
 
@@ -121,8 +120,7 @@ export function Header() {
             <SheetContent side="left" className="rounded-r-3xl">
               <div className="flex flex-col gap-8 pt-10">
                 <Link href="/" className="flex items-center gap-3 font-bold px-2">
-                  <Image src="/logo.png" alt="Turnify" width={32} height={32} />
-                  <span className="font-headline text-2xl tracking-tighter">Turnify</span>
+                  <Image src="/logo.png" alt="Turnify" width={140} height={48} className="object-contain" />
                 </Link>
                 {isRealUser && plan && (
                   <div className="px-2">
