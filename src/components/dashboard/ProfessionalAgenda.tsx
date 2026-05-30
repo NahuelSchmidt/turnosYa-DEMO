@@ -310,14 +310,14 @@ function GridView({ agenda, onUpdate, tenantId }: {
         <Button variant="outline" size="sm" onClick={() => setWeekOffset(o => o + 1)}><ChevronRight className="w-4 h-4" /></Button>
       </div>
       <div className="overflow-x-auto rounded-xl border">
-        <table className="w-full min-w-[700px] border-collapse text-sm">
+        <table className="w-full min-w-[700px] border-collapse text-xs">
           <thead>
             <tr className="border-b bg-muted/40">
-              <th className="w-16 p-3"></th>
+              <th className="w-12 p-1.5"></th>
               {weekDays.map((day, i) => (
-                <th key={i} className={cn("p-3 font-bold text-center text-xs uppercase tracking-wider", isToday(day) ? 'text-primary' : 'text-muted-foreground')}>
+                <th key={i} className={cn("p-1.5 font-bold text-center text-[10px] uppercase tracking-wider", isToday(day) ? 'text-primary' : 'text-muted-foreground')}>
                   <div>{DAYS_LABELS[i]}</div>
-                  <div className={cn("text-lg font-black mt-0.5", isToday(day) ? 'text-primary' : 'text-foreground')}>{format(day, 'd')}</div>
+                  <div className={cn("text-sm font-black mt-0.5", isToday(day) ? 'text-primary' : 'text-foreground')}>{format(day, 'd')}</div>
                 </th>
               ))}
             </tr>
@@ -325,22 +325,22 @@ function GridView({ agenda, onUpdate, tenantId }: {
           <tbody>
             {HOURS.map(hour => (
               <tr key={hour} className="border-b last:border-0">
-                <td className="p-3 text-xs text-muted-foreground font-mono text-right pr-4 align-top pt-3.5">{hour}</td>
+                <td className="p-1 text-[10px] text-muted-foreground font-mono text-right pr-2 align-top pt-2">{hour}</td>
                 {weekDays.map((day, i) => {
                   const apts = getAptsForCell(day, hour);
                   return (
-                    <td key={i} className={cn("p-1.5 align-top border-l", isToday(day) ? 'bg-primary/3' : '')}>
-                      <div className="space-y-1">
+                    <td key={i} className={cn("p-1 align-top border-l", isToday(day) ? 'bg-primary/3' : '')}>
+                      <div className="space-y-0.5">
                       {apts.map(apt => {
                         const status = (apt.status as AppStatus) || 'confirmed';
                         const cfg = STATUS_CONFIG[status];
                         return (
-                          <div key={apt.id} className={cn("rounded-lg border-l-4 p-2 text-xs", cfg.cardClass, cfg.borderClass)}>
-                            <p className={cn("font-black text-sm leading-none mb-1", cfg.timeClass)}>
+                          <div key={apt.id} className={cn("rounded border-l-4 p-1 text-[10px]", cfg.cardClass, cfg.borderClass)}>
+                            <p className={cn("font-black text-xs leading-none mb-0.5", cfg.timeClass)}>
                               {format(parseFirestoreDate(apt.startTime), 'HH:mm')}
                             </p>
                             <p className="font-bold truncate">{apt.customerName}</p>
-                            <p className="text-muted-foreground truncate text-[10px]">{apt.services.map(s => s.name).join(', ')}</p>
+                            <p className="text-muted-foreground truncate text-[9px]">{apt.services.map(s => s.name).join(', ')}</p>
                             <div className="mt-2 flex gap-1 flex-wrap">
                               {apt.customerPhone && (
                                 <a href={`https://wa.me/549${apt.customerPhone.replace(/\D/g,'')}?text=${encodeURIComponent(`Hola ${apt.customerName}! Te recuerdo tu turno para el ${format(parseFirestoreDate(apt.startTime), "dd/MM 'a las' HH:mm'hs'", {locale: es})}.`)}`}
