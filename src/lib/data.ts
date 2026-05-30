@@ -74,6 +74,8 @@ export interface Appointment {
   customerPhone: string;
   paymentMethod?: string;
   createdAt?: any;
+  reminderSent24h?: boolean;
+  reminderSentSameDay?: boolean;
 }
 
 export const initialServices: Service[] = [

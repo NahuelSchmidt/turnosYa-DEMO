@@ -78,9 +78,20 @@ function ConfirmationContent() {
     const message = `*Turno Confirmado* ✅\n\nHola ${customerName}! Tu turno esta confirmado:\n\n🗓 ${formattedDate}\n💈 ${serviceNames}${professional ? `\nCon ${professional.name}` : ''}${ubicacionLine}${cancelLine}${aliasLine}\n\n¡Te esperamos!`;
 
     setWaSent(true);
-    setTimeout(() => {
+
+    // Intentar envío automático vía API
+    fetch('/api/whatsapp/send-confirmation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: customerPhone, message, tenantId }),
+    }).then(res => {
+      if (!res.ok) {
+        // Fallback: abrir wa.me si la API no está configurada
+        window.open(`https://wa.me/${customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, "_blank");
+      }
+    }).catch(() => {
       window.open(`https://wa.me/${customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, "_blank");
-    }, 800);
+    });
   }, [appointment, salon, waSent]);
 
   if (loading || !appointment) {

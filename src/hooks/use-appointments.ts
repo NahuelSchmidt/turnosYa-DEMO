@@ -84,6 +84,8 @@ export function useAppointments(tenantId: string = 'default') {
       salonId: tenantId,
       customerId: user.uid,
       status: 'confirmed',
+      reminderSent24h: false,
+      reminderSentSameDay: false,
       createdAt: serverTimestamp(),
     }, { merge: true });
 
