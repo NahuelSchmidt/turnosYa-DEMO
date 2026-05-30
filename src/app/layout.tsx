@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 
 export const metadata: Metadata = {
-  title: "TurnosYa - Gestión Inteligente de Citas para tu Negocio",
+  title: "Turnifly - Gestión Inteligente de Citas para tu Negocio",
   description:
     "La forma más fácil de agendar, gestionar y cobrar turnos para cualquier tipo de servicio profesional.",
 };

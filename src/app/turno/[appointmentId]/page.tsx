@@ -21,7 +21,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-const PROD_DOMAIN = 'https://saas-turnos-ya.vercel.app';
+const PROD_DOMAIN = 'https://turnos-ya-demo.vercel.app';
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   confirmed: { label: "Confirmado",  color: "bg-green-100 text-green-700 border-green-200" },

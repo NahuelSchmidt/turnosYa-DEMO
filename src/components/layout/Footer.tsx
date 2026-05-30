@@ -9,7 +9,7 @@ export function Footer() {
           <div className="flex flex-col gap-4">
             <Link href="/" className="flex items-center gap-2 font-bold">
               <CalendarCheck className="h-6 w-6 text-primary" />
-              <span className="font-headline text-xl">TurnosYa</span>
+              <span className="font-headline text-xl">Turnifly</span>
             </Link>
             <p className="text-muted-foreground text-sm max-w-xs leading-relaxed">
               La plataforma para que profesionales independientes gestionen sus turnos, servicios y clientes de forma automatizada y profesional.

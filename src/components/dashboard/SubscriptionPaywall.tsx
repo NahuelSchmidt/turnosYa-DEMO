@@ -33,7 +33,7 @@ export function SubscriptionPaywall({ salonId, salonName }: SubscriptionPaywallP
       
       toast({
         title: "¡Suscripción Activada!",
-        description: "Bienvenido a TurnosYa Pro. Tu acceso ha sido habilitado.",
+        description: "Bienvenido a Turnifly Pro. Tu acceso ha sido habilitado.",
       });
       setIsLoading(false);
     }, 2000);

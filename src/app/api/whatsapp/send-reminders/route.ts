@@ -12,7 +12,7 @@ function isAuthorized(req: NextRequest): boolean {
   return auth === secret;
 }
 
-const PROD_DOMAIN = 'https://saas-turnos-ya.vercel.app';
+const PROD_DOMAIN = 'https://turnos-ya-demo.vercel.app';
 
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {

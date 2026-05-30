@@ -29,7 +29,7 @@ interface PopulatedAppointment extends Omit<Appointment, 'serviceIds' | 'profess
 
 interface ProfessionalAgendaProps { tenantId: string; }
 
-const PROD_DOMAIN = 'https://saas-turnos-ya.vercel.app';
+const PROD_DOMAIN = 'https://turnos-ya-demo.vercel.app';
 
 const STATUS_CONFIG: Record<AppStatus, { label: string; cardClass: string; borderClass: string; badgeClass: string; timeClass: string; icon: any }> = {
   confirmed:  {

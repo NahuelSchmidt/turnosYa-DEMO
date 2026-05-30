@@ -23,7 +23,7 @@ interface PopulatedAppointment extends Omit<Appointment, 'serviceIds' | 'profess
 }
 
 // Dominio real de producción — cambiá si cambia el dominio
-const PROD_DOMAIN = 'https://saas-turnos-ya.vercel.app';
+const PROD_DOMAIN = 'https://turnos-ya-demo.vercel.app';
 
 function getTurnoLink(appointmentId: string) {
   const host = typeof window !== 'undefined' ? window.location.origin : PROD_DOMAIN;

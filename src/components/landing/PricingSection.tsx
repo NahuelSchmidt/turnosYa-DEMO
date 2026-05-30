@@ -26,7 +26,7 @@ const PLANS = [
       "Soporte por email",
       "✓ Sin costo de configuración",
     ],
-    waMsg: "Hola! Me interesa el Plan Basic de TurnosYa. ¿Cómo arranco?",
+    waMsg: "Hola! Me interesa el Plan Basic de Turnifly. ¿Cómo arranco?",
     btnLabel: "Empezar con Basic",
   },
   {
@@ -52,7 +52,7 @@ const PLANS = [
       "Soporte por WhatsApp",
       "+ Pago único de configuración",
     ],
-    waMsg: "Hola! Me interesa el Plan Pro de TurnosYa. ¿Cómo arranco?",
+    waMsg: "Hola! Me interesa el Plan Pro de Turnifly. ¿Cómo arranco?",
     btnLabel: "Empezar con Pro",
   },
   {
@@ -75,7 +75,7 @@ const PLANS = [
       "Soporte VIP prioritario por WhatsApp",
       "+ Pago único de configuración y capacitación",
     ],
-    waMsg: "Hola! Me interesa el Plan Premium de TurnosYa. ¿Cómo arranco?",
+    waMsg: "Hola! Me interesa el Plan Premium de Turnifly. ¿Cómo arranco?",
     btnLabel: "Empezar con Premium",
   },
 ];
