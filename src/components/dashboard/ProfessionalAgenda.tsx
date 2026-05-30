@@ -341,7 +341,7 @@ function GridView({ agenda, onUpdate, tenantId }: {
                             </p>
                             <p className="font-bold truncate">{apt.customerName}</p>
                             <p className="text-muted-foreground truncate text-[9px]">{apt.services.map(s => s.name).join(', ')}</p>
-                            <div className="mt-2 flex gap-1 flex-wrap">
+                            <div className="mt-1 flex gap-1 flex-wrap items-center">
                               {apt.customerPhone && (
                                 <a href={`https://wa.me/549${apt.customerPhone.replace(/\D/g,'')}?text=${encodeURIComponent(`Hola ${apt.customerName}! Te recuerdo tu turno para el ${format(parseFirestoreDate(apt.startTime), "dd/MM 'a las' HH:mm'hs'", {locale: es})}.`)}`}
                                   target="_blank" rel="noopener noreferrer"
@@ -349,20 +349,23 @@ function GridView({ agenda, onUpdate, tenantId }: {
                                   <MessageCircle className="w-2.5 h-2.5" /> WA
                                 </a>
                               )}
+                              {apt.status === 'confirmed' && (
+                                <button
+                                  onClick={() => onUpdate(apt.id, 'cancelled')}
+                                  className="text-[9px] text-red-500 hover:underline ml-auto"
+                                >
+                                  ✕ Cancelar
+                                </button>
+                              )}
+                              {apt.status === 'confirmed' && (
+                                <button
+                                  onClick={() => onUpdate(apt.id, 'completed')}
+                                  className="text-[9px] text-green-600 hover:underline"
+                                >
+                                  ✓ Listo
+                                </button>
+                              )}
                             </div>
-                            <select
-                              value={apt.status}
-                              onChange={e => {
-                                const val = e.target.value;
-                                onUpdate(apt.id, val as AppStatus);
-                              }}
-                              className="mt-1.5 w-full text-[9px] rounded border border-input bg-background px-1 py-0.5"
-                            >
-                              <option value="confirmed">Pendiente</option>
-                              <option value="completed">Completado</option>
-                              <option value="no-show">No asistió</option>
-                              <option value="cancelled">Cancelar turno</option>
-                            </select>
                           </div>
                         );
                       })}
