@@ -10,9 +10,9 @@ import { Badge } from "@/components/ui/badge";
 
 // ← TU número real sin el +
 const PHONE = "542216229441";
-const WHATSAPP_MSG = encodeURIComponent("Hola! Quiero saber más sobre Turnifly para mi negocio.");
+const WHATSAPP_MSG = encodeURIComponent("Hola! Quiero saber más sobre Turnify para mi negocio.");
 const WHATSAPP_URL = `https://wa.me/${PHONE}?text=${WHATSAPP_MSG}`;
-const COMBO_MSG = encodeURIComponent("Hola! Quiero consultar sobre combos y ofertas especiales de Turnifly.");
+const COMBO_MSG = encodeURIComponent("Hola! Quiero consultar sobre combos y ofertas especiales de Turnify.");
 const COMBO_URL = `https://wa.me/${PHONE}?text=${COMBO_MSG}`;
 
 const STEPS = [

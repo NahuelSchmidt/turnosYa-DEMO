@@ -76,7 +76,7 @@ const FEATURES = [
         <div className="flex items-end gap-2">
           <div className="w-7 h-7 rounded-full bg-[#25D366] flex items-center justify-center text-white text-xs font-bold shrink-0">TY</div>
           <div className="bg-white rounded-2xl rounded-bl-none p-3 shadow-sm max-w-[90%]">
-            <p className="text-[10px] text-[#25D366] font-bold mb-1">Turnifly</p>
+            <p className="text-[10px] text-[#25D366] font-bold mb-1">Turnify</p>
             <p className="text-xs font-bold text-gray-800">Turno Confirmado ✅</p>
             <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">
               Hola María! Tu turno:<br/>

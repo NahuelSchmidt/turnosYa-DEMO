@@ -71,7 +71,7 @@ export function Header() {
         <div className="mr-auto flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2 font-bold group">
             <CalendarCheck className="h-6 w-6 text-primary transition-transform group-hover:scale-110" />
-            <span className="font-headline text-lg tracking-tighter">Turnifly</span>
+            <span className="font-headline text-lg tracking-tighter">Turnify</span>
           </Link>
         </div>
 
@@ -121,7 +121,7 @@ export function Header() {
               <div className="flex flex-col gap-8 pt-10">
                 <Link href="/" className="flex items-center gap-3 font-bold px-2">
                   <CalendarCheck className="h-8 w-8 text-primary" />
-                  <span className="font-headline text-2xl tracking-tighter">Turnifly</span>
+                  <span className="font-headline text-2xl tracking-tighter">Turnify</span>
                 </Link>
                 {isRealUser && plan && (
                   <div className="px-2">
