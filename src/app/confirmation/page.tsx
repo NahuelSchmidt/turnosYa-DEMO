@@ -94,9 +94,10 @@ function ConfirmationContent() {
         serviceNames,
         professionalName: professional?.name,
       }),
-    }).then(res => {
-      if (!res.ok) {
-        // Fallback: abrir wa.me si la API no está configurada
+    }).then(async res => {
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.sent) {
+        // Fallback: abrir wa.me si el envío automático falló
         window.open(`https://wa.me/${customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, "_blank");
       }
     }).catch(() => {
