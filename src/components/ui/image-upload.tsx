@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, X, Loader2 } from "lucide-react";
 
@@ -10,76 +10,63 @@ interface ImageUploadProps {
   label?: string;
 }
 
-declare global {
-  interface Window {
-    cloudinary: any;
-  }
+const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+function loadCloudinaryScript(): Promise<void> {
+  return new Promise((resolve) => {
+    if ((window as any).cloudinary) { resolve(); return; }
+    const existing = document.getElementById("cloudinary-script");
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "cloudinary-script";
+    script.src = "https://upload-widget.cloudinary.com/global/all.js";
+    script.onload = () => resolve();
+    document.body.appendChild(script);
+  });
 }
 
 export function ImageUpload({ value, onChange, label = "Subir imagen" }: ImageUploadProps) {
   const [loading, setLoading] = useState(false);
-  const widgetRef = useRef<any>(null);
 
-  useEffect(() => {
-    // Cargar el script de Cloudinary
-    if (!document.getElementById("cloudinary-script")) {
-      const script = document.createElement("script");
-      script.id = "cloudinary-script";
-      script.src = "https://upload-widget.cloudinary.com/global/all.js";
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  }, []);
-
-  const openWidget = () => {
+  const openWidget = async () => {
     setLoading(true);
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    try {
+      await loadCloudinaryScript();
 
-    if (!window.cloudinary) {
-      setLoading(false);
-      alert("El widget de Cloudinary no está listo. Intentá de nuevo en unos segundos.");
-      return;
-    }
-
-    widgetRef.current = window.cloudinary.createUploadWidget(
-      {
-        cloudName,
-        uploadPreset,
-        sources: ["local", "camera"],
-        multiple: false,
-        maxFileSize: 5000000, // 5MB
-        cropping: true,
-        croppingAspectRatio: 16 / 9,
-        language: "es",
-        text: {
-          es: {
-            or: "O",
-            back: "Volver",
-            close: "Cerrar",
-            crop: {
-              title: "Recortá tu imagen",
-              crop_btn: "Recortar",
-              skip_btn: "Usar original",
-            },
-            local: {
-              browse: "Elegir archivo",
-              dd_title_single: "Arrastrá tu foto acá",
-              drop_title_single: "Soltá la imagen",
-            },
-          },
+      const widget = (window as any).cloudinary.createUploadWidget(
+        {
+          cloudName: CLOUD_NAME,
+          uploadPreset: UPLOAD_PRESET,
+          sources: ["local", "camera", "url"],
+          multiple: false,
+          maxFileSize: 5000000,
+          cropping: false,
         },
-      },
-      (error: any, result: any) => {
-        setLoading(false);
-        if (!error && result?.event === "success") {
-          onChange(result.info.secure_url);
-          widgetRef.current?.close();
+        (error: any, result: any) => {
+          if (error) {
+            console.error("Cloudinary error:", error);
+            setLoading(false);
+            return;
+          }
+          if (result?.event === "success") {
+            onChange(result.info.secure_url);
+            setLoading(false);
+          }
+          if (result?.event === "close") {
+            setLoading(false);
+          }
         }
-      }
-    );
+      );
 
-    widgetRef.current.open();
+      widget.open();
+    } catch (e) {
+      console.error(e);
+      setLoading(false);
+    }
   };
 
   return (
@@ -96,11 +83,10 @@ export function ImageUpload({ value, onChange, label = "Subir imagen" }: ImageUp
         </div>
       )}
       <Button type="button" variant="outline" onClick={openWidget} disabled={loading} className="w-full">
-        {loading ? (
-          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Cargando...</>
-        ) : (
-          <><Upload className="w-4 h-4 mr-2" /> {value ? "Cambiar imagen" : label}</>
-        )}
+        {loading
+          ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Abriendo...</>
+          : <><Upload className="w-4 h-4 mr-2" /> {value ? "Cambiar imagen" : label}</>
+        }
       </Button>
     </div>
   );
