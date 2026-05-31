@@ -201,19 +201,36 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
   };
 
 
-  const [branchForm, setBranchForm] = useState({ name: "", address: "" });
+  const emptyBranchSchedule = Object.fromEntries(DIAS_KEY.map(d => [d, { enabled: false, slots: [] }]));
+  const [branchForm, setBranchForm] = useState({ name: "", address: "", professionalIds: [] as string[], weekSchedule: emptyBranchSchedule as Record<string, { enabled: boolean; slots: string[] }> });
   const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
+  const [newBranchSlotByDay, setNewBranchSlotByDay] = useState<Record<string, string>>(Object.fromEntries(DIAS_KEY.map(d => [d, ''])));
 
   const handleBranchSubmit = () => {
     if (!branchForm.name) return;
+    const data = { name: branchForm.name, address: branchForm.address, professionalIds: branchForm.professionalIds, weekSchedule: branchForm.weekSchedule };
     if (editingBranchId) {
-      updateBranch(editingBranchId, { name: branchForm.name, address: branchForm.address });
+      updateBranch(editingBranchId, data);
     } else {
-      addBranch({ name: branchForm.name, address: branchForm.address, professionalIds: [] });
+      addBranch(data);
     }
-    setBranchForm({ name: "", address: "" });
+    setBranchForm({ name: "", address: "", professionalIds: [], weekSchedule: emptyBranchSchedule });
     setEditingBranchId(null);
     toast({ title: editingBranchId ? "Sucursal actualizada" : "Sucursal agregada" });
+  };
+
+  const addSlotToBranchDay = (dayKey: string) => {
+    const slot = newBranchSlotByDay[dayKey];
+    if (!slot) return;
+    const match = slot.match(/^([0-9]{1,2}):([0-9]{2})$/);
+    if (!match) return;
+    const h = parseInt(match[1]); const m = parseInt(match[2]);
+    if (h > 23 || m > 59) return;
+    const normalized = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    const current = branchForm.weekSchedule[dayKey]?.slots || [];
+    if (current.includes(normalized)) return;
+    setBranchForm(prev => ({ ...prev, weekSchedule: { ...prev.weekSchedule, [dayKey]: { ...prev.weekSchedule[dayKey], slots: [...current, normalized].sort() } } }));
+    setNewBranchSlotByDay(prev => ({ ...prev, [dayKey]: '' }));
   };
 
   const copyToClipboard = () => {
@@ -794,7 +811,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
                     <div className="flex gap-1 shrink-0">
                       <Button variant="ghost" size="icon" onClick={() => {
                         setEditingBranchId(branch.id);
-                        setBranchForm({ name: branch.name, address: branch.address || "" });
+                        setBranchForm({ name: branch.name, address: branch.address || "", professionalIds: branch.professionalIds || [], weekSchedule: branch.weekSchedule || emptyBranchSchedule });
                       }}><Edit className="w-4 h-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => deleteBranch(branch.id)} className="text-destructive hover:text-destructive">
                         <Trash2 className="w-4 h-4" />
@@ -804,22 +821,102 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
                 ))}
               </div>
             )}
-            <div className="p-4 border rounded-xl bg-muted/10 space-y-3">
+            <div className="p-4 border rounded-xl bg-muted/10 space-y-4">
               <p className="text-sm font-bold">{editingBranchId ? "Editar Sucursal" : "Agregar Sucursal"}</p>
-              <div className="space-y-2">
-                <Label>Nombre</Label>
-                <Input placeholder="Ej: Sucursal Centro" value={branchForm.name} onChange={e => setBranchForm({ ...branchForm, name: e.target.value })} />
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label>Nombre</Label>
+                  <Input placeholder="Ej: Sucursal Centro" value={branchForm.name} onChange={e => setBranchForm({ ...branchForm, name: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Dirección <span className="text-xs text-muted-foreground">(opcional)</span></Label>
+                  <Input placeholder="Ej: Av. Corrientes 1234" value={branchForm.address} onChange={e => setBranchForm({ ...branchForm, address: e.target.value })} />
+                </div>
               </div>
+
+              {/* Profesionales */}
+              {(professionals || []).length > 0 && (
+                <div className="space-y-2">
+                  <Label>Profesionales de esta sucursal</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(professionals || []).map(p => (
+                      <label key={p.id} className="flex items-center gap-2 p-2 rounded-lg border cursor-pointer hover:bg-muted/20 transition-colors">
+                        <Checkbox
+                          checked={branchForm.professionalIds.includes(p.id)}
+                          onCheckedChange={checked => setBranchForm(prev => ({
+                            ...prev,
+                            professionalIds: checked
+                              ? [...prev.professionalIds, p.id]
+                              : prev.professionalIds.filter(id => id !== p.id)
+                          }))}
+                        />
+                        <span className="text-sm truncate">{(p as any).emoji || ''} {p.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Horarios por día */}
               <div className="space-y-2">
-                <Label>Dirección <span className="text-xs text-muted-foreground">(opcional)</span></Label>
-                <Input placeholder="Ej: Av. Corrientes 1234" value={branchForm.address} onChange={e => setBranchForm({ ...branchForm, address: e.target.value })} />
+                <Label>Horarios de esta sucursal</Label>
+                <div className="space-y-2">
+                  {DIAS.map((dia, i) => {
+                    const key = DIAS_KEY[i];
+                    const d = branchForm.weekSchedule[key] || { enabled: false, slots: [] };
+                    return (
+                      <div key={key} className={cn("rounded-xl border p-3 transition-all", d.enabled ? "bg-card" : "bg-muted/20")}>
+                        <div className="flex items-center gap-3 mb-2">
+                          <Switch checked={d.enabled} onCheckedChange={v => setBranchForm(prev => ({ ...prev, weekSchedule: { ...prev.weekSchedule, [key]: { ...prev.weekSchedule[key], enabled: v } } }))} />
+                          <span className={cn("font-bold text-sm", d.enabled ? "text-foreground" : "text-muted-foreground")}>{dia}</span>
+                        </div>
+                        {d.enabled && (
+                          <div className="space-y-2">
+                            {(d.slots || []).length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {(d.slots || []).map(slot => (
+                                  <div key={slot} className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded-lg text-xs font-mono">
+                                    {slot}
+                                    <button onClick={() => setBranchForm(prev => ({ ...prev, weekSchedule: { ...prev.weekSchedule, [key]: { ...prev.weekSchedule[key], slots: prev.weekSchedule[key].slots.filter(s => s !== slot) } } }))} className="ml-1 text-muted-foreground hover:text-destructive">
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div className="flex gap-2 max-w-xs">
+                              <Input
+                                placeholder="Ej: 13:00"
+                                value={newBranchSlotByDay[key] || ''}
+                                onChange={e => {
+                                  let val = e.target.value.replace(/[^0-9:]/g, '');
+                                  if (val.length === 2 && !val.includes(':')) val = val + ':';
+                                  if (val.length > 5) val = val.slice(0, 5);
+                                  setNewBranchSlotByDay(prev => ({ ...prev, [key]: val }));
+                                }}
+                                onKeyDown={e => { if (e.key === 'Enter') addSlotToBranchDay(key); }}
+                                className="h-7 text-xs font-mono w-24"
+                                maxLength={5}
+                              />
+                              <Button size="sm" variant="secondary" onClick={() => addSlotToBranchDay(key)} className="h-7 px-2 text-xs">
+                                <Plus className="w-3 h-3 mr-1" /> Agregar
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
+
               <div className="flex gap-2">
                 <Button onClick={handleBranchSubmit} variant="secondary" className="flex-1" disabled={!branchForm.name}>
-                  {editingBranchId ? "Actualizar" : "Agregar Sucursal"}
+                  {editingBranchId ? "Actualizar Sucursal" : "Agregar Sucursal"}
                 </Button>
                 {editingBranchId && (
-                  <Button variant="ghost" onClick={() => { setEditingBranchId(null); setBranchForm({ name: "", address: "" }); }}>Cancelar</Button>
+                  <Button variant="ghost" onClick={() => { setEditingBranchId(null); setBranchForm({ name: "", address: "", professionalIds: [], weekSchedule: emptyBranchSchedule }); }}>Cancelar</Button>
                 )}
               </div>
             </div>
