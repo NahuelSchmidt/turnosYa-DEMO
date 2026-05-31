@@ -86,6 +86,7 @@ export function useAppointments(tenantId: string = 'default') {
       status: 'confirmed',
       reminderSent24h: false,
       reminderSentSameDay: false,
+      reviewSent: false,
       createdAt: serverTimestamp(),
     }, { merge: true });
 

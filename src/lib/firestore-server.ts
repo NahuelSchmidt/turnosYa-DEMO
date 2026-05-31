@@ -70,7 +70,7 @@ export async function getSalonById(salonId: string): Promise<Record<string, any>
 
 export async function updateAppointmentReminder(
   appointmentId: string,
-  field: 'reminderSent24h' | 'reminderSentSameDay'
+  field: 'reminderSent24h' | 'reminderSentSameDay' | 'reviewSent'
 ): Promise<void> {
   const url = `${BASE_URL}/appointments/${appointmentId}?updateMask.fieldPaths=${field}&key=${API_KEY}`;
   await fetch(url, {

@@ -28,6 +28,10 @@ export async function GET(req: NextRequest) {
   const windowSameDayStart = nowMs + 1.5 * 60 * 60 * 1000; // 1.5hs desde ahora
   const windowSameDayEnd   = nowMs + 3 * 60 * 60 * 1000;   // 3hs desde ahora
 
+  // Ventana para pedido de reseña: 2hs a 3hs después del turno
+  const windowReviewStart = nowMs - 3 * 60 * 60 * 1000;  // 3hs atrás
+  const windowReviewEnd   = nowMs - 2 * 60 * 60 * 1000;  // 2hs atrás
+
   let appointments: Record<string, any>[];
   try {
     appointments = await queryConfirmedAppointments();
@@ -39,6 +43,7 @@ export async function GET(req: NextRequest) {
 
   let sent24h = 0;
   let sentSameDay = 0;
+  let sentReview = 0;
 
   for (const apt of appointments) {
     const startTime = apt.startTime instanceof Date ? apt.startTime : new Date(apt.startTime);
@@ -47,8 +52,9 @@ export async function GET(req: NextRequest) {
 
     const needs24h = !apt.reminderSent24h && startMs >= window24hStart && startMs <= window24hEnd;
     const needsSameDay = !apt.reminderSentSameDay && startMs >= windowSameDayStart && startMs <= windowSameDayEnd;
+    const needsReview = !apt.reviewSent && startMs >= windowReviewStart && startMs <= windowReviewEnd;
 
-    if (!needs24h && !needsSameDay) continue;
+    if (!needs24h && !needsSameDay && !needsReview) continue;
 
     const phone = apt.customerPhone;
     if (!phone) continue;
@@ -86,12 +92,24 @@ export async function GET(req: NextRequest) {
         sentSameDay++;
       }
     }
+
+    if (needsReview) {
+      const profileLink = `${PROD_DOMAIN}/negocio/${apt.salonId}`;
+      const salonName = salon?.name || 'nosotros';
+      const msg = `⭐ *¿Cómo fue tu visita?*\n\nHola ${apt.customerName}! Esperamos que hayas disfrutado tu visita a *${salonName}*.\n\nNos gustaría conocer tu opinión — dejanos tu reseña acá:\n${profileLink}\n\n¡Gracias! 🙏`;
+      const ok = await sendWhatsAppMessage(phone, msg, credentials);
+      if (ok) {
+        await updateAppointmentReminder(apt.id, 'reviewSent');
+        sentReview++;
+      }
+    }
   }
 
   return NextResponse.json({
     ok: true,
     sent24h,
     sentSameDay,
+    sentReview,
     checkedAt: now.toISOString(),
   });
 }
