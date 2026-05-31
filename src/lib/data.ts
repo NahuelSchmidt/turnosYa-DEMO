@@ -55,6 +55,16 @@ export interface Professional {
   emoji?: string; // emoji en lugar de foto
 }
 
+export interface Branch {
+  id: string;
+  name: string;
+  address?: string;
+  weekSchedule?: Record<string, { enabled: boolean; slots: string[] }>;
+  blockedDates?: string[];
+  blockedSlots?: { date: string; time: string }[];
+  professionalIds?: string[];
+}
+
 export interface BlockedSlot {
   date: string; // YYYY-MM-DD
   time: string; // HH:MM
@@ -76,6 +86,8 @@ export interface Appointment {
   createdAt?: any;
   reminderSent24h?: boolean;
   reminderSentSameDay?: boolean;
+  reviewSent?: boolean;
+  branchId?: string;
 }
 
 export const initialServices: Service[] = [

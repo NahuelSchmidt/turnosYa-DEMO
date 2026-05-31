@@ -24,9 +24,11 @@ type Step = "services" | "professional" | "time" | "confirm";
 
 interface BookingFlowProps {
   tenantId: string;
+  branchId?: string;
+  branchData?: any;
 }
 
-export default function BookingFlow({ tenantId }: BookingFlowProps) {
+export default function BookingFlow({ tenantId, branchId, branchData }: BookingFlowProps) {
   const [step, setStep] = useState<Step>("services");
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
   const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(null);
@@ -39,9 +41,23 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
   const { addAppointment, getBookedSlotsForDate } = useAppointments(tenantId);
   const { salon } = useSalon(tenantId);
   const { services, loading: servicesLoading } = useServices(tenantId);
-  const { professionals, loading: professionalsLoading } = useProfessionals(tenantId);
+  const { professionals: allProfessionals, loading: professionalsLoading } = useProfessionals(tenantId);
   const { getSlotsForDate, loading: schedulesLoading } = useSchedules(tenantId);
-  const timeSlots = getSlotsForDate(selectedDate);
+
+  // Si hay sucursal, filtrar profesionales y usar horarios de la sucursal
+  const professionals = branchData?.professionalIds?.length
+    ? allProfessionals.filter((p: any) => branchData.professionalIds.includes(p.id))
+    : allProfessionals;
+
+  const timeSlots = branchData?.weekSchedule
+    ? (() => {
+        const schedule = branchData.weekSchedule;
+        const date = selectedDate || new Date();
+        const dayKeys = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'];
+        const dayKey = dayKeys[date.getDay()];
+        return schedule[dayKey]?.enabled ? (schedule[dayKey]?.slots || []) : [];
+      })()
+    : getSlotsForDate(selectedDate);
 
   const router = useRouter();
   const { toast } = useToast();
@@ -49,7 +65,7 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
   const total = selectedServices.reduce((sum, s) => sum + s.price, 0);
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration, 0);
 
-  const blockedDates: string[] = (salon as any)?.blockedDates || [];
+  const blockedDates: string[] = branchData?.blockedDates || (salon as any)?.blockedDates || [];
   const selectedDateStr = selectedDate ? selectedDate.toISOString().slice(0, 10) : '';
   const isDateBlocked = blockedDates.includes(selectedDateStr);
 
@@ -129,7 +145,8 @@ export default function BookingFlow({ tenantId }: BookingFlowProps) {
       customerName,
       customerPhone,
       paymentMethod: "A coordinar con el negocio",
-    });
+      ...(branchId ? { branchId } : {}),
+    } as any);
 
     if (appointmentId) {
       toast({

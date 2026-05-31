@@ -5,6 +5,7 @@ import { useServices } from "@/hooks/use-services";
 import { useProfessionals } from "@/hooks/use-professionals";
 import { useSchedules } from "@/hooks/use-schedules";
 import { useSalon } from "@/hooks/use-salon";
+import { useBranches } from "@/hooks/use-branches";
 import { Service, Professional } from "@/lib/data";
 import { LockedFeature } from "@/components/ui/locked-feature";
 import { usePlan } from "@/hooks/use-plan";
@@ -13,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit, Users, Briefcase, Link as LinkIcon, Copy, Check, Palette, Plus, ExternalLink, Clock, Loader2, Phone, MessageCircle, Tag, Percent, Ban, Instagram, Facebook } from "lucide-react";
+import { Trash2, Edit, Users, Briefcase, Link as LinkIcon, Copy, Check, Palette, Plus, ExternalLink, Clock, Loader2, Phone, MessageCircle, Tag, Percent, Ban, Instagram, Facebook, Building2 } from "lucide-react";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -66,6 +67,7 @@ const DEFAULT_SCHEDULE: DaySchedule = { enabled: false, slots: [] };
 export function AdminSettings({ tenantId }: AdminSettingsProps) {
   const { features } = usePlan(tenantId);
   const { salon, updateSalon } = useSalon(tenantId);
+  const { branches, addBranch, updateBranch, deleteBranch } = useBranches(tenantId);
   const { services, updateServices } = useServices(tenantId);
   const { professionals, updateProfessionals } = useProfessionals(tenantId);
   const { updateTimeSlots } = useSchedules(tenantId);
@@ -198,6 +200,21 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
     setTimeout(() => setIsSaving(false), 1000);
   };
 
+
+  const [branchForm, setBranchForm] = useState({ name: "", address: "" });
+  const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
+
+  const handleBranchSubmit = () => {
+    if (!branchForm.name) return;
+    if (editingBranchId) {
+      updateBranch(editingBranchId, { name: branchForm.name, address: branchForm.address });
+    } else {
+      addBranch({ name: branchForm.name, address: branchForm.address, professionalIds: [] });
+    }
+    setBranchForm({ name: "", address: "" });
+    setEditingBranchId(null);
+    toast({ title: editingBranchId ? "Sucursal actualizada" : "Sucursal agregada" });
+  };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(bookingLink);
@@ -756,6 +773,61 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── SUCURSALES ── */}
+      {features.maxProfessionals >= 999999 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Building2 className="w-5 h-5" /> Sucursales</CardTitle>
+            <CardDescription>Gestioná múltiples sucursales. Cada una tiene sus propios profesionales y horarios.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {branches.length > 0 && (
+              <div className="grid gap-2">
+                {branches.map(branch => (
+                  <div key={branch.id} className="flex items-center gap-3 p-3 rounded-xl border bg-card">
+                    <Building2 className="w-5 h-5 text-primary shrink-0" />
+                    <div className="flex-grow min-w-0">
+                      <p className="font-bold truncate">{branch.name}</p>
+                      {branch.address && <p className="text-xs text-muted-foreground truncate">{branch.address}</p>}
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button variant="ghost" size="icon" onClick={() => {
+                        setEditingBranchId(branch.id);
+                        setBranchForm({ name: branch.name, address: branch.address || "" });
+                      }}><Edit className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => deleteBranch(branch.id)} className="text-destructive hover:text-destructive">
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="p-4 border rounded-xl bg-muted/10 space-y-3">
+              <p className="text-sm font-bold">{editingBranchId ? "Editar Sucursal" : "Agregar Sucursal"}</p>
+              <div className="space-y-2">
+                <Label>Nombre</Label>
+                <Input placeholder="Ej: Sucursal Centro" value={branchForm.name} onChange={e => setBranchForm({ ...branchForm, name: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Dirección <span className="text-xs text-muted-foreground">(opcional)</span></Label>
+                <Input placeholder="Ej: Av. Corrientes 1234" value={branchForm.address} onChange={e => setBranchForm({ ...branchForm, address: e.target.value })} />
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleBranchSubmit} variant="secondary" className="flex-1" disabled={!branchForm.name}>
+                  {editingBranchId ? "Actualizar" : "Agregar Sucursal"}
+                </Button>
+                {editingBranchId && (
+                  <Button variant="ghost" onClick={() => { setEditingBranchId(null); setBranchForm({ name: "", address: "" }); }}>Cancelar</Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <LockedFeature featureName="Múltiples Sucursales" requiredPlan="premium" />
+      )}
 
       {/* ── EQUIPO ── */}
       <Card>
