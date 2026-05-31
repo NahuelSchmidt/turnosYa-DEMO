@@ -52,10 +52,10 @@ function ReviewForm({ tenantId }: { tenantId: string }) {
   const [sent, setSent] = useState(false);
 
   const handleSubmit = async () => {
-    if (!name || !comment || rating === 0) return;
+    if (!name || !comment || rating === 0 || !db) return;
     setSending(true);
     try {
-      await addDoc(collection(db!, "reviews"), {
+      await addDoc(collection(db, "reviews"), {
         salonId: tenantId,
         customerName: name,
         comment,
@@ -102,7 +102,7 @@ function ReviewForm({ tenantId }: { tenantId: string }) {
 function ReviewsList({ tenantId }: { tenantId: string }) {
   const db = useFirestore();
   const reviewsRef = useMemoFirebase(() => {
-    if (!db) return null;
+    if (!db || !tenantId) return null;
     return query(collection(db, "reviews"), where("salonId", "==", tenantId));
   }, [db, tenantId]);
   const { data: reviews } = useCollection<any>(reviewsRef);
@@ -130,9 +130,9 @@ function ReviewsList({ tenantId }: { tenantId: string }) {
               <StarRating value={r.rating} />
             </div>
             <p className="text-sm text-muted-foreground">{r.comment}</p>
-            {r.createdAt && (
+            {r.createdAt?.toDate && (
               <p className="text-xs text-muted-foreground">
-                {format(r.createdAt.toDate?.() || new Date(r.createdAt), "dd 'de' MMMM yyyy", { locale: es })}
+                {format(r.createdAt.toDate(), "dd 'de' MMMM yyyy", { locale: es })}
               </p>
             )}
           </div>
