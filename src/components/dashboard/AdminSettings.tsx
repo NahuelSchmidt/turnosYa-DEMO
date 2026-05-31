@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit, Users, Briefcase, Link as LinkIcon, Copy, Check, Palette, Plus, ExternalLink, Clock, Loader2, Phone, MessageCircle, Tag, Percent, Ban } from "lucide-react";
+import { Trash2, Edit, Users, Briefcase, Link as LinkIcon, Copy, Check, Palette, Plus, ExternalLink, Clock, Loader2, Phone, MessageCircle, Tag, Percent, Ban, Instagram, Facebook } from "lucide-react";
+import { ImageUpload } from "@/components/ui/image-upload";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -74,7 +75,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [salonForm, setSalonForm] = useState({ name: "", primaryColor: "#000000", whatsappNumber: "", address: "", paymentAlias: "", evolutionInstanceName: "", whatsappEmoji: "", description: "", coverImageUrl: "" });
+  const [salonForm, setSalonForm] = useState({ name: "", primaryColor: "#000000", whatsappNumber: "", address: "", paymentAlias: "", evolutionInstanceName: "", whatsappEmoji: "", description: "", coverImageUrl: "", instagram: "", facebook: "", tiktok: "" });
 
   // Horarios por día
   const [weekSchedule, setWeekSchedule] = useState<Record<string, DaySchedule>>(
@@ -105,6 +106,9 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
         whatsappEmoji: (salon as any).whatsappEmoji || "",
         description: (salon as any).description || "",
         coverImageUrl: (salon as any).coverImageUrl || "",
+        instagram: (salon as any).instagram || "",
+        facebook: (salon as any).facebook || "",
+        tiktok: (salon as any).tiktok || "",
       });
       if (salon.weekSchedule) {
         setWeekSchedule(salon.weekSchedule);
@@ -286,9 +290,30 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label>Imagen de portada <span className="text-xs text-muted-foreground">(URL de imagen)</span></Label>
-            <Input placeholder="https://..." value={salonForm.coverImageUrl} onChange={e => setSalonForm({ ...salonForm, coverImageUrl: e.target.value })} />
-            <p className="text-xs text-muted-foreground">Pegá el link de una foto para la portada de tu perfil público.</p>
+            <Label>Foto de portada</Label>
+            <ImageUpload
+              value={salonForm.coverImageUrl}
+              onChange={url => setSalonForm({ ...salonForm, coverImageUrl: url })}
+              label="Subir foto de portada"
+            />
+            <p className="text-xs text-muted-foreground">Se muestra en la parte superior de tu página de perfil.</p>
+          </div>
+          <div className="space-y-3">
+            <Label>Redes sociales <span className="text-xs text-muted-foreground">(opcional)</span></Label>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Instagram className="w-4 h-4 text-pink-500 shrink-0" />
+                <Input placeholder="@tunegocio o URL de Instagram" value={salonForm.instagram} onChange={e => setSalonForm({ ...salonForm, instagram: e.target.value })} />
+              </div>
+              <div className="flex items-center gap-2">
+                <Facebook className="w-4 h-4 text-blue-500 shrink-0" />
+                <Input placeholder="URL de Facebook" value={salonForm.facebook} onChange={e => setSalonForm({ ...salonForm, facebook: e.target.value })} />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm shrink-0">🎵</span>
+                <Input placeholder="@tunegocio o URL de TikTok" value={salonForm.tiktok} onChange={e => setSalonForm({ ...salonForm, tiktok: e.target.value })} />
+              </div>
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Dirección / Ubicación</Label>

@@ -201,6 +201,30 @@ function ProfileContent({ tenantId }: { tenantId: string }) {
                     </a>
                   </div>
                 )}
+                {/* Redes sociales */}
+                <div className="flex items-center gap-3 mt-3 flex-wrap">
+                  {(salon as any).instagram && (
+                    <a href={(salon as any).instagram.startsWith('http') ? (salon as any).instagram : `https://instagram.com/${(salon as any).instagram.replace('@','')}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-sm text-pink-500 hover:underline font-medium">
+                      📸 Instagram
+                    </a>
+                  )}
+                  {(salon as any).facebook && (
+                    <a href={(salon as any).facebook.startsWith('http') ? (salon as any).facebook : `https://facebook.com/${(salon as any).facebook}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-sm text-blue-500 hover:underline font-medium">
+                      👤 Facebook
+                    </a>
+                  )}
+                  {(salon as any).tiktok && (
+                    <a href={(salon as any).tiktok.startsWith('http') ? (salon as any).tiktok : `https://tiktok.com/@${(salon as any).tiktok.replace('@','')}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-sm hover:underline font-medium">
+                      🎵 TikTok
+                    </a>
+                  )}
+                </div>
               </div>
 
               {/* Horarios */}
