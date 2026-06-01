@@ -13,6 +13,7 @@ import { NewAppointmentModal } from './NewAppointmentModal';
 import { parseFirestoreDate } from '@/lib/utils';
 import { useSalon } from '@/hooks/use-salon';
 import { usePlan } from '@/hooks/use-plan';
+import { useBranches } from '@/hooks/use-branches';
 import { cn } from '@/lib/utils';
 import { AlertTriangle } from 'lucide-react';
 import {
@@ -383,13 +384,16 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
   const { professionals, loading: pLoading } = useProfessionals(tenantId);
   const { salon } = useSalon(tenantId);
   const { features } = usePlan(tenantId);
+  const { branches } = useBranches(tenantId);
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [localOverrides, setLocalOverrides] = useState<Record<string, AppStatus>>({});
   const [showNewAppointment, setShowNewAppointment] = useState(false);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
   const loading = aLoading || sLoading || pLoading;
 
   // Combina datos de Firestore con overrides locales para UI instantánea
   const agenda = (appointments || [])
+    .filter(apt => selectedBranchId === 'all' || (apt as any).branchId === selectedBranchId)
     .map(apt => ({
       ...apt,
       status: localOverrides[apt.id] || apt.status,
@@ -449,6 +453,30 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
             {" "}turnos este mes
             {isAtMonthlyLimit && " — Límite alcanzado. Tus clientes no pueden reservar nuevos turnos."}
           </span>
+        </div>
+      )}
+
+      {/* Selector de sucursal */}
+      {branches.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Sucursal:</span>
+          <div className="flex gap-1.5 flex-wrap">
+            <button
+              onClick={() => setSelectedBranchId('all')}
+              className={cn("text-xs px-3 py-1.5 rounded-full border font-bold transition-all", selectedBranchId === 'all' ? "bg-primary text-primary-foreground border-primary" : "bg-muted/30 hover:bg-muted")}
+            >
+              Todas
+            </button>
+            {branches.map(branch => (
+              <button
+                key={branch.id}
+                onClick={() => setSelectedBranchId(branch.id)}
+                className={cn("text-xs px-3 py-1.5 rounded-full border font-bold transition-all", selectedBranchId === branch.id ? "bg-primary text-primary-foreground border-primary" : "bg-muted/30 hover:bg-muted")}
+              >
+                {branch.name}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
