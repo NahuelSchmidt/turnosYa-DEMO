@@ -5,10 +5,10 @@ import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, doc, query, orderBy } from "firebase/firestore";
-import { Loader2, Store, ExternalLink, Calendar, Search, ShieldCheck, Trash2, ShieldAlert, LogOut } from "lucide-react";
+import { Loader2, Store, ExternalLink, Calendar, Search, ShieldCheck, Trash2, ShieldAlert, LogOut, AlertTriangle, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -59,6 +59,33 @@ export default function SuperAdminPage() {
     salon.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     salon.id?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
+
+  const now = new Date();
+
+  const getSubscriptionStatus = (salon: any) => {
+    const expiresAt = salon.subscriptionExpiresAt?.toDate?.() || (salon.subscriptionExpiresAt ? new Date(salon.subscriptionExpiresAt) : null);
+    if (!expiresAt) return { status: 'unknown', daysLeft: null, expiresAt: null };
+    const daysLeft = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysLeft < 0) return { status: 'expired', daysLeft, expiresAt };
+    if (daysLeft <= 7) return { status: 'expiring', daysLeft, expiresAt };
+    return { status: 'active', daysLeft, expiresAt };
+  };
+
+  const stats = useMemo(() => {
+    const salons = allSalons || [];
+    return {
+      total: salons.length,
+      active: salons.filter(s => getSubscriptionStatus(s).status === 'active').length,
+      expiring: salons.filter(s => getSubscriptionStatus(s).status === 'expiring').length,
+      expired: salons.filter(s => getSubscriptionStatus(s).status === 'expired').length,
+      byPlan: {
+        basic: salons.filter(s => (s.plan || 'basic') === 'basic').length,
+        pro: salons.filter(s => s.plan === 'pro').length,
+        premium: salons.filter(s => s.plan === 'premium').length,
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allSalons]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -132,12 +159,27 @@ export default function SuperAdminPage() {
             <h1 className="text-5xl font-black font-headline tracking-tighter mb-2 uppercase italic">Panel de Control Global</h1>
             <p className="text-muted-foreground text-lg">Administración centralizada de todos los negocios.</p>
           </div>
-          <div className="flex items-center gap-4 bg-primary text-primary-foreground px-8 py-4 rounded-2xl shadow-2xl">
-            <Store className="w-8 h-8" />
-            <div className="flex flex-col">
-              <span className="font-black text-3xl leading-none">{allSalons?.length || 0}</span>
-              <span className="text-[10px] uppercase font-bold tracking-widest opacity-80">Negocios Registrados</span>
+          <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-3 bg-primary text-primary-foreground px-6 py-3 rounded-2xl shadow-2xl">
+              <Store className="w-6 h-6" />
+              <div><span className="font-black text-2xl">{stats.total}</span><p className="text-[10px] uppercase opacity-80">Total</p></div>
             </div>
+            <div className="flex items-center gap-3 bg-green-600 text-white px-6 py-3 rounded-2xl">
+              <CheckCircle2 className="w-6 h-6" />
+              <div><span className="font-black text-2xl">{stats.active}</span><p className="text-[10px] uppercase opacity-80">Activos</p></div>
+            </div>
+            {stats.expiring > 0 && (
+              <div className="flex items-center gap-3 bg-orange-500 text-white px-6 py-3 rounded-2xl">
+                <AlertTriangle className="w-6 h-6" />
+                <div><span className="font-black text-2xl">{stats.expiring}</span><p className="text-[10px] uppercase opacity-80">Por vencer</p></div>
+              </div>
+            )}
+            {stats.expired > 0 && (
+              <div className="flex items-center gap-3 bg-destructive text-white px-6 py-3 rounded-2xl">
+                <XCircle className="w-6 h-6" />
+                <div><span className="font-black text-2xl">{stats.expired}</span><p className="text-[10px] uppercase opacity-80">Vencidos</p></div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -157,8 +199,10 @@ export default function SuperAdminPage() {
           </div>
         ) : (
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {filteredSalons.map((salon) => (
-              <Card key={salon.id} className="group hover:border-primary transition-all duration-300 shadow-sm rounded-3xl overflow-hidden">
+            {filteredSalons.map((salon) => {
+              const sub = getSubscriptionStatus(salon);
+              return (
+              <Card key={salon.id} className={`group hover:border-primary transition-all duration-300 shadow-sm rounded-3xl overflow-hidden ${sub.status === 'expired' ? 'border-destructive/50' : sub.status === 'expiring' ? 'border-orange-400/50' : ''}`}>
                 <CardHeader className="pb-4 bg-muted/5 group-hover:bg-primary/5 transition-colors">
                   <div className="flex justify-between items-start mb-4">
                     <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all">
@@ -178,6 +222,13 @@ export default function SuperAdminPage() {
                     <Calendar className="w-4 h-4 text-primary" />
                     {salon.createdAt?.toDate ? format(salon.createdAt.toDate(), "dd MMM yyyy", { locale: es }) : 'Registro Reciente'}
                   </CardDescription>
+                  {/* Vencimiento */}
+                  {sub.expiresAt && (
+                    <div className={`flex items-center gap-1.5 text-xs font-bold mt-1 ${sub.status === 'expired' ? 'text-destructive' : sub.status === 'expiring' ? 'text-orange-500' : 'text-green-600'}`}>
+                      {sub.status === 'expired' ? <XCircle className="w-3.5 h-3.5" /> : sub.status === 'expiring' ? <AlertTriangle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                      {sub.status === 'expired' ? `Vencido hace ${Math.abs(sub.daysLeft!)} días` : sub.status === 'expiring' ? `Vence en ${sub.daysLeft} días` : `Vence ${format(sub.expiresAt, "dd MMM yyyy", { locale: es })}`}
+                    </div>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-6 pt-6">
                   <div className="grid grid-cols-3 gap-4 py-6 border-y border-border/50">
@@ -236,7 +287,8 @@ export default function SuperAdminPage() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

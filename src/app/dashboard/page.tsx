@@ -24,7 +24,7 @@ import { useServices } from "@/hooks/use-services";
 import { format, subMonths, startOfMonth, endOfMonth, isToday } from "date-fns";
 import { es } from "date-fns/locale";
 import { parseFirestoreDate } from "@/lib/utils";
-import { Trophy, Clock, Star, TrendingUp } from "lucide-react";
+import { Trophy, Clock, Star, TrendingUp, Phone, MessageCircle } from "lucide-react";
 
 const chartConfig = {
   Ingresos: { label: "Ingresos ($)", color: "hsl(var(--primary))" },
@@ -249,6 +249,78 @@ function AdvancedStatsSection({ tenantId }: { tenantId: string }) {
   );
 }
 
+function ClientsSection({ tenantId }: { tenantId: string }) {
+  const { appointments, loading } = useAppointments(tenantId);
+  const [search, setSearch] = useState("");
+
+  const clients = useMemo(() => {
+    if (loading || !appointments.length) return [];
+    const map: Record<string, { name: string; phone: string; visits: number; total: number; lastVisit: Date }> = {};
+    appointments
+      .filter(a => a.status === 'confirmed' || a.status === 'completed')
+      .forEach(a => {
+        const key = a.customerPhone || a.customerName;
+        const date = parseFirestoreDate(a.startTime);
+        if (!map[key]) map[key] = { name: a.customerName, phone: a.customerPhone || '', visits: 0, total: 0, lastVisit: date };
+        map[key].visits++;
+        map[key].total += a.total || 0;
+        if (date > map[key].lastVisit) map[key].lastVisit = date;
+      });
+    return Object.values(map).sort((a, b) => b.visits - a.visits);
+  }, [appointments, loading]);
+
+  const filtered = clients.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.phone.includes(search)
+  );
+
+  if (loading) return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">{clients.length} clientes únicos</p>
+      </div>
+      <input
+        placeholder="Buscar por nombre o teléfono..."
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+      />
+      <div className="space-y-2">
+        {filtered.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">Sin clientes aún.</p>
+        ) : filtered.map((c, i) => (
+          <div key={i} className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-muted/20 transition-colors">
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <span className="text-sm font-black text-primary">{c.name.charAt(0).toUpperCase()}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm truncate">{c.name}</p>
+              <p className="text-xs text-muted-foreground">{c.phone || 'Sin teléfono'}</p>
+            </div>
+            <div className="text-right shrink-0 space-y-0.5">
+              <p className="text-xs font-bold">{c.visits} visita{c.visits !== 1 ? 's' : ''}</p>
+              <p className="text-xs text-muted-foreground">${c.total.toLocaleString('es-AR')}</p>
+              <p className="text-xs text-muted-foreground">{format(c.lastVisit, "dd/MM/yy", { locale: es })}</p>
+            </div>
+            {c.phone && (
+              <a
+                href={`https://wa.me/54${c.phone.replace(/\D/g,'')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#25D366] hover:opacity-70 shrink-0"
+              >
+                <MessageCircle className="w-5 h-5" />
+              </a>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
   const auth = useFirebaseAuth();
@@ -370,6 +442,7 @@ export default function DashboardPage() {
                     )}
                   </span>
                 </TabsTrigger>
+                <TabsTrigger value="clients" className="flex-1">Clientes</TabsTrigger>
                 <TabsTrigger value="stats" className="flex-1">Métricas</TabsTrigger>
                 <TabsTrigger value="settings" className="flex-1">
                   <span className="sm:hidden">Ajustes</span>
@@ -377,6 +450,11 @@ export default function DashboardPage() {
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="agenda"><ProfessionalAgenda tenantId={tenantId} /></TabsContent>
+              <TabsContent value="clients">
+                {features.hasMetrics
+                  ? <ClientsSection tenantId={tenantId} />
+                  : <LockedFeature featureName="Lista de Clientes" requiredPlan="pro" />}
+              </TabsContent>
               <TabsContent value="stats">
                 {features.hasMetrics ? (
                   <>
