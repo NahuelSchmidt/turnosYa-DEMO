@@ -6,6 +6,10 @@ import { es } from 'date-fns/locale';
 
 // Protege el endpoint con un secreto para que solo lo llame el cron
 function isAuthorized(req: NextRequest): boolean {
+  // Vercel llama los crons con Authorization: Bearer <CRON_SECRET>
+  const authHeader = req.headers.get('authorization');
+  if (authHeader?.startsWith('Bearer ')) return true;
+
   const secret = process.env.REMINDER_CRON_SECRET;
   if (!secret) return true; // si no hay secret configurado, permite (útil en dev)
   const auth = req.headers.get('x-cron-secret') || req.nextUrl.searchParams.get('secret');
