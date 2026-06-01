@@ -20,7 +20,7 @@ export const PLAN_FEATURES = {
     hasBlockedDates: true,
     hasCombosAndOffers: true,
     hasWeeklyView: true,
-    hasBrandColor: false,
+    hasBrandColor: true,
     hasAdminBooking: true,
   },
   premium: {
