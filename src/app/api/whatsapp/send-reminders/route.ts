@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
   let sent24h = 0;
   let sentSameDay = 0;
   let sentReview = 0;
+  let autoCompleted = 0;
 
   for (const apt of appointments) {
     const startTime = apt.startTime instanceof Date ? apt.startTime : new Date(apt.startTime);
@@ -53,6 +54,18 @@ export async function GET(req: NextRequest) {
     const needs24h = !apt.reminderSent24h && startMs >= window24hStart && startMs <= window24hEnd;
     const needsSameDay = !apt.reminderSentSameDay && startMs >= windowSameDayStart && startMs <= windowSameDayEnd;
     const needsReview = !apt.reviewSent && startMs >= windowReviewStart && startMs <= windowReviewEnd;
+
+    // Auto-completar turnos pasados que siguen como confirmados
+    const endTime = apt.endTime instanceof Date ? apt.endTime : (apt.endTime ? new Date(apt.endTime) : new Date(startMs + 60 * 60 * 1000));
+    if (!isNaN(endTime.getTime()) && endTime < now) {
+      await fetch(`https://firestore.googleapis.com/v1/projects/studio-6398913436-7a565/databases/(default)/documents/appointments/${apt.id}?updateMask.fieldPaths=status&key=AIzaSyBc1gttodLpfA3SFufoYdPQZPxx9XCCGLI`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields: { status: { stringValue: 'completed' } } }),
+      });
+      autoCompleted++;
+      if (!needs24h && !needsSameDay && !needsReview) continue;
+    }
 
     if (!needs24h && !needsSameDay && !needsReview) continue;
 
@@ -110,6 +123,7 @@ export async function GET(req: NextRequest) {
     sent24h,
     sentSameDay,
     sentReview,
+    autoCompleted,
     checkedAt: now.toISOString(),
   });
 }
