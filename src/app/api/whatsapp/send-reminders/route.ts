@@ -31,8 +31,8 @@ export async function GET(req: NextRequest) {
   // Ventanas de tiempo para recordatorios
   const window24hStart = nowMs + 23 * 60 * 60 * 1000;  // 23hs desde ahora
   const window24hEnd   = nowMs + 25 * 60 * 60 * 1000;  // 25hs desde ahora
-  const windowSameDayStart = nowMs + 50 * 60 * 1000;      // 50min desde ahora
-  const windowSameDayEnd   = nowMs + 2.5 * 60 * 60 * 1000; // 2.5hs desde ahora
+  const windowSameDayStart = nowMs + 2.5 * 60 * 60 * 1000; // 2.5hs desde ahora
+  const windowSameDayEnd   = nowMs + 3.5 * 60 * 60 * 1000; // 3.5hs desde ahora
 
   // Ventana para pedido de reseña: 2hs a 3hs después del turno
   const windowReviewStart = nowMs - 3 * 60 * 60 * 1000;  // 3hs atrás
