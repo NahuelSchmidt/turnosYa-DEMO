@@ -98,7 +98,7 @@ function StatusBadge({ apt, onUpdate, tenantId }: {
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <button className={cn(
             "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-bold transition-all hover:opacity-80 shrink-0",
