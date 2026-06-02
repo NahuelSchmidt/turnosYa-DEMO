@@ -17,17 +17,26 @@ export function useSchedules(tenantId: string = 'default') {
 
   const { data: salon, isLoading } = useDoc<any>(salonRef);
 
-  // Si hay weekSchedule configurado, devuelve los slots del día indicado
-  const getSlotsForDate = (date?: Date): string[] => {
+  // Resuelve slots para una fecha, opcionalmente con el horario de un profesional
+  const getSlotsForDate = (date?: Date, professional?: { weekSchedule?: Record<string, { enabled: boolean; slots: string[] }> } | null): string[] => {
     if (!date) return salon?.timeSlots || initialTimeSlots;
 
+    const dayKey = DIAS_KEY[date.getDay()];
+
+    // Si el profesional tiene horario propio, usarlo
+    const profSchedule = professional?.weekSchedule;
+    if (profSchedule) {
+      const dayConfig = profSchedule[dayKey];
+      if (!dayConfig?.enabled) return [];
+      return dayConfig.slots || [];
+    }
+
+    // Fallback: horario del negocio
     const weekSchedule = salon?.weekSchedule;
     if (!weekSchedule) return salon?.timeSlots || initialTimeSlots;
 
-    const dayKey = DIAS_KEY[date.getDay()];
     const dayConfig = weekSchedule[dayKey];
-
-    if (!dayConfig?.enabled) return []; // día desactivado = sin turnos
+    if (!dayConfig?.enabled) return [];
     return dayConfig.slots || [];
   };
 

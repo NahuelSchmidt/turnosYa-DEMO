@@ -55,7 +55,8 @@ export interface Professional {
   specialty: string;
   avatarUrl: string;
   avatarHint: string;
-  emoji?: string; // emoji en lugar de foto
+  emoji?: string;
+  weekSchedule?: Record<string, { enabled: boolean; slots: string[] }>; // horario propio (opcional)
 }
 
 export interface Branch {

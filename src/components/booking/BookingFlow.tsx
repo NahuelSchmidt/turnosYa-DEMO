@@ -57,7 +57,7 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
         const dayKey = dayKeys[date.getDay()];
         return schedule[dayKey]?.enabled ? (schedule[dayKey]?.slots || []) : [];
       })()
-    : getSlotsForDate(selectedDate);
+    : getSlotsForDate(selectedDate, selectedProfessional);
 
   const router = useRouter();
   const { toast } = useToast();

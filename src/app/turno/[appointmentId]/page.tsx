@@ -13,7 +13,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { es } from "date-fns/locale";
 
 const TZ = "America/Argentina/Buenos_Aires";
-const fmtAR = (date: Date, fmt: string) => formatInTimeZone(date, TZ, fmt, { locale: es });
+const fmtAR = (date: Date, fmt: string) => formatInTimeZone(date, TZ, fmt);
 import { parseFirestoreDate } from "@/lib/utils";
 import { useServices } from "@/hooks/use-services";
 import { useProfessionals } from "@/hooks/use-professionals";
@@ -102,7 +102,7 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
         tenantId,
         customerName: apt.customerName,
         customerPhone: apt.customerPhone,
-        appointmentDate: fmtAR(dateObj, "dd/MM 'a las' HH:mm'hs'", { locale: es }),
+        appointmentDate: fmtAR(dateObj, "dd/MM 'a las' HH:mm'hs'"),
         serviceNames: aptServices.map((s: any) => s?.name).join(", "),
       }),
     });
@@ -110,7 +110,7 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
     // También abrir chat de WhatsApp para que el cliente escriba si quiere
     if (salon?.whatsappNumber) {
       const msg = encodeURIComponent(
-        `Hola! ${apt.customerName} canceló su turno del ${fmtAR(dateObj, "dd/MM 'a las' HH:mm'hs'", { locale: es })} (${aptServices.map((s: any) => s?.name).join(", ")}).`
+        `Hola! ${apt.customerName} canceló su turno del ${fmtAR(dateObj, "dd/MM 'a las' HH:mm'hs'")} (${aptServices.map((s: any) => s?.name).join(", ")}).`
       );
       setTimeout(() => window.open(`https://wa.me/${salon.whatsappNumber}?text=${msg}`, "_blank"), 600);
     }
@@ -134,7 +134,7 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
                 <Calendar className="w-5 h-5 text-primary shrink-0" />
                 <div>
                   <p className="text-xs text-muted-foreground uppercase font-bold">Fecha y hora</p>
-                  <p className="font-bold capitalize">{fmtAR(dateObj, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es })}</p>
+                  <p className="font-bold capitalize">{fmtAR(dateObj, "eeee dd 'de' MMMM 'a las' HH:mm'hs'")}</p>
                 </div>
               </div>
               {professional && (

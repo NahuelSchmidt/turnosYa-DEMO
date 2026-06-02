@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit, Users, Briefcase, Link as LinkIcon, Copy, Check, Palette, Plus, ExternalLink, Clock, Loader2, Phone, MessageCircle, Tag, Percent, Ban, Instagram, Facebook, Building2 } from "lucide-react";
+import { Trash2, Edit, Users, Briefcase, Link as LinkIcon, Copy, Check, Palette, Plus, ExternalLink, Clock, Loader2, Phone, MessageCircle, Tag, Percent, Ban, Instagram, Facebook, Building2, CalendarClock, ChevronDown, ChevronUp, X } from "lucide-react";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -247,6 +247,63 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
 
   const [profForm, setProfForm] = useState<Omit<Professional, "id">>({ name: "", specialty: "", avatarUrl: "", avatarHint: "", emoji: "" } as any);
   const [editingProfId, setEditingProfId] = useState<string | null>(null);
+
+  // Horarios por profesional
+  const [expandedProfSchedule, setExpandedProfSchedule] = useState<string | null>(null);
+  const [profSchedule, setProfSchedule] = useState<Record<string, Record<string, DaySchedule>>>({});
+  const [profSlotInput, setProfSlotInput] = useState<Record<string, Record<string, string>>>({});
+
+  const initProfSchedule = (prof: Professional) => {
+    const existing = (prof as any).weekSchedule || Object.fromEntries(DIAS_KEY.map(d => [d, { enabled: false, slots: [] }]));
+    setProfSchedule(prev => ({ ...prev, [prof.id]: existing }));
+    setProfSlotInput(prev => ({ ...prev, [prof.id]: Object.fromEntries(DIAS_KEY.map(d => [d, ''])) }));
+  };
+
+  const toggleProfDay = (profId: string, dayKey: string) => {
+    setProfSchedule(prev => ({
+      ...prev,
+      [profId]: { ...prev[profId], [dayKey]: { ...prev[profId][dayKey], enabled: !prev[profId][dayKey]?.enabled } }
+    }));
+  };
+
+  const addProfSlot = (profId: string, dayKey: string) => {
+    const raw = profSlotInput[profId]?.[dayKey] || '';
+    const normalized = raw.length === 4 && !raw.includes(':') ? `${raw.slice(0,2)}:${raw.slice(2)}` : raw;
+    if (!/^\d{2}:\d{2}$/.test(normalized)) return;
+    const current = profSchedule[profId]?.[dayKey]?.slots || [];
+    if (current.includes(normalized)) return;
+    setProfSchedule(prev => ({
+      ...prev,
+      [profId]: { ...prev[profId], [dayKey]: { ...prev[profId][dayKey], slots: [...current, normalized].sort() } }
+    }));
+    setProfSlotInput(prev => ({ ...prev, [profId]: { ...prev[profId], [dayKey]: '' } }));
+  };
+
+  const removeProfSlot = (profId: string, dayKey: string, slot: string) => {
+    setProfSchedule(prev => ({
+      ...prev,
+      [profId]: { ...prev[profId], [dayKey]: { ...prev[profId][dayKey], slots: prev[profId][dayKey].slots.filter(s => s !== slot) } }
+    }));
+  };
+
+  const saveProfSchedule = (profId: string) => {
+    const schedule = profSchedule[profId];
+    const updated = (professionals || []).map(p => p.id === profId ? { ...p, weekSchedule: schedule } : p);
+    updateProfessionals(updated);
+    toast({ title: "Horarios guardados" });
+    setExpandedProfSchedule(null);
+  };
+
+  const clearProfSchedule = (profId: string) => {
+    const updated = (professionals || []).map(p => {
+      if (p.id !== profId) return p;
+      const { weekSchedule, ...rest } = p as any;
+      return rest;
+    });
+    updateProfessionals(updated);
+    toast({ title: "Horario personalizado eliminado — usa el horario del negocio" });
+    setExpandedProfSchedule(null);
+  };
 
   const getServiceType = (s: Service): ServiceType => {
     if ((s as any).type === 'whatsapp') return 'whatsapp';
@@ -944,18 +1001,102 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
         <CardContent className="space-y-4">
           <div className="grid gap-2">
             {(professionals || []).map(p => (
-              <div key={p.id} className="flex items-center gap-4 p-3 rounded-xl border bg-card">
-                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-xl shrink-0">
-                  {(p as any).emoji || p.name.charAt(0)}
+              <div key={p.id} className="rounded-xl border bg-card overflow-hidden">
+                <div className="flex items-center gap-4 p-3">
+                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-xl shrink-0">
+                    {(p as any).emoji || p.name.charAt(0)}
+                  </div>
+                  <div className="flex-grow min-w-0">
+                    <p className="font-bold truncate">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">{p.specialty}</p>
+                    {(p as any).weekSchedule && (
+                      <span className="text-[10px] text-primary font-bold">Horario personalizado</span>
+                    )}
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Configurar horarios"
+                      onClick={() => {
+                        if (expandedProfSchedule === p.id) {
+                          setExpandedProfSchedule(null);
+                        } else {
+                          initProfSchedule(p);
+                          setExpandedProfSchedule(p.id);
+                        }
+                      }}
+                    >
+                      <CalendarClock className="w-4 h-4 text-primary" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => { setEditingProfId(p.id); setProfForm(p as any); }}><Edit className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => updateProfessionals((professionals || []).filter(i => i.id !== p.id))} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                  </div>
                 </div>
-                <div className="flex-grow min-w-0">
-                  <p className="font-bold truncate">{p.name}</p>
-                  <p className="text-xs text-muted-foreground">{p.specialty}</p>
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  <Button variant="ghost" size="icon" onClick={() => { setEditingProfId(p.id); setProfForm(p as any); }}><Edit className="w-4 h-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => updateProfessionals((professionals || []).filter(i => i.id !== p.id))} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
-                </div>
+
+                {/* Panel de horarios del profesional */}
+                {expandedProfSchedule === p.id && profSchedule[p.id] && (
+                  <div className="border-t bg-muted/10 p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold flex items-center gap-2"><CalendarClock className="w-4 h-4 text-primary" /> Horario de {p.name}</p>
+                      {(p as any).weekSchedule && (
+                        <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => clearProfSchedule(p.id)}>
+                          Usar horario del negocio
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Si configurás horario propio, reemplaza al horario general del negocio solo para este profesional.</p>
+                    <div className="grid gap-2">
+                      {DIAS_KEY.map(dayKey => {
+                        const dayNames: Record<string, string> = { lun: 'Lunes', mar: 'Martes', mie: 'Miércoles', jue: 'Jueves', vie: 'Viernes', sab: 'Sábado', dom: 'Domingo' };
+                        const d = profSchedule[p.id][dayKey] || { enabled: false, slots: [] };
+                        return (
+                          <div key={dayKey} className="rounded-lg border bg-card p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={d.enabled}
+                                  onChange={() => toggleProfDay(p.id, dayKey)}
+                                  className="w-4 h-4 accent-primary"
+                                />
+                                <span className="text-sm font-semibold">{dayNames[dayKey]}</span>
+                              </label>
+                              <span className="text-xs text-muted-foreground">{d.slots.length} horario{d.slots.length !== 1 ? 's' : ''}</span>
+                            </div>
+                            {d.enabled && (
+                              <div className="space-y-2">
+                                <div className="flex flex-wrap gap-1">
+                                  {d.slots.map(slot => (
+                                    <span key={slot} className="flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">
+                                      {slot}
+                                      <button onClick={() => removeProfSlot(p.id, dayKey, slot)}><X className="w-3 h-3" /></button>
+                                    </span>
+                                  ))}
+                                </div>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="time"
+                                    value={profSlotInput[p.id]?.[dayKey] || ''}
+                                    onChange={e => setProfSlotInput(prev => ({ ...prev, [p.id]: { ...prev[p.id], [dayKey]: e.target.value } }))}
+                                    className="text-sm border rounded-md px-2 py-1 bg-background"
+                                  />
+                                  <Button size="sm" variant="outline" onClick={() => addProfSlot(p.id, dayKey)}>
+                                    <Plus className="w-3 h-3 mr-1" /> Agregar
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={() => saveProfSchedule(p.id)} className="flex-1">Guardar horarios</Button>
+                      <Button variant="ghost" onClick={() => setExpandedProfSchedule(null)}>Cancelar</Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
