@@ -325,12 +325,18 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
           </div>
           <div className="space-y-2">
             <Label>Foto de portada</Label>
-            <ImageUpload
-              value={salonForm.coverImageUrl}
-              onChange={url => setSalonForm({ ...salonForm, coverImageUrl: url })}
-              label="Subir foto de portada"
-            />
-            <p className="text-xs text-muted-foreground">Se muestra en la parte superior de tu página de perfil.</p>
+            {features.hasProfilePage ? (
+              <>
+                <ImageUpload
+                  value={salonForm.coverImageUrl}
+                  onChange={url => setSalonForm({ ...salonForm, coverImageUrl: url })}
+                  label="Subir foto de portada"
+                />
+                <p className="text-xs text-muted-foreground">Se muestra en la parte superior de tu página de perfil.</p>
+              </>
+            ) : (
+              <LockedFeature featureName="Foto de Portada" requiredPlan="premium" />
+            )}
           </div>
           <div className="space-y-3">
             <Label>Redes sociales <span className="text-xs text-muted-foreground">(opcional)</span></Label>
@@ -443,12 +449,16 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
           <CardDescription>Página pública con info del negocio, servicios y reseñas.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Input readOnly value={typeof window !== "undefined" ? `${window.location.origin}/negocio/${tenantId}` : ""} className="bg-background font-mono text-xs h-11" />
-            <Button variant="outline" asChild className="h-11">
-              <a href={`/negocio/${tenantId}`} target="_blank"><ExternalLink className="w-4 h-4 mr-2" /> Ver perfil</a>
-            </Button>
-          </div>
+          {features.hasProfilePage ? (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input readOnly value={typeof window !== "undefined" ? `${window.location.origin}/negocio/${tenantId}` : ""} className="bg-background font-mono text-xs h-11" />
+              <Button variant="outline" asChild className="h-11">
+                <a href={`/negocio/${tenantId}`} target="_blank"><ExternalLink className="w-4 h-4 mr-2" /> Ver perfil</a>
+              </Button>
+            </div>
+          ) : (
+            <LockedFeature featureName="Página de Perfil Pública" requiredPlan="premium" />
+          )}
         </CardContent>
       </Card>
 

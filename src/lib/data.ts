@@ -11,6 +11,7 @@ export const PLAN_FEATURES = {
     hasWeeklyView: false,
     hasBrandColor: false,
     hasAdminBooking: false,
+    hasProfilePage: false,
   },
   pro: {
     label: 'Pro',
@@ -22,6 +23,7 @@ export const PLAN_FEATURES = {
     hasWeeklyView: true,
     hasBrandColor: true,
     hasAdminBooking: true,
+    hasProfilePage: false,
   },
   premium: {
     label: 'Premium',
@@ -33,6 +35,7 @@ export const PLAN_FEATURES = {
     hasWeeklyView: true,
     hasBrandColor: true,
     hasAdminBooking: true,
+    hasProfilePage: true,
   },
 } as const;
 
