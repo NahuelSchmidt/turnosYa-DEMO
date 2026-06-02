@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { queryConfirmedAppointments, getSalonById, updateAppointmentReminder } from '@/lib/firestore-server';
-import { format } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
+
+const TZ = 'America/Argentina/Buenos_Aires';
 
 // Protege el endpoint con un secreto para que solo lo llame el cron
 function isAuthorized(req: NextRequest): boolean {
@@ -83,7 +85,7 @@ export async function GET(req: NextRequest) {
     }
     const salon = salonCache[salonId];
 
-    const formattedDate = format(startTime, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
+    const formattedDate = formatInTimeZone(startTime, TZ, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
     const turnoLink = `${PROD_DOMAIN}/turno/${apt.id}`;
     const ubicacion = salon?.address ? `\n📍 ${salon.address}` : '';
     const alias = salon?.paymentAlias ? `\n💳 Alias de pago: ${salon.paymentAlias}` : '';
