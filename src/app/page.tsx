@@ -1,3 +1,5 @@
+"use client";
+import { useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -7,6 +9,142 @@ import { FeaturesAccordion } from "@/components/landing/FeaturesAccordion";
 import { PricingSection } from "@/components/landing/PricingSection";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+
+function DashboardDemo() {
+  const [tab, setTab] = useState<'agenda' | 'clientes' | 'metricas'>('agenda');
+  return (
+    <div className="space-y-4">
+      {/* Tabs */}
+      <div className="flex gap-2 border-b pb-2">
+        {[
+          { key: 'agenda', label: 'Agenda' },
+          { key: 'clientes', label: 'Clientes' },
+          { key: 'metricas', label: 'Métricas' },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key as any)}
+            className={`text-sm font-bold px-3 py-1.5 rounded-lg transition-colors ${tab === key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          >{label}</button>
+        ))}
+        <span className="text-sm font-bold px-3 py-1.5 rounded-lg text-muted-foreground/40 cursor-not-allowed">Ajustes</span>
+      </div>
+
+      {/* Agenda */}
+      {tab === 'agenda' && (
+        <div className="space-y-3">
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Hoy</p>
+          {[
+            { time: '10:00', name: 'Juan Pérez', service: 'Corte de Pelo', status: 'completed', color: 'bg-blue-50 border-blue-400 dark:bg-blue-950/20' },
+            { time: '11:30', name: 'Martín García', service: 'Corte + Barba', status: 'confirmed', color: 'bg-green-50 border-green-400 dark:bg-green-950/20' },
+            { time: '14:00', name: 'Lucas Rodríguez', service: 'Afeitado Clásico', status: 'confirmed', color: 'bg-green-50 border-green-400 dark:bg-green-950/20' },
+          ].map((apt, i) => (
+            <div key={i} className={`flex items-center gap-4 p-3 rounded-xl border-l-4 ${apt.color}`}>
+              <div className="text-center w-12 shrink-0">
+                <p className="font-black text-base">{apt.time}</p>
+                <p className="text-[10px] text-muted-foreground">hs</p>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm">{apt.name}</p>
+                <p className="text-xs text-muted-foreground">{apt.service}</p>
+              </div>
+              <span className={`text-[10px] font-black px-2 py-1 rounded-full border ${apt.status === 'completed' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-green-100 text-green-700 border-green-300'}`}>
+                {apt.status === 'completed' ? 'Completado' : 'Confirmado'}
+              </span>
+            </div>
+          ))}
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground mt-4">Próximos 7 días</p>
+          {[
+            { time: 'Mañana 09:30', name: 'Carlos López', service: 'Corte de Pelo' },
+            { time: 'Mañana 15:00', name: 'Diego Fernández', service: 'Corte + Barba' },
+          ].map((apt, i) => (
+            <div key={i} className="flex items-center gap-4 p-3 rounded-xl border-l-4 bg-green-50 border-green-400 dark:bg-green-950/20">
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm">{apt.name}</p>
+                <p className="text-xs text-muted-foreground">{apt.service} · {apt.time}</p>
+              </div>
+              <span className="text-[10px] font-black px-2 py-1 rounded-full border bg-green-100 text-green-700 border-green-300">Confirmado</span>
+            </div>
+          ))}
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-800">
+            <div className="w-8 h-8 rounded-full bg-[#25D366] flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 text-white fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            </div>
+            <div>
+              <p className="text-xs font-black text-green-700 dark:text-green-400">WhatsApp automático activado</p>
+              <p className="text-xs text-green-600 dark:text-green-500">Los clientes reciben confirmación y recordatorios automáticamente</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clientes */}
+      {tab === 'clientes' && (
+        <div className="space-y-3">
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Clientes frecuentes</p>
+          {[
+            { name: 'Juan Pérez', phone: '11 5555-1234', turnos: 12, total: '$48.000' },
+            { name: 'Martín García', phone: '11 4444-5678', turnos: 8, total: '$32.000' },
+            { name: 'Carlos López', phone: '11 3333-9012', turnos: 6, total: '$24.000' },
+            { name: 'Diego Fernández', phone: '11 2222-3456', turnos: 4, total: '$16.000' },
+          ].map((c, i) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-xl border bg-muted/20">
+              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center font-black text-primary text-sm shrink-0">
+                {c.name.charAt(0)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm">{c.name}</p>
+                <p className="text-xs text-muted-foreground">{c.phone}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-xs font-black">{c.turnos} turnos</p>
+                <p className="text-xs text-primary font-bold">{c.total}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Métricas */}
+      {tab === 'metricas' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Ingresos', value: '$128.000', icon: '💰' },
+              { label: 'Turnos', value: '47', icon: '📅' },
+              { label: 'Clientes', value: '23', icon: '👥' },
+              { label: 'Ocupación', value: '87%', icon: '📈' },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-2 p-3 bg-muted/30 rounded-xl border">
+                <span className="text-xl">{s.icon}</span>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">{s.label}</p>
+                  <p className="text-base font-black">{s.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Servicios más pedidos</p>
+          {[
+            { name: 'Corte de Pelo', count: 24, pct: 51 },
+            { name: 'Corte + Barba', count: 15, pct: 32 },
+            { name: 'Afeitado Clásico', count: 8, pct: 17 },
+          ].map((s, i) => (
+            <div key={i} className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="font-semibold">{s.name}</span>
+                <span className="text-muted-foreground">{s.count} turnos</span>
+              </div>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-primary rounded-full" style={{ width: `${s.pct}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ← TU número real sin el +
 const PHONE = "542216229441";
@@ -267,60 +405,8 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Tabs fake */}
-                  <div className="flex gap-2 border-b pb-2">
-                    {['Agenda', 'Clientes', 'Métricas', 'Ajustes'].map((tab, i) => (
-                      <span key={tab} className={`text-sm font-bold px-3 py-1.5 rounded-lg cursor-default ${i === 0 ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{tab}</span>
-                    ))}
-                  </div>
-
-                  {/* Turnos del día fake */}
-                  <div className="space-y-3">
-                    <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Hoy</p>
-                    {[
-                      { time: '10:00', name: 'Juan Pérez', service: 'Corte de Pelo', status: 'completed', color: 'bg-blue-50 border-blue-400 dark:bg-blue-950/20' },
-                      { time: '11:30', name: 'Martín García', service: 'Corte + Barba', status: 'confirmed', color: 'bg-green-50 border-green-400 dark:bg-green-950/20' },
-                      { time: '14:00', name: 'Lucas Rodríguez', service: 'Afeitado Clásico', status: 'confirmed', color: 'bg-green-50 border-green-400 dark:bg-green-950/20' },
-                    ].map((apt, i) => (
-                      <div key={i} className={`flex items-center gap-4 p-3 rounded-xl border-l-4 ${apt.color}`}>
-                        <div className="text-center w-12 shrink-0">
-                          <p className="font-black text-base">{apt.time}</p>
-                          <p className="text-[10px] text-muted-foreground">hs</p>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sm">{apt.name}</p>
-                          <p className="text-xs text-muted-foreground">{apt.service}</p>
-                        </div>
-                        <span className={`text-[10px] font-black px-2 py-1 rounded-full border ${apt.status === 'completed' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-green-100 text-green-700 border-green-300'}`}>
-                          {apt.status === 'completed' ? 'Completado' : 'Confirmado'}
-                        </span>
-                      </div>
-                    ))}
-                    <p className="text-xs font-black uppercase tracking-widest text-muted-foreground mt-4">Próximos 7 días</p>
-                    {[
-                      { time: 'Mañana 09:30', name: 'Carlos López', service: 'Corte de Pelo' },
-                      { time: 'Mañana 15:00', name: 'Diego Fernández', service: 'Corte + Barba' },
-                    ].map((apt, i) => (
-                      <div key={i} className="flex items-center gap-4 p-3 rounded-xl border-l-4 bg-green-50 border-green-400 dark:bg-green-950/20">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-sm">{apt.name}</p>
-                          <p className="text-xs text-muted-foreground">{apt.service} · {apt.time}</p>
-                        </div>
-                        <span className="text-[10px] font-black px-2 py-1 rounded-full border bg-green-100 text-green-700 border-green-300">Confirmado</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* WhatsApp badge */}
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50 border border-green-200 dark:bg-green-950/20 dark:border-green-800">
-                    <div className="w-8 h-8 rounded-full bg-[#25D366] flex items-center justify-center shrink-0">
-                      <svg className="w-4 h-4 text-white fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                    </div>
-                    <div>
-                      <p className="text-xs font-black text-green-700 dark:text-green-400">WhatsApp automático activado</p>
-                      <p className="text-xs text-green-600 dark:text-green-500">Los clientes reciben confirmación y recordatorios automáticamente</p>
-                    </div>
-                  </div>
+                  {/* Tabs interactivos */}
+                  <DashboardDemo />
                 </div>
               </div>
             </div>
