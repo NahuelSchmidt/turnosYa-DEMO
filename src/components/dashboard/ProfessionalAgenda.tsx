@@ -20,6 +20,10 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type AppStatus = 'confirmed' | 'completed' | 'cancelled' | 'no-show';
 
@@ -90,53 +94,73 @@ function StatusBadge({ apt, onUpdate, tenantId }: {
   const cfg = STATUS_CONFIG[status];
   const Icon = cfg.icon;
   const isInPast = isPast(parseFirestoreDate(apt.startTime));
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className={cn(
-          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-bold transition-all hover:opacity-80 shrink-0",
-          cfg.badgeClass
-        )}>
-          <Icon className="w-3 h-3" />
-          {cfg.label}
-          <ChevronDown className="w-3 h-3 opacity-60" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        {/* Opciones sin avisar */}
-        {(['completed', 'no-show'] as AppStatus[]).filter(k => k !== status).map(key => {
-          const val = STATUS_CONFIG[key];
-          const ItemIcon = val.icon;
-          return (
-            <DropdownMenuItem key={key} onClick={() => onUpdate(apt.id, key)} className="flex items-center gap-2 cursor-pointer">
-              <ItemIcon className="w-4 h-4" />
-              <span>{val.label}</span>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className={cn(
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-bold transition-all hover:opacity-80 shrink-0",
+            cfg.badgeClass
+          )}>
+            <Icon className="w-3 h-3" />
+            {cfg.label}
+            <ChevronDown className="w-3 h-3 opacity-60" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          {(['completed', 'no-show'] as AppStatus[]).filter(k => k !== status).map(key => {
+            const val = STATUS_CONFIG[key];
+            const ItemIcon = val.icon;
+            return (
+              <DropdownMenuItem key={key} onClick={() => onUpdate(apt.id, key)} className="flex items-center gap-2 cursor-pointer">
+                <ItemIcon className="w-4 h-4" />
+                <span>{val.label}</span>
+              </DropdownMenuItem>
+            );
+          })}
+          {status !== 'confirmed' && !isInPast && (
+            <DropdownMenuItem onClick={() => onUpdate(apt.id, 'confirmed')} className="flex items-center gap-2 cursor-pointer">
+              <AlertCircle className="w-4 h-4" />
+              <span>Confirmado</span>
             </DropdownMenuItem>
-          );
-        })}
-        {status !== 'confirmed' && !isInPast && (
-          <DropdownMenuItem onClick={() => onUpdate(apt.id, 'confirmed')} className="flex items-center gap-2 cursor-pointer">
-            <AlertCircle className="w-4 h-4" />
-            <span>Confirmado</span>
-          </DropdownMenuItem>
-        )}
+          )}
+          {status !== 'cancelled' && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setShowCancelDialog(true)}
+                className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600"
+              >
+                <XCircle className="w-4 h-4" />
+                <span>Cancelar turno</span>
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-        {/* Cancelar */}
-        {status !== 'cancelled' && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cancelar este turno?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vas a cancelar el turno de <strong>{apt.customerName}</strong>. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, mantener</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
               onClick={() => onUpdate(apt.id, 'cancelled')}
-              className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600"
             >
-              <XCircle className="w-4 h-4" />
-              <span>Cancelar turno</span>
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+              Sí, cancelar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
