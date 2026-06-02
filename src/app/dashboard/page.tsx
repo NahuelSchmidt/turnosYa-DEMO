@@ -31,26 +31,47 @@ const chartConfig = {
   Turnos: { label: "Turnos", color: "hsl(var(--muted-foreground))" },
 };
 
+// Genera opciones de meses: "todo", mes actual y los 11 anteriores
+function getMonthOptions() {
+  const options: { value: string; label: string }[] = [{ value: 'all', label: 'Todo el tiempo' }];
+  for (let i = 0; i < 12; i++) {
+    const d = subMonths(new Date(), i);
+    options.push({
+      value: format(d, 'yyyy-MM'),
+      label: format(d, 'MMMM yyyy', { locale: es }).replace(/^\w/, c => c.toUpperCase()),
+    });
+  }
+  return options;
+}
+
 function StatsSection({ tenantId }: { tenantId: string }) {
   const { appointments, loading } = useAppointments(tenantId);
+  const [period, setPeriod] = useState(format(new Date(), 'yyyy-MM'));
+  const monthOptions = useMemo(() => getMonthOptions(), []);
+
   const { chartData, totalRevenue, totalAppointments, uniqueClients, occupancyRate } = useMemo(() => {
     if (loading || !appointments.length) return { chartData: [], totalRevenue: 0, totalAppointments: 0, uniqueClients: 0, occupancyRate: 0 };
     const now = new Date();
-    // Solo turnos ya realizados (fecha pasada) o completados
-    const confirmed = appointments.filter(a => 
+    const allDone = appointments.filter(a =>
       (a.status === 'confirmed' && parseFirestoreDate(a.startTime) < now) ||
       a.status === 'completed'
     );
-    // Turnos futuros confirmados (para métricas de agenda)
-    const upcoming = appointments.filter(a => a.status === 'confirmed' && parseFirestoreDate(a.startTime) >= now);
+
+    // Filtrar por período seleccionado
+    const confirmed = period === 'all' ? allDone : allDone.filter(a => {
+      return format(parseFirestoreDate(a.startTime), 'yyyy-MM') === period;
+    });
+
+    // Gráfico: si es "todo" muestra últimos 6 meses, si es un mes muestra los días
     const months = Array.from({ length: 6 }, (_, i) => {
       const d = subMonths(new Date(), 5 - i);
       return { start: startOfMonth(d), end: endOfMonth(d), label: format(d, 'MMM', { locale: es }) };
     });
     const chartData = months.map(({ start, end, label }) => {
-      const monthApts = confirmed.filter(a => { const d = parseFirestoreDate(a.startTime); return d >= start && d <= end; });
+      const monthApts = allDone.filter(a => { const d = parseFirestoreDate(a.startTime); return d >= start && d <= end; });
       return { month: label.charAt(0).toUpperCase() + label.slice(1), Ingresos: monthApts.reduce((s, a) => s + (a.total || 0), 0), Turnos: monthApts.length };
     });
+
     return {
       chartData,
       totalRevenue: confirmed.reduce((s, a) => s + (a.total || 0), 0),
@@ -58,12 +79,25 @@ function StatsSection({ tenantId }: { tenantId: string }) {
       uniqueClients: new Set(confirmed.map(a => a.customerPhone)).size,
       occupancyRate: appointments.length > 0 ? Math.round((confirmed.length / appointments.length) * 100) : 0,
     };
-  }, [appointments, loading]);
+  }, [appointments, loading, period]);
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
 
   return (
     <div className="grid gap-6 overflow-hidden">
+      {/* Selector de período */}
+      <div className="flex items-center gap-2">
+        <label className="text-sm font-semibold text-muted-foreground shrink-0">Período:</label>
+        <select
+          value={period}
+          onChange={e => setPeriod(e.target.value)}
+          className="text-sm border rounded-lg px-3 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          {monthOptions.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
       <Card>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4">
           {[
@@ -106,12 +140,15 @@ function StatsSection({ tenantId }: { tenantId: string }) {
 function AdvancedStatsSection({ tenantId }: { tenantId: string }) {
   const { appointments, loading } = useAppointments(tenantId);
   const { services } = useServices(tenantId);
+  const [period, setPeriod] = useState(format(new Date(), 'yyyy-MM'));
+  const monthOptions = useMemo(() => getMonthOptions(), []);
 
   const { topClients, topServices, peakHours, peakDays } = useMemo(() => {
     if (loading || !appointments.length) return { topClients: [], topServices: [], peakHours: [], peakDays: [] };
 
-    const confirmed = appointments.filter(a =>
-      a.status === 'confirmed' || a.status === 'completed'
+    const all = appointments.filter(a => a.status === 'confirmed' || a.status === 'completed');
+    const confirmed = period === 'all' ? all : all.filter(a =>
+      format(parseFirestoreDate(a.startTime), 'yyyy-MM') === period
     );
 
     // Top clientes
@@ -164,7 +201,21 @@ function AdvancedStatsSection({ tenantId }: { tenantId: string }) {
 
   return (
     <div className="grid gap-6 mt-6">
-      <h3 className="text-lg font-bold flex items-center gap-2"><TrendingUp className="w-5 h-5 text-primary" /> Estadísticas Avanzadas</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold flex items-center gap-2"><TrendingUp className="w-5 h-5 text-primary" /> Estadísticas Avanzadas</h3>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-semibold text-muted-foreground shrink-0">Período:</label>
+          <select
+            value={period}
+            onChange={e => setPeriod(e.target.value)}
+            className="text-sm border rounded-lg px-3 py-1.5 bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {monthOptions.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
       <div className="grid md:grid-cols-2 gap-6">
 
         {/* Top clientes */}
