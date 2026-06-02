@@ -47,9 +47,9 @@ export function Footer() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                  <a href="https://wa.me/542216229441?text=Hola!%20Necesito%20soporte%20con%20Turnify." target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                     Soporte
-                  </Link>
+                  </a>
                 </li>
               </ul>
             </div>
