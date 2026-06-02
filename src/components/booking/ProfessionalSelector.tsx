@@ -32,7 +32,7 @@ export default function ProfessionalSelector({
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4 font-headline">Elige un Profesional</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="flex flex-col gap-2">
         {professionalsList.map((prof) => (
           <Card
             key={prof.id}
@@ -43,14 +43,14 @@ export default function ProfessionalSelector({
                 : "hover:shadow-md"
             }`}
           >
-            <CardContent className="flex flex-col items-center justify-center p-3 sm:p-6">
-              <div className="w-14 h-14 sm:w-24 sm:h-24 mb-2 sm:mb-4 rounded-full bg-muted flex items-center justify-center text-3xl sm:text-5xl">
+            <CardContent className="flex flex-row items-center gap-3 p-3">
+              <div className="w-11 h-11 shrink-0 rounded-full bg-muted flex items-center justify-center text-2xl">
                 {(prof as any).emoji || prof.name.charAt(0)}
               </div>
-              <h3 className="font-semibold text-sm sm:text-lg text-center leading-tight">{prof.name}</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground text-center mt-0.5">
-                {prof.specialty}
-              </p>
+              <div>
+                <h3 className="font-semibold text-sm leading-tight">{prof.name}</h3>
+                <p className="text-xs text-muted-foreground">{prof.specialty}</p>
+              </div>
             </CardContent>
           </Card>
         ))}
