@@ -1,0 +1,16 @@
+name: Enviar recordatorios de turnos
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # cada hora en punto
+  workflow_dispatch:       # permite correrlo manualmente desde GitHub
+
+jobs:
+  send-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar endpoint de recordatorios
+        run: |
+          curl -f "https://turnos-ya-demo.vercel.app/api/whatsapp/send-reminders?secret=${{ secrets.REMINDER_CRON_SECRET }}" \
+            && echo "Recordatorios enviados OK" \
+            || echo "Error al enviar recordatorios"
