@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
 
     const needs24h = !apt.reminderSent24h && startMs >= window24hStart && startMs <= window24hEnd;
     const needsSameDay = !apt.reminderSentSameDay && startMs >= windowSameDayStart && startMs <= windowSameDayEnd;
-    const needsReview = !apt.reviewSent && startMs >= windowReviewStart && startMs <= windowReviewEnd;
+    const needsReviewTime = !apt.reviewSent && startMs >= windowReviewStart && startMs <= windowReviewEnd;
 
     // Auto-completar turnos pasados que siguen como confirmados
     const endTime = apt.endTime instanceof Date ? apt.endTime : (apt.endTime ? new Date(apt.endTime) : new Date(startMs + 60 * 60 * 1000));
@@ -70,10 +70,10 @@ export async function GET(req: NextRequest) {
         body: JSON.stringify({ fields: { status: { stringValue: 'completed' } } }),
       });
       autoCompleted++;
-      if (!needs24h && !needsSameDay && !needsReview) continue;
+      if (!needs24h && !needsSameDay && !needsReviewTime) continue;
     }
 
-    if (!needs24h && !needsSameDay && !needsReview) continue;
+    if (!needs24h && !needsSameDay && !needsReviewTime) continue;
 
     const phone = apt.customerPhone;
     if (!phone) continue;
@@ -84,6 +84,9 @@ export async function GET(req: NextRequest) {
       salonCache[salonId] = await getSalonById(salonId);
     }
     const salon = salonCache[salonId];
+
+    // Reseña solo para negocios Premium (tienen página de perfil)
+    const needsReview = needsReviewTime && salon?.plan === 'premium';
 
     const formattedDate = formatInTimeZone(startTime, TZ, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
     const turnoLink = `${PROD_DOMAIN}/turno/${apt.id}`;
