@@ -279,8 +279,8 @@ export default function Home() {
                     <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Hoy</p>
                     {[
                       { time: '10:00', name: 'Juan Pérez', service: 'Corte de Pelo', status: 'completed', color: 'bg-blue-50 border-blue-400 dark:bg-blue-950/20' },
-                      { time: '11:30', name: 'Martín García', service: 'Corte + Barba', status: 'confirmed', color: 'bg-amber-50 border-amber-400 dark:bg-amber-950/20' },
-                      { time: '14:00', name: 'Lucas Rodríguez', service: 'Afeitado Clásico', status: 'confirmed', color: 'bg-amber-50 border-amber-400 dark:bg-amber-950/20' },
+                      { time: '11:30', name: 'Martín García', service: 'Corte + Barba', status: 'confirmed', color: 'bg-green-50 border-green-400 dark:bg-green-950/20' },
+                      { time: '14:00', name: 'Lucas Rodríguez', service: 'Afeitado Clásico', status: 'confirmed', color: 'bg-green-50 border-green-400 dark:bg-green-950/20' },
                     ].map((apt, i) => (
                       <div key={i} className={`flex items-center gap-4 p-3 rounded-xl border-l-4 ${apt.color}`}>
                         <div className="text-center w-12 shrink-0">
@@ -291,8 +291,8 @@ export default function Home() {
                           <p className="font-bold text-sm">{apt.name}</p>
                           <p className="text-xs text-muted-foreground">{apt.service}</p>
                         </div>
-                        <span className={`text-[10px] font-black px-2 py-1 rounded-full border ${apt.status === 'completed' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-amber-100 text-amber-700 border-amber-300'}`}>
-                          {apt.status === 'completed' ? 'Completado' : 'Pendiente'}
+                        <span className={`text-[10px] font-black px-2 py-1 rounded-full border ${apt.status === 'completed' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-green-100 text-green-700 border-green-300'}`}>
+                          {apt.status === 'completed' ? 'Completado' : 'Confirmado'}
                         </span>
                       </div>
                     ))}
@@ -301,12 +301,12 @@ export default function Home() {
                       { time: 'Mañana 09:30', name: 'Carlos López', service: 'Corte de Pelo' },
                       { time: 'Mañana 15:00', name: 'Diego Fernández', service: 'Corte + Barba' },
                     ].map((apt, i) => (
-                      <div key={i} className="flex items-center gap-4 p-3 rounded-xl border-l-4 bg-amber-50 border-amber-400 dark:bg-amber-950/20">
+                      <div key={i} className="flex items-center gap-4 p-3 rounded-xl border-l-4 bg-green-50 border-green-400 dark:bg-green-950/20">
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-sm">{apt.name}</p>
                           <p className="text-xs text-muted-foreground">{apt.service} · {apt.time}</p>
                         </div>
-                        <span className="text-[10px] font-black px-2 py-1 rounded-full border bg-amber-100 text-amber-700 border-amber-300">Pendiente</span>
+                        <span className="text-[10px] font-black px-2 py-1 rounded-full border bg-green-100 text-green-700 border-green-300">Confirmado</span>
                       </div>
                     ))}
                   </div>

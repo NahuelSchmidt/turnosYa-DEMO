@@ -18,10 +18,10 @@ const FEATURES = [
         </div>
         <div className="space-y-2">
           {[
-            { time: "09:00", name: "Corte + Barba", person: "Carlos M.", color: "bg-amber-100 border-amber-400 text-amber-800", status: "Pendiente" },
-            { time: "10:30", name: "Color completo", person: "Ana G.", color: "bg-green-100 border-green-400 text-green-800", status: "Completado" },
-            { time: "12:00", name: "Consulta", person: "Luis P.", color: "bg-blue-100 border-blue-400 text-blue-800", status: "Pendiente" },
-            { time: "15:00", name: "Corte de Pelo", person: "María R.", color: "bg-amber-100 border-amber-400 text-amber-800", status: "Pendiente" },
+            { time: "09:00", name: "Corte + Barba", person: "Carlos M.", color: "bg-green-100 border-green-400 text-green-800", status: "Confirmado" },
+            { time: "10:30", name: "Color completo", person: "Ana G.", color: "bg-blue-100 border-blue-400 text-blue-800", status: "Completado" },
+            { time: "12:00", name: "Consulta", person: "Luis P.", color: "bg-green-100 border-green-400 text-green-800", status: "Confirmado" },
+            { time: "15:00", name: "Corte de Pelo", person: "María R.", color: "bg-green-100 border-green-400 text-green-800", status: "Confirmado" },
           ].map((apt, i) => (
             <div key={i} className={cn("flex items-center gap-2 p-2 rounded-lg border-l-4 text-xs", apt.color)}>
               <span className="font-mono font-bold w-10 shrink-0">{apt.time}</span>
@@ -159,8 +159,8 @@ const FEATURES = [
       <div className="bg-background rounded-2xl border shadow-lg p-4 w-full space-y-2">
         <p className="text-xs font-bold text-muted-foreground mb-3">Estados de turnos de hoy</p>
         {[
-          { time: "09:00", name: "Carlos Rodríguez", label: "Completado", badge: "bg-green-100 text-green-700 border-green-300" },
-          { time: "11:00", name: "Martina López", label: "Pendiente", badge: "bg-amber-100 text-amber-700 border-amber-300" },
+          { time: "09:00", name: "Carlos Rodríguez", label: "Completado", badge: "bg-blue-100 text-blue-700 border-blue-300" },
+          { time: "11:00", name: "Martina López", label: "Confirmado", badge: "bg-green-100 text-green-700 border-green-300" },
           { time: "14:00", name: "Juan Pérez", label: "No asistió", badge: "bg-gray-100 text-gray-600 border-gray-300" },
           { time: "16:00", name: "Laura Silva", label: "Cancelado", badge: "bg-red-100 text-red-700 border-red-300" },
         ].map((apt, i) => (
