@@ -71,11 +71,22 @@ export async function getSalonById(salonId: string): Promise<Record<string, any>
 export async function updateAppointmentReminder(
   appointmentId: string,
   field: 'reminderSent24h' | 'reminderSentSameDay' | 'reviewSent'
-): Promise<void> {
+): Promise<boolean> {
   const url = `${BASE_URL}/appointments/${appointmentId}?updateMask.fieldPaths=${field}&key=${API_KEY}`;
-  await fetch(url, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields: { [field]: { booleanValue: true } } }),
-  });
+  try {
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: { [field]: { booleanValue: true } } }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`[updateAppointmentReminder] Error ${res.status} para ${appointmentId}/${field}:`, text);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error(`[updateAppointmentReminder] Excepción para ${appointmentId}/${field}:`, e);
+    return false;
+  }
 }
