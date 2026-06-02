@@ -72,11 +72,16 @@ service cloud.firestore {
       // Cualquier usuario autenticado puede crear una reserva
       allow create: if isSignedIn() && request.resource.data.customerId == request.auth.uid;
       // Solo el cliente dueño del turno o el admin del salón pueden cancelar
-      allow update: if isSignedIn() && (
+      // El cron puede actualizar solo los flags de reminder y status (sin auth)
+      allow update: if (
+        // Cron: solo puede tocar campos de reminder/status
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['reminderSent24h', 'reminderSentSameDay', 'reviewSent', 'status'])
+      ) || (isSignedIn() && (
         resource.data.customerId == request.auth.uid ||
         isSalonAdmin(resource.data.salonId) ||
         isGlobalAdmin()
-      );
+      ));
       allow delete: if isGlobalAdmin();
     }
 
