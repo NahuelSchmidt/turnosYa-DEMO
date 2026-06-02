@@ -35,18 +35,18 @@ const PROD_DOMAIN = 'https://turnos-ya-demo.vercel.app';
 const STATUS_CONFIG: Record<AppStatus, { label: string; cardClass: string; borderClass: string; badgeClass: string; timeClass: string; icon: any }> = {
   confirmed:  {
     label: 'Confirmado',
-    cardClass: 'bg-amber-50 dark:bg-amber-950/20',
-    borderClass: 'border-l-amber-400',
-    badgeClass: 'bg-amber-100 text-amber-700 border-amber-300',
-    timeClass: 'text-amber-700 dark:text-amber-400',
-    icon: AlertCircle,
-  },
-  completed:  {
-    label: 'Completado',
     cardClass: 'bg-green-50 dark:bg-green-950/20',
     borderClass: 'border-l-green-400',
     badgeClass: 'bg-green-100 text-green-700 border-green-300',
     timeClass: 'text-green-700 dark:text-green-400',
+    icon: CheckCircle2,
+  },
+  completed:  {
+    label: 'Completado',
+    cardClass: 'bg-blue-50 dark:bg-blue-950/20',
+    borderClass: 'border-l-blue-400',
+    badgeClass: 'bg-blue-100 text-blue-700 border-blue-300',
+    timeClass: 'text-blue-700 dark:text-blue-400',
     icon: CheckCircle2,
   },
   cancelled:  {
