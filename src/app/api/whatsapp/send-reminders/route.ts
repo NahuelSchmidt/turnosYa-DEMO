@@ -18,7 +18,7 @@ function isAuthorized(req: NextRequest): boolean {
   return auth === secret;
 }
 
-const PROD_DOMAIN = 'https://turnos-ya-demo.vercel.app';
+const PROD_DOMAIN = 'https://www.turnify.pro';
 
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
