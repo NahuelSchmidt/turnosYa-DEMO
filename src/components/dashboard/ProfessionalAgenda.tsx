@@ -34,7 +34,7 @@ const PROD_DOMAIN = 'https://turnos-ya-demo.vercel.app';
 
 const STATUS_CONFIG: Record<AppStatus, { label: string; cardClass: string; borderClass: string; badgeClass: string; timeClass: string; icon: any }> = {
   confirmed:  {
-    label: 'Pendiente',
+    label: 'Confirmado',
     cardClass: 'bg-amber-50 dark:bg-amber-950/20',
     borderClass: 'border-l-amber-400',
     badgeClass: 'bg-amber-100 text-amber-700 border-amber-300',
@@ -118,7 +118,7 @@ function StatusBadge({ apt, onUpdate, tenantId }: {
         {status !== 'confirmed' && !isInPast && (
           <DropdownMenuItem onClick={() => onUpdate(apt.id, 'confirmed')} className="flex items-center gap-2 cursor-pointer">
             <AlertCircle className="w-4 h-4" />
-            <span>Pendiente</span>
+            <span>Confirmado</span>
           </DropdownMenuItem>
         )}
 
@@ -356,7 +356,7 @@ function GridView({ agenda, onUpdate, tenantId }: {
                               onChange={e => onUpdate(apt.id, e.target.value as AppStatus)}
                               className="mt-1 w-full text-[9px] rounded border border-input bg-background px-1 py-0.5"
                             >
-                              <option value="confirmed">Pendiente</option>
+                              <option value="confirmed">Confirmado</option>
                               <option value="completed">Completado</option>
                               <option value="no-show">No asistió</option>
                               <option value="cancelled">Cancelar turno</option>
