@@ -5,6 +5,7 @@ import { collection, query, where, serverTimestamp, doc } from 'firebase/firesto
 import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Appointment } from '@/lib/data';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { useEffect } from 'react';
 
 export function useAppointments(tenantId: string = 'default') {
   const db = useFirestore();
@@ -107,6 +108,20 @@ export function useAppointments(tenantId: string = 'default') {
     const apptRef = doc(db, 'appointments', appointmentId);
     updateDocumentNonBlocking(apptRef, { status, updatedAt: serverTimestamp() });
   };
+
+  // Auto-completar turnos confirmados cuyo endTime ya pasó
+  useEffect(() => {
+    if (!db || !appointments.length) return;
+    const now = new Date();
+    appointments.forEach(apt => {
+      if (apt.status !== 'confirmed') return;
+      const endTime = apt.endTime ? toDate(apt.endTime) : new Date(toDate(apt.startTime).getTime() + 60 * 60 * 1000);
+      if (endTime < now) {
+        const apptRef = doc(db, 'appointments', apt.id);
+        updateDocumentNonBlocking(apptRef, { status: 'completed', updatedAt: serverTimestamp() });
+      }
+    });
+  }, [appointments, db]);
 
   const appointmentsThisMonth = (() => {
     const now = new Date();
