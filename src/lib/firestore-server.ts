@@ -30,14 +30,17 @@ function parseDoc(doc: any): Record<string, any> {
 
 export async function queryConfirmedAppointments(): Promise<Record<string, any>[]> {
   const url = `${BASE_URL}:runQuery?key=${API_KEY}`;
+  // Trae confirmed Y completed para poder mandar reseñas después del turno
   const body = {
     structuredQuery: {
       from: [{ collectionId: 'appointments' }],
       where: {
-        fieldFilter: {
-          field: { fieldPath: 'status' },
-          op: 'EQUAL',
-          value: { stringValue: 'confirmed' },
+        compositeFilter: {
+          op: 'OR',
+          filters: [
+            { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: { stringValue: 'confirmed' } } },
+            { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: { stringValue: 'completed' } } },
+          ],
         },
       },
     },
