@@ -35,6 +35,7 @@ export function useAppointments(tenantId: string = 'default') {
     date: Date | undefined,
     timeSlots: string[] = [],
     blockedSlots: { date: string; time: string }[] = [],
+    excludeAppointmentId?: string,
   ): string[] => {
     if (!date || !professionalId) return [];
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -44,6 +45,7 @@ export function useAppointments(tenantId: string = 'default') {
       .filter((apt) => {
         if (apt.status !== 'confirmed') return false;
         if (apt.professionalId !== professionalId) return false;
+        if (excludeAppointmentId && apt.id === excludeAppointmentId) return false;
         const aptDate = toDate(apt.startTime);
         return format(aptDate, 'yyyy-MM-dd') === dateStr;
       })
@@ -109,6 +111,12 @@ export function useAppointments(tenantId: string = 'default') {
     updateDocumentNonBlocking(apptRef, { status, updatedAt: serverTimestamp() });
   };
 
+  const rescheduleAppointment = (appointmentId: string, newStartTime: Date, newEndTime: Date) => {
+    if (!db) return;
+    const apptRef = doc(db, 'appointments', appointmentId);
+    updateDocumentNonBlocking(apptRef, { startTime: newStartTime, endTime: newEndTime, updatedAt: serverTimestamp() });
+  };
+
   // Auto-completar turnos confirmados cuyo endTime ya pasó
   useEffect(() => {
     if (!db || !appointments.length) return;
@@ -139,6 +147,7 @@ export function useAppointments(tenantId: string = 'default') {
     addAppointment,
     cancelAppointment,
     updateAppointmentStatus,
+    rescheduleAppointment,
     getBookedSlotsForDate,
     appointmentsThisMonth,
     loading: isCollectionLoading || isUserLoading,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,17 +22,24 @@ interface NewAppointmentModalProps {
   services: Service[];
   professionals: Professional[];
   blockedSlots?: { date: string; time: string }[];
+  defaultDate?: Date;
 }
 
-export function NewAppointmentModal({ open, onClose, tenantId, services, professionals, blockedSlots = [] }: NewAppointmentModalProps) {
+export function NewAppointmentModal({ open, onClose, tenantId, services, professionals, blockedSlots = [], defaultDate }: NewAppointmentModalProps) {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>("");
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(defaultDate ?? new Date());
+
+  useEffect(() => {
+    if (open) setSelectedDate(defaultDate ?? new Date());
+  }, [open, defaultDate]);
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [extraDuration, setExtraDuration] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [freeTextService, setFreeTextService] = useState(false);
+  const [customServiceName, setCustomServiceName] = useState("");
 
   const { addAppointment, getBookedSlotsForDate } = useAppointments(tenantId);
   const { getSlotsForDate } = useSchedules(tenantId);
@@ -68,7 +75,8 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
   const totalDuration = (selectedService?.duration ?? 0) + extraDuration;
 
   const handleSubmit = () => {
-    if (!customerName || !selectedProfessionalId || !selectedServiceId || !selectedDate || !selectedTime) {
+    const serviceOk = freeTextService ? !!customServiceName.trim() : !!selectedServiceId;
+    if (!customerName || !selectedProfessionalId || !serviceOk || !selectedDate || !selectedTime) {
       toast({ variant: "destructive", title: "Completá todos los campos obligatorios" });
       return;
     }
@@ -80,7 +88,8 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
 
     const id = (addAppointment as any)({
       professionalId: selectedProfessionalId,
-      serviceIds: [selectedServiceId],
+      serviceIds: freeTextService ? [] : [selectedServiceId],
+      customServiceName: freeTextService ? customServiceName.trim() : undefined,
       startTime,
       endTime,
       total,
@@ -95,7 +104,7 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
       // Enviar WhatsApp de confirmación al cliente si tiene teléfono
       if (customerPhone) {
         const formattedDate = format(startTime, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
-        const serviceName = selectedService?.name || '';
+        const serviceName = freeTextService ? customServiceName.trim() : (selectedService?.name || '');
         const professional = professionals.find(p => p.id === selectedProfessionalId);
         const turnoLink = `${window.location.origin}/turno/${id}`;
         const message = `*Turno Confirmado* ✅\n\nHola ${customerName}! Tu turno esta confirmado:\n\n🗓 ${formattedDate}\n📋 ${serviceName}${professional ? `\n👤 Con ${professional.name}` : ''}\n\nGestioná tu turno: ${turnoLink}\n\n¡Te esperamos!`;
@@ -128,9 +137,11 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
     setCustomerPhone("");
     setSelectedServiceId("");
     setSelectedProfessionalId("");
-    setSelectedDate(new Date());
+    setSelectedDate(defaultDate ?? new Date());
     setSelectedTime("");
     setExtraDuration(0);
+    setFreeTextService(false);
+    setCustomServiceName("");
     onClose();
   };
 
@@ -154,17 +165,34 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
           </div>
 
           <div className="space-y-1">
-            <Label>Servicio</Label>
-            <Select value={selectedServiceId} onValueChange={v => { setSelectedServiceId(v); setSelectedTime(""); }}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar servicio..." />
-              </SelectTrigger>
-              <SelectContent>
-                {bookableServices.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.name} — {s.duration}min</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center justify-between">
+              <Label>Servicio</Label>
+              <button
+                type="button"
+                className="text-xs text-primary underline-offset-2 hover:underline"
+                onClick={() => { setFreeTextService(v => !v); setSelectedServiceId(""); setCustomServiceName(""); }}
+              >
+                {freeTextService ? "Elegir de la lista" : "Escribir manualmente"}
+              </button>
+            </div>
+            {freeTextService ? (
+              <Input
+                placeholder="Ej: Cirugía de encías, Consulta, etc."
+                value={customServiceName}
+                onChange={e => setCustomServiceName(e.target.value)}
+              />
+            ) : (
+              <Select value={selectedServiceId} onValueChange={v => { setSelectedServiceId(v); setSelectedTime(""); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar servicio..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {bookableServices.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name} — {s.duration}min</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="space-y-1">
