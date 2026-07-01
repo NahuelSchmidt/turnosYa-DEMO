@@ -57,8 +57,14 @@ export async function GET(req: NextRequest) {
     const startMs = startTime.getTime();
     if (isNaN(startMs)) continue;
 
-    const needs24h = !apt.reminderSent24h && startMs >= window24hStart && startMs <= window24hEnd;
-    const needsSameDay = !apt.reminderSentSameDay && startMs >= windowSameDayStart && startMs <= windowSameDayEnd;
+    // Si el cliente reservó el turno el mismo día para el que es, ya recibió
+    // la confirmación al reservar: no hace falta mandarle también un recordatorio.
+    const createdAt = apt.createdAt instanceof Date ? apt.createdAt : (apt.createdAt ? new Date(apt.createdAt) : null);
+    const bookedSameDay = !!createdAt && !isNaN(createdAt.getTime()) &&
+      formatInTimeZone(createdAt, TZ, 'yyyy-MM-dd') === formatInTimeZone(startTime, TZ, 'yyyy-MM-dd');
+
+    const needs24h = !bookedSameDay && !apt.reminderSent24h && startMs >= window24hStart && startMs <= window24hEnd;
+    const needsSameDay = !bookedSameDay && !apt.reminderSentSameDay && startMs >= windowSameDayStart && startMs <= windowSameDayEnd;
     const needsReviewTime = !apt.reviewSent && startMs >= windowReviewStart && startMs <= windowReviewEnd;
 
     // Auto-completar turnos pasados que siguen como confirmados
