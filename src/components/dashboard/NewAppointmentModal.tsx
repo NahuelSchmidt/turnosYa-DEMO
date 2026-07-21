@@ -81,55 +81,70 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
       return;
     }
     setIsSubmitting(true);
-    const [hours, minutes] = selectedTime.split(":").map(Number);
-    const startTime = new Date(selectedDate);
-    startTime.setHours(hours, minutes, 0, 0);
-    const endTime = new Date(startTime.getTime() + totalDuration * 60000);
+    try {
+      const [hours, minutes] = selectedTime.split(":").map(Number);
+      const startTime = new Date(selectedDate);
+      startTime.setHours(hours, minutes, 0, 0);
+      const endTime = new Date(startTime.getTime() + totalDuration * 60000);
 
-    const id = (addAppointment as any)({
-      professionalId: selectedProfessionalId,
-      serviceIds: freeTextService ? [] : [selectedServiceId],
-      customServiceName: freeTextService ? customServiceName.trim() : undefined,
-      startTime,
-      endTime,
-      total,
-      customerName,
-      customerPhone,
-      paymentMethod: "Gestionado por el negocio",
-    });
+      const id = (addAppointment as any)({
+        professionalId: selectedProfessionalId,
+        serviceIds: freeTextService ? [] : [selectedServiceId],
+        ...(freeTextService ? { customServiceName: customServiceName.trim() } : {}),
+        startTime,
+        endTime,
+        total,
+        customerName,
+        customerPhone,
+        paymentMethod: "Gestionado por el negocio",
+      });
 
-    if (id) {
-      toast({ title: "Turno creado", description: `Turno para ${customerName} agendado correctamente.` });
+      if (id) {
+        toast({ title: "Turno creado", description: `Turno para ${customerName} agendado correctamente.` });
 
-      // Enviar WhatsApp de confirmación al cliente si tiene teléfono
-      if (customerPhone) {
-        const formattedDate = format(startTime, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
-        const serviceName = freeTextService ? customServiceName.trim() : (selectedService?.name || '');
-        const professional = professionals.find(p => p.id === selectedProfessionalId);
-        const turnoLink = `${window.location.origin}/turno/${id}`;
-        const message = `*Turno Confirmado* ✅\n\nHola ${customerName}! Tu turno esta confirmado:\n\n🗓 ${formattedDate}\n📋 ${serviceName}${professional ? `\n👤 Con ${professional.name}` : ''}\n\nGestioná tu turno: ${turnoLink}\n\n¡Te esperamos!`;
+        // Enviar WhatsApp de confirmación al cliente si tiene teléfono
+        if (customerPhone) {
+          const formattedDate = format(startTime, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
+          const serviceName = freeTextService ? customServiceName.trim() : (selectedService?.name || '');
+          const professional = professionals.find(p => p.id === selectedProfessionalId);
+          const turnoLink = `${window.location.origin}/turno/${id}`;
+          const message = `*Turno Confirmado* ✅\n\nHola ${customerName}! Tu turno esta confirmado:\n\n🗓 ${formattedDate}\n📋 ${serviceName}${professional ? `\n👤 Con ${professional.name}` : ''}\n\nGestioná tu turno: ${turnoLink}\n\n¡Te esperamos!`;
 
-        fetch('/api/whatsapp/send-confirmation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phone: customerPhone,
-            message,
-            tenantId,
-            customerName,
-            customerPhone,
-            appointmentDate: formattedDate,
-            serviceNames: serviceName,
-            professionalName: professional?.name,
-          }),
-        });
+          fetch('/api/whatsapp/send-confirmation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phone: customerPhone,
+              message,
+              tenantId,
+              customerName,
+              customerPhone,
+              appointmentDate: formattedDate,
+              serviceNames: serviceName,
+              professionalName: professional?.name,
+            }),
+          }).then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.sent) {
+              console.warn('[WhatsApp] Envío automático falló, abriendo wa.me como respaldo', data);
+              window.open(`https://wa.me/${customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
+            }
+          }).catch((err) => {
+            console.error('[WhatsApp] Error de red al enviar confirmación:', err);
+            window.open(`https://wa.me/${customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
+          });
+        }
+
+        handleClose();
+      } else {
+        toast({ variant: "destructive", title: "Error al crear el turno" });
       }
-
-      handleClose();
-    } else {
+    } catch (error) {
+      console.error("Error al crear el turno:", error);
       toast({ variant: "destructive", title: "Error al crear el turno" });
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   const handleClose = () => {
