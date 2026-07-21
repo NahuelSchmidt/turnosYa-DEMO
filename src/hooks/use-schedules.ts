@@ -17,8 +17,25 @@ export function useSchedules(tenantId: string = 'default') {
 
   const { data: salon, isLoading } = useDoc<any>(salonRef);
 
-  // Resuelve slots para una fecha, opcionalmente con el horario de un profesional
-  const getSlotsForDate = (date?: Date, professional?: { weekSchedule?: Record<string, { enabled: boolean; slots: string[] }> } | null): string[] => {
+  // Resuelve slots para una fecha, opcionalmente con el horario de un profesional.
+  // forClass usa el horario de clases del negocio en vez del horario de turnos —
+  // son independientes porque una clase suele tener horarios puntuales (ej: 18hs)
+  // en vez de la grilla continua de turnos 1-a-1.
+  const getSlotsForDate = (
+    date?: Date,
+    professional?: { weekSchedule?: Record<string, { enabled: boolean; slots: string[] }> } | null,
+    forClass: boolean = false,
+  ): string[] => {
+    if (forClass) {
+      if (!date) return salon?.classTimeSlots || [];
+      const dayKey = DIAS_KEY[date.getDay()];
+      const classSchedule = salon?.classWeekSchedule;
+      if (!classSchedule) return salon?.classTimeSlots || [];
+      const dayConfig = classSchedule[dayKey];
+      if (!dayConfig?.enabled) return [];
+      return dayConfig.slots || [];
+    }
+
     if (!date) return salon?.timeSlots || initialTimeSlots;
 
     const dayKey = DIAS_KEY[date.getDay()];

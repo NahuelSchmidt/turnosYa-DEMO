@@ -38,6 +38,49 @@ interface PopulatedAppointment extends Omit<Appointment, 'serviceIds' | 'profess
   professional: Professional | undefined;
 }
 
+interface ClassGroup {
+  isClassGroup: true;
+  key: string;
+  startTime: any;
+  service: Service;
+  professional: Professional | undefined;
+  attendees: PopulatedAppointment[];
+}
+
+// Agrupa turnos consecutivos de una misma clase (mismo profesional + horario + servicio tipo "clase")
+// en un único item con la lista de anotados adentro. Los turnos normales pasan sin agrupar.
+function groupClassAppointments(apts: PopulatedAppointment[]): (PopulatedAppointment | ClassGroup)[] {
+  const result: (PopulatedAppointment | ClassGroup)[] = [];
+  const groupByKey = new Map<string, ClassGroup>();
+
+  apts.forEach(apt => {
+    const classService = apt.services.length === 1 ? apt.services[0] : undefined;
+    if (!classService || (classService as any).type !== 'clase') {
+      result.push(apt);
+      return;
+    }
+    const dateKey = format(parseFirestoreDate(apt.startTime), "yyyy-MM-dd'T'HH:mm");
+    const key = `${apt.professional?.id || 'none'}__${classService.id}__${dateKey}`;
+    const existing = groupByKey.get(key);
+    if (existing) {
+      existing.attendees.push(apt);
+    } else {
+      const group: ClassGroup = {
+        isClassGroup: true,
+        key,
+        startTime: apt.startTime,
+        service: classService,
+        professional: apt.professional,
+        attendees: [apt],
+      };
+      groupByKey.set(key, group);
+      result.push(group);
+    }
+  });
+
+  return result;
+}
+
 interface ProfessionalAgendaProps { tenantId: string; }
 
 const PROD_DOMAIN = 'https://turnos-ya-demo.vercel.app';
@@ -247,6 +290,83 @@ function AppointmentCard({ apt, onUpdate, onReschedule, tenantId }: {
   );
 }
 
+// ─── TARJETA DE CLASE AGRUPADA (cupo + lista de anotados) ────────────────────
+function ClassGroupCard({ group, onUpdate, onReschedule, tenantId }: {
+  group: ClassGroup;
+  onUpdate: (id: string, status: AppStatus) => void;
+  onReschedule: (apt: PopulatedAppointment) => void;
+  tenantId: string;
+}) {
+  const dateObj = parseFirestoreDate(group.startTime);
+  const capacity = (group.service as any).capacity || 0;
+  const confirmedCount = group.attendees.filter(a => (a.status as AppStatus || 'confirmed') === 'confirmed').length;
+  const isFull = capacity > 0 && confirmedCount >= capacity;
+
+  return (
+    <div className="rounded-xl border-2 border-violet-200 dark:border-violet-900/40 bg-violet-50/40 dark:bg-violet-950/10 overflow-hidden">
+      <div className="flex items-center gap-3 p-3 border-b border-violet-200 dark:border-violet-900/40">
+        <div className="shrink-0 text-center w-12">
+          <p className="text-base font-black tabular-nums leading-none text-violet-700 dark:text-violet-400">
+            {format(dateObj, 'HH:mm')}
+          </p>
+          <p className="text-[10px] text-muted-foreground">hs</p>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-sm truncate flex items-center gap-1.5 flex-wrap">
+            {group.service.name}
+            <span className={cn(
+              "text-[10px] font-bold px-1.5 py-0.5 rounded-full border shrink-0",
+              isFull ? "bg-red-100 text-red-700 border-red-300" : "bg-violet-100 text-violet-700 border-violet-300"
+            )}>
+              {confirmedCount}/{capacity || '∞'} cupos
+            </span>
+          </p>
+          {group.professional && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+              <User className="w-3 h-3" /> {group.professional.name}
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="divide-y divide-violet-100 dark:divide-violet-900/30">
+        {group.attendees.map(apt => {
+          const status = (apt.status as AppStatus) || 'confirmed';
+          const cfg = STATUS_CONFIG[status];
+          const whatsappUrl = apt.customerPhone
+            ? `https://wa.me/549${apt.customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${apt.customerName}! Te recuerdo tu turno para el ${format(parseFirestoreDate(apt.startTime), "dd/MM 'a las' HH:mm'hs'", { locale: es })}.`)}`
+            : null;
+          return (
+            <div key={apt.id} className="flex items-center gap-3 px-3 py-2">
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm truncate">{apt.customerName}</p>
+                {apt.customerPhone && <p className="text-xs text-muted-foreground truncate">{apt.customerPhone}</p>}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {whatsappUrl && (
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-xs font-semibold text-white hover:opacity-80 transition-opacity"
+                    style={{ backgroundColor: '#25D366' }}
+                    title="Enviar recordatorio"
+                  >
+                    <MessageCircle className="w-3 h-3" />
+                  </a>
+                )}
+                <StatusBadge apt={apt} onUpdate={onUpdate} onReschedule={onReschedule} tenantId={tenantId} />
+              </div>
+            </div>
+          );
+        })}
+        {group.attendees.length === 0 && (
+          <p className="text-xs text-muted-foreground px-3 py-2">Sin anotados.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── VISTA LISTA ─────────────────────────────────────────────────────────────
 function ListView({ agenda, onUpdate, onReschedule, tenantId, getBookedSlotsForDate }: {
   agenda: PopulatedAppointment[];
@@ -272,6 +392,11 @@ function ListView({ agenda, onUpdate, onReschedule, tenantId, getBookedSlotsForD
     return d > in7days && d <= endOfMonth && a.status === 'confirmed';
   });
 
+  const renderAgendaItem = (item: PopulatedAppointment | ClassGroup) =>
+    'isClassGroup' in item
+      ? <ClassGroupCard key={item.key} group={item} onUpdate={onUpdate} onReschedule={setRescheduleApt} tenantId={tenantId} />
+      : <AppointmentCard key={item.id} apt={item} onUpdate={onUpdate} onReschedule={setRescheduleApt} tenantId={tenantId} />;
+
   return (
     <>
       <div className="space-y-8">
@@ -280,7 +405,7 @@ function ListView({ agenda, onUpdate, onReschedule, tenantId, getBookedSlotsForD
             Hoy · {format(new Date(), "dd 'de' MMMM", { locale: es })} ({todayApts.length})
           </h3>
           {todayApts.length > 0
-            ? <div className="space-y-2">{todayApts.map(a => <AppointmentCard key={a.id} apt={a} onUpdate={onUpdate} onReschedule={setRescheduleApt} tenantId={tenantId} />)}</div>
+            ? <div className="space-y-2">{groupClassAppointments(todayApts).map(renderAgendaItem)}</div>
             : <p className="text-muted-foreground text-sm py-4 border rounded-xl text-center">Sin turnos para hoy.</p>}
         </section>
 
@@ -288,12 +413,12 @@ function ListView({ agenda, onUpdate, onReschedule, tenantId, getBookedSlotsForD
           <h3 className="font-bold text-xs uppercase tracking-widest text-muted-foreground mb-3">Próximos 7 días ({next7Apts.length})</h3>
           {next7Apts.length > 0 ? (
             <div className="space-y-2">
-              {next7Apts.map(a => (
-                <div key={a.id}>
+              {groupClassAppointments(next7Apts).map(item => (
+                <div key={'isClassGroup' in item ? item.key : item.id}>
                   <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5 capitalize pl-1">
-                    {format(parseFirestoreDate(a.startTime), "eeee dd/MM", { locale: es })}
+                    {format(parseFirestoreDate(item.startTime), "eeee dd/MM", { locale: es })}
                   </p>
-                  <AppointmentCard apt={a} onUpdate={onUpdate} onReschedule={setRescheduleApt} tenantId={tenantId} />
+                  {renderAgendaItem(item)}
                 </div>
               ))}
             </div>
@@ -306,12 +431,12 @@ function ListView({ agenda, onUpdate, onReschedule, tenantId, getBookedSlotsForD
           <h3 className="font-bold text-xs uppercase tracking-widest text-muted-foreground mb-3">Resto del mes ({restOfMonthApts.length})</h3>
           {restOfMonthApts.length > 0 ? (
             <div className="space-y-2">
-              {restOfMonthApts.map(a => (
-                <div key={a.id}>
+              {groupClassAppointments(restOfMonthApts).map(item => (
+                <div key={'isClassGroup' in item ? item.key : item.id}>
                   <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5 capitalize pl-1">
-                    {format(parseFirestoreDate(a.startTime), "eeee dd/MM", { locale: es })}
+                    {format(parseFirestoreDate(item.startTime), "eeee dd/MM", { locale: es })}
                   </p>
-                  <AppointmentCard apt={a} onUpdate={onUpdate} onReschedule={setRescheduleApt} tenantId={tenantId} />
+                  {renderAgendaItem(item)}
                 </div>
               ))}
             </div>
@@ -724,6 +849,7 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
   const [newAppointmentDate, setNewAppointmentDate] = useState<Date | undefined>(undefined);
   const [weekOffsetForDay, setWeekOffsetForDay] = useState(0);
   const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
+  const [agendaKind, setAgendaKind] = useState<'turnos' | 'clases'>('turnos');
   const loading = aLoading || sLoading || pLoading;
 
   // Combina datos de Firestore con overrides locales para UI instantánea
@@ -737,6 +863,14 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
     }))
     .sort((a, b) => parseFirestoreDate(a.startTime).getTime() - parseFirestoreDate(b.startTime).getTime()) as PopulatedAppointment[];
 
+  const isClassAppointment = (apt: PopulatedAppointment) =>
+    apt.services.length === 1 && (apt.services[0] as any).type === 'clase';
+
+  const hasAnyClass = (services || []).some(s => (s as any).type === 'clase');
+  const filteredAgenda = features.hasClasses && hasAnyClass
+    ? agenda.filter(a => agendaKind === 'clases' ? isClassAppointment(a) : !isClassAppointment(a))
+    : agenda;
+
   const handleUpdate = (id: string, status: AppStatus) => {
     setLocalOverrides(prev => ({ ...prev, [id]: status }));
     if (updateAppointmentStatus) updateAppointmentStatus(id, status);
@@ -747,9 +881,10 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
       if (apt?.customerPhone) {
         const dateObj = parseFirestoreDate(apt.startTime);
         const formattedDate = format(dateObj, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
-        const serviceNames = apt.services.map((s: any) => s?.name).join(', ');
         const bookLink = `${window.location.origin}/book/${tenantId}`;
-        const message = `❌ *Turno Cancelado*\n\nHola ${apt.customerName}, lamentablemente tu turno del ${formattedDate} fue cancelado.\n\n📋 ${serviceNames}\n\nPodés sacar un nuevo turno cuando quieras acá:\n${bookLink}\n\n¡Disculpá las molestias!`;
+        const message = isClassAppointment(apt)
+          ? `❌ *Cupo cancelado*\n\nHola ${apt.customerName}, lamentablemente tu cupo en *${apt.services[0].name}* del ${formattedDate} fue cancelado.\n\nPodés reservar otro horario cuando quieras acá:\n${bookLink}\n\n¡Disculpá las molestias!`
+          : `❌ *Turno Cancelado*\n\nHola ${apt.customerName}, lamentablemente tu turno del ${formattedDate} fue cancelado.\n\n📋 ${apt.services.map((s: any) => s?.name).join(', ')}\n\nPodés sacar un nuevo turno cuando quieras acá:\n${bookLink}\n\n¡Disculpá las molestias!`;
         fetch('/api/whatsapp/send-confirmation', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -768,7 +903,7 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
     );
   }
 
-  const upcomingCount = agenda.filter(a => a.status === 'confirmed' && parseFirestoreDate(a.startTime) > new Date()).length;
+  const upcomingCount = filteredAgenda.filter(a => a.status === 'confirmed' && parseFirestoreDate(a.startTime) > new Date()).length;
   const hasMonthlyLimit = features.maxAppointmentsPerMonth < 999999;
   const isAtMonthlyLimit = hasMonthlyLimit && appointmentsThisMonth >= features.maxAppointmentsPerMonth;
 
@@ -788,6 +923,27 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
             {" "}turnos este mes
             {isAtMonthlyLimit && " — Límite alcanzado. Tus clientes no pueden reservar nuevos turnos."}
           </span>
+        </div>
+      )}
+
+      {/* Selector Turnos / Clases */}
+      {features.hasClasses && hasAnyClass && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Ver:</span>
+          <div className="flex gap-1.5 flex-wrap">
+            <button
+              onClick={() => setAgendaKind('turnos')}
+              className={cn("text-xs px-3 py-1.5 rounded-full border font-bold transition-all", agendaKind === 'turnos' ? "bg-primary text-primary-foreground border-primary" : "bg-muted/30 hover:bg-muted")}
+            >
+              Turnos
+            </button>
+            <button
+              onClick={() => setAgendaKind('clases')}
+              className={cn("text-xs px-3 py-1.5 rounded-full border font-bold transition-all", agendaKind === 'clases' ? "bg-primary text-primary-foreground border-primary" : "bg-muted/30 hover:bg-muted")}
+            >
+              Clases
+            </button>
+          </div>
         </div>
       )}
 
@@ -857,10 +1013,10 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
         </div>
       </div>
 
-      {view === 'list' && <ListView agenda={agenda} onUpdate={handleUpdate} onReschedule={(id, s, e) => rescheduleAppointment && rescheduleAppointment(id, s, e)} tenantId={tenantId} getBookedSlotsForDate={getBookedSlotsForDate} />}
+      {view === 'list' && <ListView agenda={filteredAgenda} onUpdate={handleUpdate} onReschedule={(id, s, e) => rescheduleAppointment && rescheduleAppointment(id, s, e)} tenantId={tenantId} getBookedSlotsForDate={getBookedSlotsForDate} />}
       {view === 'grid' && (
         <GridView
-          agenda={agenda}
+          agenda={filteredAgenda}
           onUpdate={handleUpdate}
           onReschedule={(id, newStart, newEnd) => rescheduleAppointment && rescheduleAppointment(id, newStart, newEnd)}
           tenantId={tenantId}
@@ -870,7 +1026,7 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
       )}
       {view === 'month' && (
         <MonthView
-          agenda={agenda}
+          agenda={filteredAgenda}
           onNewAppointment={(date) => {
             setNewAppointmentDate(date);
             setShowNewAppointment(true);

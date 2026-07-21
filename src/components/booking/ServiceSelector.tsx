@@ -4,7 +4,7 @@ import { Service } from "@/lib/data";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { CheckCircle2, Circle, Tag, Percent } from "lucide-react";
+import { CheckCircle2, Circle, Tag, Percent, Users } from "lucide-react";
 import { useSalon } from "@/hooks/use-salon";
 
 interface ServiceSelectorProps {
@@ -30,89 +30,113 @@ export default function ServiceSelector({ allServices, selectedServices, onSelec
   };
 
   const servicesList = allServices || [];
+  const classServices = servicesList.filter(s => (s as any).type === 'clase');
+  const regularServices = servicesList.filter(s => (s as any).type !== 'clase');
+
+  const renderServiceCard = (service: Service) => {
+    const sType = (service as any).type;
+    const isSelected = selectedServices.some(s => s.id === service.id);
+
+    // WhatsApp — no seleccionable, solo botón
+    if (sType === 'whatsapp') {
+      return (
+        <div key={service.id} className="flex items-center gap-4 rounded-xl border-2 border-border bg-card p-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <p className="font-bold text-foreground">{service.name}</p>
+              <Badge className="bg-[#25D366] text-white text-[10px] px-2 py-0 font-bold">WhatsApp</Badge>
+            </div>
+            {service.description && <p className="text-sm text-muted-foreground">{service.description}</p>}
+          </div>
+          <Button onClick={() => openWhatsApp(service)} className="bg-[#25D366] hover:bg-[#20ba58] text-white shrink-0">
+            {WA_ICON} Cotizar
+          </Button>
+        </div>
+      );
+    }
+
+    // Normal / Combo / Oferta / Clase — seleccionable
+    const isCombo = sType === 'combo';
+    const isOferta = sType === 'oferta';
+    const isClase = sType === 'clase';
+
+    return (
+      <div
+        key={service.id}
+        onClick={() => onSelectService(service)}
+        className={`flex items-center gap-3 rounded-xl border-2 p-3 cursor-pointer transition-all duration-200 ${
+          isSelected
+            ? "border-foreground bg-foreground text-background shadow-lg"
+            : "border-border bg-card hover:border-foreground/30 hover:bg-muted/50"
+        }`}
+      >
+        <div className="shrink-0">
+          {isSelected
+            ? <CheckCircle2 className="w-5 h-5 text-background" />
+            : <Circle className="w-5 h-5 text-muted-foreground" />
+          }
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className={`font-semibold text-sm ${isSelected ? "text-background" : "text-foreground"}`}>
+              {service.name}
+            </p>
+            {isCombo && !isSelected && (
+              <Badge variant="outline" className="border-blue-400 text-blue-700 bg-blue-50 dark:bg-blue-950/30 text-[10px] px-1.5 py-0 flex items-center gap-0.5 shrink-0">
+                <Tag className="w-2.5 h-2.5" /> Combo
+              </Badge>
+            )}
+            {isOferta && !isSelected && (
+              <Badge variant="outline" className="border-orange-400 text-orange-700 bg-orange-50 dark:bg-orange-950/30 text-[10px] px-1.5 py-0 flex items-center gap-0.5 shrink-0">
+                <Percent className="w-2.5 h-2.5" /> Oferta
+              </Badge>
+            )}
+            {isClase && !isSelected && (service as any).capacity && (
+              <Badge variant="outline" className="border-violet-400 text-violet-700 bg-violet-50 dark:bg-violet-950/30 text-[10px] px-1.5 py-0 flex items-center gap-0.5 shrink-0">
+                <Users className="w-2.5 h-2.5" /> {(service as any).capacity} cupos
+              </Badge>
+            )}
+          </div>
+          {service.description && (
+            <p className={`text-xs mt-0.5 ${isSelected ? "text-background/70" : "text-muted-foreground"}`}>
+              {service.description}
+            </p>
+          )}
+        </div>
+        <div className="text-right shrink-0 ml-1">
+          <p className={`font-bold text-sm ${isSelected ? "text-background" : "text-foreground"}`}>
+            ${service.price.toLocaleString("es-AR")}
+          </p>
+          <p className={`text-xs ${isSelected ? "text-background/70" : "text-muted-foreground"}`}>
+            {service.duration}min
+          </p>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
       <h2 className="text-2xl font-bold mb-4 font-headline">Elige tus Servicios</h2>
       <ScrollArea className="h-[400px] pr-4">
-        <div className="grid gap-3">
-          {servicesList.map((service) => {
-            const sType = (service as any).type;
-            const isSelected = selectedServices.some(s => s.id === service.id);
+        <div className="space-y-5">
+          <div className="grid gap-3">
+            {regularServices.map(renderServiceCard)}
+            {servicesList.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">No hay servicios disponibles.</p>
+            )}
+          </div>
 
-            // WhatsApp — no seleccionable, solo botón
-            if (sType === 'whatsapp') {
-              return (
-                <div key={service.id} className="flex items-center gap-4 rounded-xl border-2 border-border bg-card p-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <p className="font-bold text-foreground">{service.name}</p>
-                      <Badge className="bg-[#25D366] text-white text-[10px] px-2 py-0 font-bold">WhatsApp</Badge>
-                    </div>
-                    {service.description && <p className="text-sm text-muted-foreground">{service.description}</p>}
-                  </div>
-                  <Button onClick={() => openWhatsApp(service)} className="bg-[#25D366] hover:bg-[#20ba58] text-white shrink-0">
-                    {WA_ICON} Cotizar
-                  </Button>
-                </div>
-              );
-            }
-
-            // Normal / Combo / Oferta — seleccionable
-            const isCombo = sType === 'combo';
-            const isOferta = sType === 'oferta';
-
-            return (
-              <div
-                key={service.id}
-                onClick={() => onSelectService(service)}
-                className={`flex items-center gap-3 rounded-xl border-2 p-3 cursor-pointer transition-all duration-200 ${
-                  isSelected
-                    ? "border-foreground bg-foreground text-background shadow-lg"
-                    : "border-border bg-card hover:border-foreground/30 hover:bg-muted/50"
-                }`}
-              >
-                <div className="shrink-0">
-                  {isSelected
-                    ? <CheckCircle2 className="w-5 h-5 text-background" />
-                    : <Circle className="w-5 h-5 text-muted-foreground" />
-                  }
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className={`font-semibold text-sm ${isSelected ? "text-background" : "text-foreground"}`}>
-                      {service.name}
-                    </p>
-                    {isCombo && !isSelected && (
-                      <Badge variant="outline" className="border-blue-400 text-blue-700 bg-blue-50 dark:bg-blue-950/30 text-[10px] px-1.5 py-0 flex items-center gap-0.5 shrink-0">
-                        <Tag className="w-2.5 h-2.5" /> Combo
-                      </Badge>
-                    )}
-                    {isOferta && !isSelected && (
-                      <Badge variant="outline" className="border-orange-400 text-orange-700 bg-orange-50 dark:bg-orange-950/30 text-[10px] px-1.5 py-0 flex items-center gap-0.5 shrink-0">
-                        <Percent className="w-2.5 h-2.5" /> Oferta
-                      </Badge>
-                    )}
-                  </div>
-                  {service.description && (
-                    <p className={`text-xs mt-0.5 ${isSelected ? "text-background/70" : "text-muted-foreground"}`}>
-                      {service.description}
-                    </p>
-                  )}
-                </div>
-                <div className="text-right shrink-0 ml-1">
-                  <p className={`font-bold text-sm ${isSelected ? "text-background" : "text-foreground"}`}>
-                    ${service.price.toLocaleString("es-AR")}
-                  </p>
-                  <p className={`text-xs ${isSelected ? "text-background/70" : "text-muted-foreground"}`}>
-                    {service.duration}min
-                  </p>
-                </div>
+          {classServices.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="w-4 h-4 text-violet-600" />
+                <h3 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Clases Grupales</h3>
               </div>
-            );
-          })}
-          {servicesList.length === 0 && (
-            <p className="text-center text-muted-foreground py-8">No hay servicios disponibles.</p>
+              <div className="grid gap-3">
+                {classServices.map(renderServiceCard)}
+              </div>
+            </div>
           )}
         </div>
       </ScrollArea>

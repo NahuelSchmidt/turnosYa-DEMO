@@ -38,7 +38,7 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
   const [customerPhone, setCustomerPhone] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const { addAppointment, getBookedSlotsForDate } = useAppointments(tenantId);
+  const { addAppointment, getBookedSlotsForDate, getClassAttendeeCount } = useAppointments(tenantId);
   const { salon } = useSalon(tenantId);
   const { services, loading: servicesLoading } = useServices(tenantId);
   const { professionals: allProfessionals, loading: professionalsLoading } = useProfessionals(tenantId);
@@ -49,7 +49,11 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
     ? allProfessionals.filter((p: any) => branchData.professionalIds.includes(p.id))
     : allProfessionals;
 
-  const timeSlots = branchData?.weekSchedule
+  const isClassBooking = selectedServices.length === 1 && selectedServices[0].type === 'clase';
+
+  const timeSlots = isClassBooking
+    ? getSlotsForDate(selectedDate, selectedProfessional, true)
+    : branchData?.weekSchedule
     ? (() => {
         const schedule = branchData.weekSchedule;
         const date = selectedDate || new Date();
@@ -81,6 +85,20 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
     const salonBlockedSlots = (salon as any)?.blockedSlots || [];
     return getBookedSlotsForDate(selectedProfessional?.id ?? null, selectedDate, timeSlots, salonBlockedSlots);
   }, [selectedProfessional, selectedDate, timeSlots, getBookedSlotsForDate, salon]);
+
+  const slotCapacity = useMemo(() => {
+    if (!isClassBooking || !selectedProfessional) return undefined;
+    const service = selectedServices[0];
+    const capacity = service.capacity ?? 0;
+    const result: Record<string, { count: number; capacity: number }> = {};
+    timeSlots.forEach((slot: string) => {
+      result[slot] = {
+        count: getClassAttendeeCount(service.id, selectedProfessional.id, selectedDate, slot),
+        capacity,
+      };
+    });
+    return result;
+  }, [isClassBooking, selectedServices, selectedProfessional, selectedDate, timeSlots, getClassAttendeeCount]);
 
   const handleDateChange = (date: Date | undefined) => {
     setSelectedDate(date);
@@ -118,7 +136,19 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
       return;
     }
 
-    if (bookedSlots.includes(selectedTime)) {
+    if (isClassBooking) {
+      const cap = slotCapacity?.[selectedTime];
+      if (cap && cap.count >= cap.capacity) {
+        toast({
+          variant: "destructive",
+          title: "Cupos agotados",
+          description: "Esa clase se acaba de llenar. Por favor elegí otro horario.",
+        });
+        setSelectedTime(null);
+        setStep("time");
+        return;
+      }
+    } else if (bookedSlots.includes(selectedTime)) {
       toast({
         variant: "destructive",
         title: "Horario no disponible",
@@ -227,11 +257,16 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
                 selectedServices={selectedServices}
                 tenantId={tenantId}
                 onSelectService={(service) => {
-                  setSelectedServices((prev) =>
-                    prev.find((s) => s.id === service.id)
-                      ? prev.filter((s) => s.id !== service.id)
-                      : [...prev, service]
-                  );
+                  setSelectedServices((prev) => {
+                    if (prev.some((s) => s.id === service.id)) {
+                      return prev.filter((s) => s.id !== service.id);
+                    }
+                    // Una clase no se combina con otros servicios en la misma reserva
+                    if (service.type === 'clase' || prev.some((s) => s.type === 'clase')) {
+                      return [service];
+                    }
+                    return [...prev, service];
+                  });
                 }}
               />
             )}
@@ -259,6 +294,7 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
                   onSelectTime={setSelectedTime}
                   bookedSlots={bookedSlots}
                   blockedDates={blockedDates}
+                  slotCapacity={slotCapacity}
                 />
               )
             )}

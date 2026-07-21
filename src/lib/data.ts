@@ -12,6 +12,7 @@ export const PLAN_FEATURES = {
     hasBrandColor: false,
     hasAdminBooking: false,
     hasProfilePage: false,
+    hasClasses: false,
   },
   pro: {
     label: 'Pro',
@@ -24,6 +25,7 @@ export const PLAN_FEATURES = {
     hasBrandColor: true,
     hasAdminBooking: true,
     hasProfilePage: false,
+    hasClasses: true,
   },
   premium: {
     label: 'Premium',
@@ -36,6 +38,7 @@ export const PLAN_FEATURES = {
     hasBrandColor: true,
     hasAdminBooking: true,
     hasProfilePage: true,
+    hasClasses: true,
   },
 } as const;
 
@@ -45,8 +48,10 @@ export interface Service {
   description: string;
   price: number;
   duration: number;
-  type?: 'whatsapp' | 'combo' | 'oferta';
+  type?: 'whatsapp' | 'combo' | 'oferta' | 'clase';
   professionalIds?: string[];
+  capacity?: number; // cupo máximo de clientes por horario, solo para type: 'clase'
+  address?: string; // ubicación propia, solo para type: 'clase' — si no está, se usa la del negocio
 }
 
 export interface Professional {

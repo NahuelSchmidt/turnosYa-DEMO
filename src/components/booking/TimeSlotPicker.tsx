@@ -14,6 +14,9 @@ interface TimeSlotPickerProps {
   onSelectTime: (time: string) => void;
   bookedSlots?: string[];
   blockedDates?: string[];
+  // Cupos por slot para servicios tipo "clase". Si un slot tiene entrada acá,
+  // reemplaza el bloqueo binario de bookedSlots por un conteo de cupo.
+  slotCapacity?: Record<string, { count: number; capacity: number }>;
 }
 
 export default function TimeSlotPicker({
@@ -24,6 +27,7 @@ export default function TimeSlotPicker({
   onSelectTime,
   bookedSlots = [],
   blockedDates = [],
+  slotCapacity,
 }: TimeSlotPickerProps) {
   const lastClickRef = useRef<Date | null>(null);
   const lastClickTimeRef = useRef<number>(0);
@@ -38,6 +42,12 @@ export default function TimeSlotPicker({
     if (!isSelectedDateToday) return false;
     const [h, m] = slot.split(':').map(Number);
     return h * 60 + m <= nowMinutes;
+  };
+
+  const isSlotFull = (slot: string): boolean => {
+    const cap = slotCapacity?.[slot];
+    if (cap) return cap.count >= cap.capacity;
+    return bookedSlots.includes(slot);
   };
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -63,7 +73,7 @@ export default function TimeSlotPicker({
     if (blockedDates.includes(dateStr)) return true;
     if (dateStr === todayDateStr && timeSlots.length > 0) {
       const allUnavailable = timeSlots.every((slot) => {
-        if (bookedSlots.includes(slot)) return true;
+        if (isSlotFull(slot)) return true;
         const [h, m] = slot.split(':').map(Number);
         return h * 60 + m <= nowMinutes;
       });
@@ -100,12 +110,13 @@ export default function TimeSlotPicker({
           ) : (
             <div className="grid grid-cols-3 gap-2">
               {timeSlots.map((slot) => {
-                const isBooked = bookedSlots.includes(slot);
+                const cap = slotCapacity?.[slot];
+                const isBooked = cap ? cap.count >= cap.capacity : bookedSlots.includes(slot);
                 const isPast = isPastSlot(slot);
                 const isDisabled = isBooked || isPast;
                 const isSelected = selectedTime === slot;
                 return (
-                  <div key={slot} className="relative">
+                  <div key={slot} className="relative flex flex-col items-center gap-0.5">
                     <Button
                       variant={isSelected ? "default" : "outline"}
                       onClick={() => !isDisabled && onSelectTime(slot)}
@@ -114,8 +125,14 @@ export default function TimeSlotPicker({
                     >
                       {slot}
                     </Button>
-                    {isBooked && (
-                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-destructive rounded-full" />
+                    {cap ? (
+                      <span className={`text-[10px] ${isBooked ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
+                        {isBooked ? "Cupos agotados" : `${cap.capacity - cap.count} cupos`}
+                      </span>
+                    ) : (
+                      isBooked && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-destructive rounded-full" />
+                      )
                     )}
                   </div>
                 );

@@ -9,6 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAppointments } from "@/hooks/use-appointments";
 import { useSchedules } from "@/hooks/use-schedules";
+import { useSalon } from "@/hooks/use-salon";
 import { Service, Professional } from "@/lib/data";
 import { es } from "date-fns/locale";
 import { format } from "date-fns";
@@ -41,16 +42,36 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
   const [freeTextService, setFreeTextService] = useState(false);
   const [customServiceName, setCustomServiceName] = useState("");
 
-  const { addAppointment, getBookedSlotsForDate } = useAppointments(tenantId);
+  const { addAppointment, getBookedSlotsForDate, getClassAttendeeCount } = useAppointments(tenantId);
   const { getSlotsForDate } = useSchedules(tenantId);
+  const { salon } = useSalon(tenantId);
   const { toast } = useToast();
 
-  const availableSlots = useMemo(() => getSlotsForDate(selectedDate), [selectedDate, getSlotsForDate]);
+  const selectedService = services.find(s => s.id === selectedServiceId);
+  const isClassBooking = !freeTextService && selectedService?.type === 'clase';
+
+  const availableSlots = useMemo(
+    () => getSlotsForDate(selectedDate, undefined, isClassBooking),
+    [selectedDate, getSlotsForDate, isClassBooking]
+  );
 
   const bookedSlots = useMemo(
     () => getBookedSlotsForDate(selectedProfessionalId || null, selectedDate, availableSlots, blockedSlots),
     [selectedProfessionalId, selectedDate, availableSlots, getBookedSlotsForDate, blockedSlots]
   );
+
+  const classSlotInfo = useMemo(() => {
+    if (!isClassBooking || !selectedProfessionalId || !selectedService) return undefined;
+    const capacity = selectedService.capacity ?? 0;
+    const result: Record<string, { count: number; capacity: number }> = {};
+    availableSlots.forEach((slot) => {
+      result[slot] = {
+        count: getClassAttendeeCount(selectedService.id, selectedProfessionalId, selectedDate, slot),
+        capacity,
+      };
+    });
+    return result;
+  }, [isClassBooking, selectedProfessionalId, selectedService, availableSlots, selectedDate, getClassAttendeeCount]);
 
   const freeSlots = useMemo(() => {
     const now = new Date();
@@ -61,16 +82,20 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
     const isToday = selectedStr === todayStr;
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     return availableSlots.filter((slot) => {
-      if (bookedSlots.includes(slot)) return false;
+      if (isClassBooking) {
+        const info = classSlotInfo?.[slot];
+        if (info && info.count >= info.capacity) return false;
+      } else if (bookedSlots.includes(slot)) {
+        return false;
+      }
       if (isToday) {
         const [h, m] = slot.split(':').map(Number);
         return h * 60 + m > nowMinutes;
       }
       return true;
     });
-  }, [availableSlots, bookedSlots, selectedDate]);
+  }, [availableSlots, bookedSlots, selectedDate, isClassBooking, classSlotInfo]);
 
-  const selectedService = services.find(s => s.id === selectedServiceId);
   const total = selectedService?.price ?? 0;
   const totalDuration = (selectedService?.duration ?? 0) + extraDuration;
 
@@ -79,6 +104,14 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
     if (!customerName || !selectedProfessionalId || !serviceOk || !selectedDate || !selectedTime) {
       toast({ variant: "destructive", title: "Completá todos los campos obligatorios" });
       return;
+    }
+    if (isClassBooking) {
+      const info = classSlotInfo?.[selectedTime];
+      if (info && info.count >= info.capacity) {
+        toast({ variant: "destructive", title: "Cupos agotados", description: "Ese horario se acaba de llenar. Elegí otro." });
+        setSelectedTime("");
+        return;
+      }
     }
     setIsSubmitting(true);
     try {
@@ -105,10 +138,15 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
         // Enviar WhatsApp de confirmación al cliente si tiene teléfono
         if (customerPhone) {
           const formattedDate = format(startTime, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
-          const serviceName = freeTextService ? customServiceName.trim() : (selectedService?.name || '');
+          const baseServiceName = freeTextService ? customServiceName.trim() : (selectedService?.name || '');
+          const serviceName = isClassBooking && selectedService
+            ? `${baseServiceName} (cupo ${(classSlotInfo?.[selectedTime]?.count ?? 0) + 1}/${selectedService.capacity || '∞'})`
+            : baseServiceName;
           const professional = professionals.find(p => p.id === selectedProfessionalId);
           const turnoLink = `${window.location.origin}/turno/${id}`;
-          const message = `*Turno Confirmado* ✅\n\nHola ${customerName}! Tu turno esta confirmado:\n\n🗓 ${formattedDate}\n📋 ${serviceName}${professional ? `\n👤 Con ${professional.name}` : ''}\n\nGestioná tu turno: ${turnoLink}\n\n¡Te esperamos!`;
+          const locationAddress = (isClassBooking && (selectedService as any)?.address) || (salon as any)?.address;
+          const ubicacionLine = locationAddress ? `\n📍 ${locationAddress}` : '';
+          const message = `*Turno Confirmado* ✅\n\nHola ${customerName}! Tu turno esta confirmado:\n\n🗓 ${formattedDate}\n📋 ${serviceName}${professional ? `\n👤 Con ${professional.name}` : ''}${ubicacionLine}\n\nGestioná tu turno: ${turnoLink}\n\n¡Te esperamos!`;
 
           fetch('/api/whatsapp/send-confirmation', {
             method: 'POST',
@@ -256,9 +294,14 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
                 {freeSlots.length === 0 ? (
                   <div className="px-3 py-2 text-sm text-muted-foreground">Sin horarios disponibles para este día.</div>
                 ) : (
-                  freeSlots.map(slot => (
-                    <SelectItem key={slot} value={slot}>{slot}</SelectItem>
-                  ))
+                  freeSlots.map(slot => {
+                    const info = isClassBooking ? classSlotInfo?.[slot] : undefined;
+                    return (
+                      <SelectItem key={slot} value={slot}>
+                        {slot}{info ? ` — ${info.count}/${info.capacity} cupos` : ''}
+                      </SelectItem>
+                    );
+                  })
                 )}
               </SelectContent>
             </Select>

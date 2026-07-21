@@ -71,6 +71,14 @@ export async function getSalonById(salonId: string): Promise<Record<string, any>
   return parseDoc(doc);
 }
 
+export async function getServicesForSalon(salonId: string): Promise<Record<string, any>[]> {
+  const url = `${BASE_URL}/salons/${salonId}/services?key=${API_KEY}`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data.documents || []).map(parseDoc);
+}
+
 export async function updateAppointmentReminder(
   appointmentId: string,
   field: 'reminderSent24h' | 'reminderSentSameDay' | 'reviewSent'

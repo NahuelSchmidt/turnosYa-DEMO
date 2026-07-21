@@ -1,10 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
-import { queryConfirmedAppointments, getSalonById, updateAppointmentReminder } from '@/lib/firestore-server';
+import { queryConfirmedAppointments, getSalonById, getServicesForSalon, updateAppointmentReminder } from '@/lib/firestore-server';
 import { formatInTimeZone } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
 
 const TZ = 'America/Argentina/Buenos_Aires';
+
+// Diferencia en días de calendario entre dos fechas "yyyy-MM-dd"
+function daysBetweenDateStrings(fromDateStr: string, toDateStr: string): number {
+  const from = new Date(`${fromDateStr}T12:00:00Z`);
+  const to = new Date(`${toDateStr}T12:00:00Z`);
+  return Math.round((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+// Cuenta cuántos turnos confirmados comparten la misma clase (servicio + profesional + horario)
+function countClassAttendees(
+  appointments: Record<string, any>[],
+  apt: Record<string, any>,
+  serviceId: string,
+  startTime: Date,
+): number {
+  const startKey = formatInTimeZone(startTime, TZ, "yyyy-MM-dd'T'HH:mm");
+  return appointments.filter(a => {
+    if (a.status !== 'confirmed') return false;
+    if (a.salonId !== apt.salonId) return false;
+    if (a.professionalId !== apt.professionalId) return false;
+    if (!(a.serviceIds || []).includes(serviceId)) return false;
+    const aStart = a.startTime instanceof Date ? a.startTime : new Date(a.startTime);
+    if (isNaN(aStart.getTime())) return false;
+    return formatInTimeZone(aStart, TZ, "yyyy-MM-dd'T'HH:mm") === startKey;
+  }).length;
+}
 
 // Protege el endpoint con un secreto para que solo lo llame el cron
 function isAuthorized(req: NextRequest): boolean {
@@ -46,6 +72,7 @@ export async function GET(req: NextRequest) {
   }
 
   const salonCache: Record<string, Record<string, any> | null> = {};
+  const servicesCache: Record<string, Record<string, any>[]> = {};
 
   let sent24h = 0;
   let sentSameDay = 0;
@@ -59,11 +86,16 @@ export async function GET(req: NextRequest) {
 
     // Si el cliente reservó el turno el mismo día para el que es, ya recibió
     // la confirmación al reservar: no hace falta mandarle también un recordatorio.
+    // Si lo reservó para el día siguiente, solo tiene sentido el recordatorio de
+    // último momento (3hs antes) — el de 24hs caería casi encima de la confirmación.
     const createdAt = apt.createdAt instanceof Date ? apt.createdAt : (apt.createdAt ? new Date(apt.createdAt) : null);
-    const bookedSameDay = !!createdAt && !isNaN(createdAt.getTime()) &&
-      formatInTimeZone(createdAt, TZ, 'yyyy-MM-dd') === formatInTimeZone(startTime, TZ, 'yyyy-MM-dd');
+    const leadDays = (!!createdAt && !isNaN(createdAt.getTime()))
+      ? daysBetweenDateStrings(formatInTimeZone(createdAt, TZ, 'yyyy-MM-dd'), formatInTimeZone(startTime, TZ, 'yyyy-MM-dd'))
+      : null;
+    const bookedSameDay = leadDays === 0;
+    const bookedForNextDay = leadDays === 1;
 
-    const needs24h = !bookedSameDay && !apt.reminderSent24h && startMs >= window24hStart && startMs <= window24hEnd;
+    const needs24h = !bookedSameDay && !bookedForNextDay && !apt.reminderSent24h && startMs >= window24hStart && startMs <= window24hEnd;
     const needsSameDay = !bookedSameDay && !apt.reminderSentSameDay && startMs >= windowSameDayStart && startMs <= windowSameDayEnd;
     const needsReviewTime = !apt.reviewSent && startMs >= windowReviewStart && startMs <= windowReviewEnd;
 
@@ -94,9 +126,24 @@ export async function GET(req: NextRequest) {
     // Reseña solo para negocios Premium (tienen página de perfil)
     const needsReview = needsReviewTime && salon?.plan === 'premium';
 
+    // Resolver el servicio (nombre + cupo si es una clase)
+    if (!(salonId in servicesCache)) {
+      servicesCache[salonId] = await getServicesForSalon(salonId);
+    }
+    const svc = (servicesCache[salonId] || []).find(s => (apt.serviceIds || []).includes(s.id));
+    let serviceLine = '';
+    if (svc) {
+      serviceLine = `\n${svc.type === 'clase' ? '🧘' : '📋'} ${svc.name}`;
+      if (svc.type === 'clase') {
+        const count = countClassAttendees(appointments, apt, svc.id, startTime);
+        serviceLine += ` (cupo ${count}/${svc.capacity || '∞'})`;
+      }
+    }
+
     const formattedDate = formatInTimeZone(startTime, TZ, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
     const turnoLink = `${PROD_DOMAIN}/turno/${apt.id}`;
-    const ubicacion = salon?.address ? `\n📍 ${salon.address}` : '';
+    const locationAddress = (svc?.type === 'clase' && svc.address) || salon?.address;
+    const ubicacion = locationAddress ? `\n📍 ${locationAddress}` : '';
     const alias = salon?.paymentAlias ? `\n💳 Alias de pago: ${salon.paymentAlias}` : '';
 
     const credentials = salon?.evolutionInstanceName
@@ -104,7 +151,7 @@ export async function GET(req: NextRequest) {
       : undefined;
 
     if (needs24h) {
-      const msg = `⏰ *Recordatorio de turno*\n\nHola ${apt.customerName}! Te recordamos que mañana tenés turno:\n\n🗓 ${formattedDate}${ubicacion}${alias}\n\nGestioná tu turno: ${turnoLink}\n\n¡Te esperamos!`;
+      const msg = `⏰ *Recordatorio de turno*\n\nHola ${apt.customerName}! Te recordamos que mañana tenés turno:\n\n🗓 ${formattedDate}${serviceLine}${ubicacion}${alias}\n\nGestioná tu turno: ${turnoLink}\n\n¡Te esperamos!`;
       const ok = await sendWhatsAppMessage(phone, msg, credentials);
       if (ok) {
         await updateAppointmentReminder(apt.id, 'reminderSent24h');
@@ -113,7 +160,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (needsSameDay) {
-      const msg = `🔔 *Tu turno es hoy*\n\nHola ${apt.customerName}! En pocas horas tenés turno:\n\n🗓 ${formattedDate}${ubicacion}${alias}\n\nGestioná tu turno: ${turnoLink}\n\n¡Te esperamos!`;
+      const msg = `🔔 *Tu turno es hoy*\n\nHola ${apt.customerName}! En pocas horas tenés turno:\n\n🗓 ${formattedDate}${serviceLine}${ubicacion}${alias}\n\nGestioná tu turno: ${turnoLink}\n\n¡Te esperamos!`;
       const ok = await sendWhatsAppMessage(phone, msg, credentials);
       if (ok) {
         await updateAppointmentReminder(apt.id, 'reminderSentSameDay');

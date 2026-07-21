@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2, Calendar, User, Clock, Loader2, ExternalLink, MapPin } from "lucide-react";
@@ -36,7 +36,7 @@ function ConfirmationContent() {
   const appointmentId = searchParams.get("appointmentId");
   const tenantId = searchParams.get("tenantId") || "default";
 
-  const { appointments, loading: aLoading } = useAppointments(tenantId);
+  const { appointments, loading: aLoading, getClassAttendeeCount } = useAppointments(tenantId);
   const { services, loading: sLoading } = useServices(tenantId);
   const { professionals, loading: pLoading } = useProfessionals(tenantId);
   const { salon } = useSalon(tenantId);
@@ -58,6 +58,18 @@ function ConfirmationContent() {
     }
   }, [appointmentId, appointments, services, professionals, loading]);
 
+  // Info de cupo, solo si el turno es de una clase grupal
+  const classInfo = useMemo(() => {
+    if (!appointment) return null;
+    const svc = appointment.services.length === 1 ? appointment.services[0] : undefined;
+    if (!svc || (svc as any).type !== 'clase') return null;
+    const dateObj = parseFirestoreDate(appointment.startTime);
+    const count = appointment.professional
+      ? getClassAttendeeCount(svc.id, appointment.professional.id, dateObj, format(dateObj, 'HH:mm'))
+      : 0;
+    return { service: svc, count, capacity: (svc as any).capacity || 0 };
+  }, [appointment, getClassAttendeeCount]);
+
   // Mandar WA automáticamente (una vez)
   useEffect(() => {
     if (!appointment || waSent) return;
@@ -66,10 +78,13 @@ function ConfirmationContent() {
 
     const dateObj = parseFirestoreDate(startTime);
     const formattedDate = format(dateObj, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
-    const serviceNames = aptServices.map(s => s.name).join(', ');
+    const serviceNames = classInfo
+      ? `${classInfo.service.name} (cupo ${classInfo.count}/${classInfo.capacity || '∞'})`
+      : aptServices.map(s => s.name).join(', ');
     const turnoLink = getTurnoLink(appointment.id);
 
-    const ubicacionLine = salon?.address ? `\n📍 Ubicacion: ${salon.address}` : '';
+    const locationAddress = classInfo?.service.address || salon?.address;
+    const ubicacionLine = locationAddress ? `\n📍 Ubicacion: ${locationAddress}` : '';
     const cancelLine = salon?.whatsappNumber
       ? `\n\nPara ver, cancelar o reprogramar tu turno, hace clic aca:\n${turnoLink}\n\nTambien podes cancelarlo escribiendonos a este numero con al menos 12hs de anticipacion.`
       : `\n\nPara ver, cancelar o reprogramar tu turno, hace clic aca:\n${turnoLink}`;
@@ -103,7 +118,7 @@ function ConfirmationContent() {
     }).catch(() => {
       window.open(`https://wa.me/${customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, "_blank");
     });
-  }, [appointment, salon, waSent]);
+  }, [appointment, salon, waSent, classInfo]);
 
   if (loading || !appointment) {
     return (
@@ -122,6 +137,7 @@ function ConfirmationContent() {
 
   const appointmentDate = parseFirestoreDate(appointment.startTime);
   const turnoLink = getTurnoLink(appointment.id);
+  const displayAddress = classInfo?.service.address || salon?.address;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -155,10 +171,16 @@ function ConfirmationContent() {
                   <Clock className="w-5 h-5 text-primary shrink-0" />
                   <span><strong>Servicios:</strong> {appointment.services.map(s => s.name).join(', ')}</span>
                 </div>
-                {salon?.address && (
+                {classInfo && (
+                  <div className="flex items-center gap-3">
+                    <User className="w-5 h-5 text-primary shrink-0" />
+                    <span><strong>Cupo:</strong> {classInfo.count}/{classInfo.capacity || '∞'}</span>
+                  </div>
+                )}
+                {displayAddress && (
                   <div className="flex items-center gap-3">
                     <MapPin className="w-5 h-5 text-primary shrink-0" />
-                    <span><strong>Ubicación:</strong> {salon.address}</span>
+                    <span><strong>Ubicación:</strong> {displayAddress}</span>
                   </div>
                 )}
               </CardContent>

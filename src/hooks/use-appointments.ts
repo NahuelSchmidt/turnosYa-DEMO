@@ -75,6 +75,30 @@ export function useAppointments(tenantId: string = 'default') {
     return Array.from(blocked);
   };
 
+  /**
+   * Cuenta cuántos clientes ya están anotados en un servicio tipo "clase"
+   * para un profesional, fecha y horario específicos. Usado para el cupo
+   * de clases grupales, en vez del bloqueo binario de getBookedSlotsForDate.
+   */
+  const getClassAttendeeCount = (
+    serviceId: string,
+    professionalId: string | null,
+    date: Date | undefined,
+    time: string,
+  ): number => {
+    if (!date || !professionalId || !time) return 0;
+    const dateStr = format(date, 'yyyy-MM-dd');
+
+    return appointments.filter((apt) => {
+      if (apt.status !== 'confirmed') return false;
+      if (apt.professionalId !== professionalId) return false;
+      if (!apt.serviceIds?.includes(serviceId)) return false;
+      const aptDate = toDate(apt.startTime);
+      if (format(aptDate, 'yyyy-MM-dd') !== dateStr) return false;
+      return format(aptDate, 'HH:mm') === time;
+    }).length;
+  };
+
   const addAppointment = (newAppointment: Omit<Appointment, 'id' | 'customerId' | 'status' | 'salonId'>) => {
     if (!db || !user) return null;
     
@@ -149,6 +173,7 @@ export function useAppointments(tenantId: string = 'default') {
     updateAppointmentStatus,
     rescheduleAppointment,
     getBookedSlotsForDate,
+    getClassAttendeeCount,
     appointmentsThisMonth,
     loading: isCollectionLoading || isUserLoading,
     customerId

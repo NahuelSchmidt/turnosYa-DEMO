@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Calendar, User, Clock, XCircle, MessageCircle, Loader2, Ban, MapPin } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
+import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
 const TZ = "America/Argentina/Buenos_Aires";
@@ -18,6 +19,7 @@ import { parseFirestoreDate } from "@/lib/utils";
 import { useServices } from "@/hooks/use-services";
 import { useProfessionals } from "@/hooks/use-professionals";
 import { useSalon } from "@/hooks/use-salon";
+import { useAppointments } from "@/hooks/use-appointments";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -46,6 +48,7 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
   const { services, loading: sLoading } = useServices(tenantId);
   const { professionals, loading: pLoading } = useProfessionals(tenantId);
   const { salon } = useSalon(tenantId);
+  const { getClassAttendeeCount } = useAppointments(tenantId);
 
   if (aptLoading || sLoading || pLoading) {
     return (
@@ -78,6 +81,12 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
   const aptServices = (apt.serviceIds || []).map((id: string) => services.find(s => s.id === id)).filter(Boolean);
   const professional = professionals.find(p => p.id === apt.professionalId);
   const dateObj = parseFirestoreDate(apt.startTime);
+  const classService = aptServices.length === 1 ? aptServices[0] : undefined;
+  const isClassAppt = classService && (classService as any).type === 'clase';
+  const classCount = isClassAppt
+    ? getClassAttendeeCount(classService!.id, apt.professionalId, dateObj, format(dateObj, 'HH:mm'))
+    : 0;
+  const displayAddress = (isClassAppt && (classService as any)?.address) || salon?.address;
   const currentStatus = cancelled ? "cancelled" : apt.status;
   const isCancelled = currentStatus === "cancelled";
   const statusInfo = STATUS_MAP[currentStatus] ?? { label: currentStatus, color: "bg-muted" };
@@ -94,6 +103,10 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
     updateDocumentNonBlocking(doc(db, "appointments", appointmentId), { status: "cancelled", updatedAt: serverTimestamp() });
     setCancelled(true);
 
+    const serviceNames = isClassAppt
+      ? `${classService!.name} (cupo ${Math.max(0, classCount - 1)}/${(classService as any)?.capacity || '∞'})`
+      : aptServices.map((s: any) => s?.name).join(", ");
+
     // Notificar al negocio automáticamente
     fetch('/api/whatsapp/notify-cancellation', {
       method: 'POST',
@@ -103,14 +116,14 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
         customerName: apt.customerName,
         customerPhone: apt.customerPhone,
         appointmentDate: fmtAR(dateObj, "dd/MM 'a las' HH:mm'hs'"),
-        serviceNames: aptServices.map((s: any) => s?.name).join(", "),
+        serviceNames,
       }),
     });
 
     // También abrir chat de WhatsApp para que el cliente escriba si quiere
     if (salon?.whatsappNumber) {
       const msg = encodeURIComponent(
-        `Hola! ${apt.customerName} canceló su turno del ${fmtAR(dateObj, "dd/MM 'a las' HH:mm'hs'")} (${aptServices.map((s: any) => s?.name).join(", ")}).`
+        `Hola! ${apt.customerName} canceló su turno del ${fmtAR(dateObj, "dd/MM 'a las' HH:mm'hs'")} (${serviceNames}).`
       );
       setTimeout(() => window.open(`https://wa.me/${salon.whatsappNumber}?text=${msg}`, "_blank"), 600);
     }
@@ -153,18 +166,27 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
                   <p className="font-bold">{aptServices.map((s: any) => s?.name).join(", ")}</p>
                 </div>
               </div>
-              {salon?.address && (
+              {isClassAppt && (
+                <div className="flex items-center gap-3">
+                  <User className="w-5 h-5 text-primary shrink-0" />
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase font-bold">Cupo</p>
+                    <p className="font-bold">{classCount}/{(classService as any)?.capacity || '∞'}</p>
+                  </div>
+                </div>
+              )}
+              {displayAddress && (
                 <div className="flex items-center gap-3">
                   <MapPin className="w-5 h-5 text-primary shrink-0" />
                   <div>
                     <p className="text-xs text-muted-foreground uppercase font-bold">Ubicación</p>
                     <a
-                      href={`https://maps.google.com/?q=${encodeURIComponent(salon.address)}`}
+                      href={`https://maps.google.com/?q=${encodeURIComponent(displayAddress)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-bold text-primary underline underline-offset-2 hover:opacity-80"
                     >
-                      {salon.address}
+                      {displayAddress}
                     </a>
                   </div>
                 </div>

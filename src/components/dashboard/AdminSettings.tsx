@@ -25,6 +25,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface AdminSettingsProps {
   tenantId: string;
@@ -45,7 +46,7 @@ const COLOR_PRESETS = [
   { name: "Marrón",  hex: "#92400e" },
 ];
 
-type ServiceType = 'normal' | 'combo' | 'oferta' | 'whatsapp';
+type ServiceType = 'normal' | 'combo' | 'oferta' | 'whatsapp' | 'clase';
 
 const SERVICE_TYPES: { key: ServiceType; label: string; badge: string; badgeClass: string; icon: any; placeholder: string }[] = [
   { key: 'normal',   label: 'Normal',          badge: 'Servicio', badgeClass: 'bg-muted text-muted-foreground',                              icon: Briefcase,     placeholder: 'Ej: Corte de Pelo' },
@@ -79,11 +80,19 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
 
   const [salonForm, setSalonForm] = useState({ name: "", primaryColor: "#000000", whatsappNumber: "", address: "", paymentAlias: "", evolutionInstanceName: "", whatsappEmoji: "", description: "", coverImageUrl: "", instagram: "", facebook: "", tiktok: "" });
 
-  // Horarios por día
+  // Horarios por día (turnos 1-a-1)
   const [weekSchedule, setWeekSchedule] = useState<Record<string, DaySchedule>>(
     Object.fromEntries(DIAS_KEY.map(d => [d, { ...DEFAULT_SCHEDULE, slots: [] }]))
   );
   const [newSlotByDay, setNewSlotByDay] = useState<Record<string, string>>(
+    Object.fromEntries(DIAS_KEY.map(d => [d, '']))
+  );
+
+  // Horarios por día (clases) — independientes de los horarios de turnos
+  const [classWeekSchedule, setClassWeekSchedule] = useState<Record<string, DaySchedule>>(
+    Object.fromEntries(DIAS_KEY.map(d => [d, { ...DEFAULT_SCHEDULE, slots: [] }]))
+  );
+  const [newClassSlotByDay, setNewClassSlotByDay] = useState<Record<string, string>>(
     Object.fromEntries(DIAS_KEY.map(d => [d, '']))
   );
 
@@ -114,6 +123,9 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
       });
       if (salon.weekSchedule) {
         setWeekSchedule(salon.weekSchedule);
+      }
+      if ((salon as any).classWeekSchedule) {
+        setClassWeekSchedule((salon as any).classWeekSchedule);
       }
       if (salon.blockedDates) {
         setBlockedDates(salon.blockedDates);
@@ -156,6 +168,36 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
     const current = weekSchedule[dayKey]?.slots || [];
     const updated = { ...weekSchedule, [dayKey]: { ...weekSchedule[dayKey], slots: current.filter(s => s !== slot) } };
     setWeekSchedule(updated);
+  };
+
+  const addSlotToClassDay = (dayKey: string) => {
+    const slot = newClassSlotByDay[dayKey];
+    if (!slot) return;
+    const match = slot.match(/^([0-9]{1,2}):([0-9]{2})$/);
+    if (!match) return;
+    const h = parseInt(match[1]);
+    const m = parseInt(match[2]);
+    if (h > 23 || m > 59) return;
+    const normalized = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    const current = classWeekSchedule[dayKey]?.slots || [];
+    if (current.includes(normalized)) return;
+    const updated = { ...classWeekSchedule, [dayKey]: { ...classWeekSchedule[dayKey], slots: [...current, normalized].sort() } };
+    setClassWeekSchedule(updated);
+    setNewClassSlotByDay(prev => ({ ...prev, [dayKey]: '' }));
+  };
+
+  const removeSlotFromClassDay = (dayKey: string, slot: string) => {
+    const current = classWeekSchedule[dayKey]?.slots || [];
+    const updated = { ...classWeekSchedule, [dayKey]: { ...classWeekSchedule[dayKey], slots: current.filter(s => s !== slot) } };
+    setClassWeekSchedule(updated);
+  };
+
+  const saveClassSchedule = () => {
+    setIsSaving(true);
+    const slots = generateSlotsFromSchedule(classWeekSchedule);
+    updateSalon({ classWeekSchedule, classTimeSlots: slots });
+    toast({ title: "Horarios de clases guardados" });
+    setTimeout(() => setIsSaving(false), 1000);
   };
 
   const addBlockedDate = () => {
@@ -245,6 +287,11 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
   const [serviceForm, setServiceForm] = useState<SForm>(emptyForm);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
 
+  type ClassForm = { name: string; description: string; price: number; duration: number; capacity: number; address: string; professionalIds: string[] };
+  const emptyClassForm: ClassForm = { name: "", description: "", price: 0, duration: 0, capacity: 0, address: "", professionalIds: [] };
+  const [classForm, setClassForm] = useState<ClassForm>(emptyClassForm);
+  const [editingClassId, setEditingClassId] = useState<string | null>(null);
+
   const [profForm, setProfForm] = useState<Omit<Professional, "id">>({ name: "", specialty: "", avatarUrl: "", avatarHint: "", emoji: "" } as any);
   const [editingProfId, setEditingProfId] = useState<string | null>(null);
 
@@ -309,6 +356,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
     if ((s as any).type === 'whatsapp') return 'whatsapp';
     if ((s as any).type === 'combo') return 'combo';
     if ((s as any).type === 'oferta') return 'oferta';
+    if ((s as any).type === 'clase') return 'clase';
     return 'normal';
   };
 
@@ -340,6 +388,36 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
   const handleDeleteService = async (id: string) => {
     await updateServices((services || []).filter(s => s.id !== id));
     toast({ title: "Servicio eliminado" });
+  };
+
+  const handleClassSubmit = async () => {
+    if (!classForm.name) return;
+    if (classForm.price < 0 || classForm.duration <= 0) {
+      toast({ variant: "destructive", title: "Completá precio y duración" });
+      return;
+    }
+    if (classForm.capacity <= 0) {
+      toast({ variant: "destructive", title: "Completá el cupo de la clase" });
+      return;
+    }
+    const classData: any = {
+      id: editingClassId || `ser-${Date.now()}`,
+      name: classForm.name,
+      description: classForm.description,
+      price: classForm.price,
+      duration: classForm.duration,
+      type: 'clase',
+      capacity: classForm.capacity,
+      ...(classForm.address.trim() && { address: classForm.address.trim() }),
+      ...(classForm.professionalIds.length > 0 && { professionalIds: classForm.professionalIds }),
+    };
+    const updated = editingClassId
+      ? (services || []).map(s => s.id === editingClassId ? classData : s)
+      : [...(services || []), classData];
+    await updateServices(updated);
+    setClassForm(emptyClassForm);
+    setEditingClassId(null);
+    toast({ title: editingClassId ? "Clase actualizada" : "Clase agregada" });
   };
 
   const handleProfSubmit = async () => {
@@ -540,69 +618,140 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
       {/* ── HORARIOS POR DÍA ── */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Clock className="w-5 h-5" /> Horarios de Atención</CardTitle>
-          <CardDescription>Configurá los días y horarios que atendés. Los turnos se generan automáticamente.</CardDescription>
+          <CardTitle className="flex items-center gap-2"><Clock className="w-5 h-5" /> Horarios</CardTitle>
+          <CardDescription>Los turnos y las clases tienen horarios independientes.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {DIAS.map((dia, i) => {
-            const key = DIAS_KEY[i];
-            const d = weekSchedule[key] || DEFAULT_SCHEDULE;
-            const daySlots = d.slots || [];
-            return (
-              <div key={key} className={cn("rounded-xl border p-4 transition-all", d.enabled ? "bg-card" : "bg-muted/20")}>
-                <div className="flex items-center gap-3 mb-3">
-                  <Switch checked={d.enabled} onCheckedChange={v => updateDay(key, 'enabled', v)} />
-                  <span className={cn("font-bold", d.enabled ? "text-foreground" : "text-muted-foreground")}>{dia}</span>
-                  {d.enabled && daySlots.length > 0 && (
-                    <span className="text-xs text-muted-foreground ml-auto">{daySlots.length} horario{daySlots.length !== 1 ? 's' : ''}</span>
-                  )}
-                </div>
-                {d.enabled && (
-                  <div className="space-y-3">
-                    {/* Horarios existentes */}
-                    {daySlots.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {daySlots.map(slot => (
-                          <div key={slot} className="flex items-center gap-1 bg-muted px-2 py-1 rounded-lg text-sm font-mono">
-                            {slot}
-                            <button onClick={() => removeSlotFromDay(key, slot)} className="ml-1 text-muted-foreground hover:text-destructive transition-colors">
-                              <Trash2 className="w-3 h-3" />
-                            </button>
+        <CardContent>
+          <Tabs defaultValue="turnos">
+            <TabsList className="mb-4">
+              <TabsTrigger value="turnos">Turnos</TabsTrigger>
+              {features.hasClasses && <TabsTrigger value="clases">Clases</TabsTrigger>}
+            </TabsList>
+
+            <TabsContent value="turnos" className="space-y-3">
+              {DIAS.map((dia, i) => {
+                const key = DIAS_KEY[i];
+                const d = weekSchedule[key] || DEFAULT_SCHEDULE;
+                const daySlots = d.slots || [];
+                return (
+                  <div key={key} className={cn("rounded-xl border p-4 transition-all", d.enabled ? "bg-card" : "bg-muted/20")}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <Switch checked={d.enabled} onCheckedChange={v => updateDay(key, 'enabled', v)} />
+                      <span className={cn("font-bold", d.enabled ? "text-foreground" : "text-muted-foreground")}>{dia}</span>
+                      {d.enabled && daySlots.length > 0 && (
+                        <span className="text-xs text-muted-foreground ml-auto">{daySlots.length} horario{daySlots.length !== 1 ? 's' : ''}</span>
+                      )}
+                    </div>
+                    {d.enabled && (
+                      <div className="space-y-3">
+                        {/* Horarios existentes */}
+                        {daySlots.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {daySlots.map(slot => (
+                              <div key={slot} className="flex items-center gap-1 bg-muted px-2 py-1 rounded-lg text-sm font-mono">
+                                {slot}
+                                <button onClick={() => removeSlotFromDay(key, slot)} className="ml-1 text-muted-foreground hover:text-destructive transition-colors">
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        )}
+                        {daySlots.length === 0 && (
+                          <p className="text-xs text-muted-foreground">Sin horarios. Agregá al menos uno.</p>
+                        )}
+                        {/* Agregar horario */}
+                        <div className="flex gap-2 max-w-xs">
+                          <Input
+                            placeholder="Ej: 13:00"
+                            value={newSlotByDay[key] || ''}
+                            onChange={e => {
+                              let val = e.target.value.replace(/[^0-9:]/g, '');
+                              // Auto-insert colon after 2 digits
+                              if (val.length === 2 && !val.includes(':')) val = val + ':';
+                              if (val.length > 5) val = val.slice(0, 5);
+                              setNewSlotByDay(prev => ({ ...prev, [key]: val }));
+                            }}
+                            onKeyDown={e => { if (e.key === 'Enter') addSlotToDay(key); }}
+                            className="h-8 text-sm font-mono w-24"
+                            maxLength={5}
+                          />
+                          <Button size="sm" variant="secondary" onClick={() => addSlotToDay(key)} className="h-8 px-3">
+                            <Plus className="w-3 h-3 mr-1" /> Agregar
+                          </Button>
+                        </div>
                       </div>
                     )}
-                    {daySlots.length === 0 && (
-                      <p className="text-xs text-muted-foreground">Sin horarios. Agregá al menos uno.</p>
-                    )}
-                    {/* Agregar horario */}
-                    <div className="flex gap-2 max-w-xs">
-                      <Input
-                        placeholder="Ej: 13:00"
-                        value={newSlotByDay[key] || ''}
-                        onChange={e => {
-                          let val = e.target.value.replace(/[^0-9:]/g, '');
-                          // Auto-insert colon after 2 digits
-                          if (val.length === 2 && !val.includes(':')) val = val + ':';
-                          if (val.length > 5) val = val.slice(0, 5);
-                          setNewSlotByDay(prev => ({ ...prev, [key]: val }));
-                        }}
-                        onKeyDown={e => { if (e.key === 'Enter') addSlotToDay(key); }}
-                        className="h-8 text-sm font-mono w-24"
-                        maxLength={5}
-                      />
-                      <Button size="sm" variant="secondary" onClick={() => addSlotToDay(key)} className="h-8 px-3">
-                        <Plus className="w-3 h-3 mr-1" /> Agregar
-                      </Button>
-                    </div>
                   </div>
-                )}
-              </div>
-            );
-          })}
-          <Button onClick={handleSalonUpdate} disabled={isSaving} className="w-full mt-2">
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Guardar Horarios
-          </Button>
+                );
+              })}
+              <Button onClick={handleSalonUpdate} disabled={isSaving} className="w-full mt-2">
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Guardar Horarios de Turnos
+              </Button>
+            </TabsContent>
+
+            {features.hasClasses && (
+              <TabsContent value="clases" className="space-y-3">
+                <p className="text-xs text-muted-foreground -mt-1 mb-1">Definí los horarios puntuales de tus clases (ej: 18:00), independientes de la grilla de turnos.</p>
+                {DIAS.map((dia, i) => {
+                  const key = DIAS_KEY[i];
+                  const d = classWeekSchedule[key] || DEFAULT_SCHEDULE;
+                  const daySlots = d.slots || [];
+                  return (
+                    <div key={key} className={cn("rounded-xl border p-4 transition-all", d.enabled ? "bg-card" : "bg-muted/20")}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <Switch checked={d.enabled} onCheckedChange={v => setClassWeekSchedule(prev => ({ ...prev, [key]: { ...prev[key], enabled: v } }))} />
+                        <span className={cn("font-bold", d.enabled ? "text-foreground" : "text-muted-foreground")}>{dia}</span>
+                        {d.enabled && daySlots.length > 0 && (
+                          <span className="text-xs text-muted-foreground ml-auto">{daySlots.length} horario{daySlots.length !== 1 ? 's' : ''}</span>
+                        )}
+                      </div>
+                      {d.enabled && (
+                        <div className="space-y-3">
+                          {daySlots.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {daySlots.map(slot => (
+                                <div key={slot} className="flex items-center gap-1 bg-violet-100 dark:bg-violet-950/30 px-2 py-1 rounded-lg text-sm font-mono">
+                                  {slot}
+                                  <button onClick={() => removeSlotFromClassDay(key, slot)} className="ml-1 text-muted-foreground hover:text-destructive transition-colors">
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {daySlots.length === 0 && (
+                            <p className="text-xs text-muted-foreground">Sin horarios. Agregá al menos uno.</p>
+                          )}
+                          <div className="flex gap-2 max-w-xs">
+                            <Input
+                              placeholder="Ej: 18:00"
+                              value={newClassSlotByDay[key] || ''}
+                              onChange={e => {
+                                let val = e.target.value.replace(/[^0-9:]/g, '');
+                                if (val.length === 2 && !val.includes(':')) val = val + ':';
+                                if (val.length > 5) val = val.slice(0, 5);
+                                setNewClassSlotByDay(prev => ({ ...prev, [key]: val }));
+                              }}
+                              onKeyDown={e => { if (e.key === 'Enter') addSlotToClassDay(key); }}
+                              className="h-8 text-sm font-mono w-24"
+                              maxLength={5}
+                            />
+                            <Button size="sm" variant="secondary" onClick={() => addSlotToClassDay(key)} className="h-8 px-3">
+                              <Plus className="w-3 h-3 mr-1" /> Agregar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                <Button onClick={saveClassSchedule} disabled={isSaving} className="w-full mt-2">
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Guardar Horarios de Clases
+                </Button>
+              </TabsContent>
+            )}
+          </Tabs>
         </CardContent>
       </Card>
 
@@ -743,7 +892,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-2">
-            {(services || []).map(s => {
+            {(services || []).filter(s => getServiceType(s) !== 'clase').map(s => {
               const typeKey = getServiceType(s);
               const typeInfo = SERVICE_TYPES.find(t => t.key === typeKey)!;
               return (
@@ -857,6 +1006,111 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── CLASES ── */}
+      {!features.hasClasses ? (
+        <LockedFeature featureName="Clases con Cupo" requiredPlan="pro" />
+      ) : (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5 text-violet-600" /> Clases</CardTitle>
+          <CardDescription>Franjas horarias grupales con cupo máximo de clientes (ej: yoga, pilates).</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-2">
+            {(services || []).filter(s => getServiceType(s) === 'clase').map(s => (
+              <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-muted/20 transition-colors">
+                <div className="flex-grow min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-bold truncate">{s.name}</p>
+                    <Badge variant="outline" className="text-[10px] px-2 py-0 border border-violet-300 bg-violet-100 text-violet-700">Clase</Badge>
+                  </div>
+                  {s.description && <p className="text-xs text-muted-foreground truncate">{s.description}</p>}
+                  <p className="text-xs font-semibold mt-0.5">${s.price.toLocaleString('es-AR')} · {s.duration}min · {(s as any).capacity || 0} cupos</p>
+                  {(s as any).address && <p className="text-xs text-muted-foreground truncate mt-0.5">📍 {(s as any).address}</p>}
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" onClick={() => {
+                    setEditingClassId(s.id);
+                    setClassForm({ name: s.name, description: s.description, price: s.price, duration: s.duration, capacity: (s as any).capacity || 0, address: (s as any).address || "", professionalIds: (s as any).professionalIds || [] });
+                  }}>
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleDeleteService(s.id)} className="text-destructive hover:text-destructive">
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {(services || []).filter(s => getServiceType(s) === 'clase').length === 0 && (
+              <p className="text-sm text-muted-foreground">Todavía no agregaste ninguna clase.</p>
+            )}
+          </div>
+
+          <div className="p-4 border rounded-xl bg-muted/10 space-y-4">
+            <p className="text-sm font-bold">{editingClassId ? "Editar Clase" : "Agregar Clase"}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1 md:col-span-2">
+                <Label>Nombre</Label>
+                <Input placeholder="Ej: Yoga Grupal" value={classForm.name} onChange={e => setClassForm({ ...classForm, name: e.target.value })} />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <Label>Descripción <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+                <Input placeholder="Descripción de la clase" value={classForm.description} onChange={e => setClassForm({ ...classForm, description: e.target.value })} />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <Label>Dirección <span className="text-muted-foreground text-xs">(opcional — si no la cargás, se usa la del negocio)</span></Label>
+                <Input placeholder="Ej: Plaza San Martín, frente al club" value={classForm.address} onChange={e => setClassForm({ ...classForm, address: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Precio ($)</Label>
+                <Input type="number" value={classForm.price || ""} onChange={e => setClassForm({ ...classForm, price: Number(e.target.value) })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Duración (min)</Label>
+                <Input type="number" value={classForm.duration || ""} onChange={e => setClassForm({ ...classForm, duration: Number(e.target.value) })} />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <Label>Cupos <span className="text-muted-foreground text-xs">(cantidad de clientes por horario)</span></Label>
+                <Input type="number" min={1} placeholder="Ej: 10" value={classForm.capacity || ""} onChange={e => setClassForm({ ...classForm, capacity: Number(e.target.value) })} />
+              </div>
+              {(professionals || []).length > 0 && (
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Profesionales asignados <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(professionals || []).map(p => (
+                      <label key={p.id} className="flex items-center gap-2 p-2 rounded-lg border cursor-pointer hover:bg-muted/20 transition-colors">
+                        <Checkbox
+                          checked={classForm.professionalIds.includes(p.id)}
+                          onCheckedChange={(checked) => {
+                            setClassForm(prev => ({
+                              ...prev,
+                              professionalIds: checked
+                                ? [...prev.professionalIds, p.id]
+                                : prev.professionalIds.filter(id => id !== p.id),
+                            }));
+                          }}
+                        />
+                        <span className="text-sm truncate">{(p as any).emoji || ''} {p.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Si no seleccionás ninguno, la clase estará disponible con todos.</p>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleClassSubmit} className="flex-1">
+                {editingClassId ? "Actualizar Clase" : "Agregar Clase"}
+              </Button>
+              {editingClassId && (
+                <Button variant="ghost" onClick={() => { setEditingClassId(null); setClassForm(emptyClassForm); }}>Cancelar</Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      )}
 
       {/* ── SUCURSALES ── */}
       {features.maxProfessionals >= 999999 ? (
