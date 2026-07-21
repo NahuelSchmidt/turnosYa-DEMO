@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import { useFirestore, useMemoFirebase, useDoc } from "@/firebase";
-import { doc, serverTimestamp } from "firebase/firestore";
+import { doc } from "firebase/firestore";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -100,7 +100,11 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
 
   const handleCancel = () => {
     if (!db) return;
-    updateDocumentNonBlocking(doc(db, "appointments", appointmentId), { status: "cancelled", updatedAt: serverTimestamp() });
+    // Solo tocamos "status": las reglas de Firestore permiten este campo sin
+    // autenticación (para que el cliente pueda cancelar aunque su sesión anónima
+    // actual no coincida con la que hizo la reserva). Cualquier otro campo acá
+    // (ej: updatedAt) hace que el update sea rechazado por permisos.
+    updateDocumentNonBlocking(doc(db, "appointments", appointmentId), { status: "cancelled" });
     setCancelled(true);
 
     const serviceNames = isClassAppt
