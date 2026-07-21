@@ -44,6 +44,7 @@ const PLANS = [
       "Vista semanal de agenda",
       "Métricas e ingresos",
       "Combos y ofertas",
+      "Clases grupales con cupo",
       "Días y horarios bloqueados",
       "Agregar turnos desde el panel",
       "Color de marca personalizado",
