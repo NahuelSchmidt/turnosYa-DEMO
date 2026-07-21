@@ -131,7 +131,7 @@ export default function ServiceSelector({ allServices, selectedServices, onSelec
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Users className="w-4 h-4 text-violet-600" />
-                <h3 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Clases Grupales</h3>
+                <h3 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Clases</h3>
               </div>
               <div className="grid gap-3">
                 {classServices.map(renderServiceCard)}

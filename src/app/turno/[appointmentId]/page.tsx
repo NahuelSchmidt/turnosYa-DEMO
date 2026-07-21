@@ -1,8 +1,8 @@
 "use client";
 
 import { use, useState } from "react";
-import { useFirestore, useMemoFirebase, useDoc } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { useFirestore, useMemoFirebase, useDoc, useCollection } from "@/firebase";
+import { doc, collection, query, where } from "firebase/firestore";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +19,6 @@ import { parseFirestoreDate } from "@/lib/utils";
 import { useServices } from "@/hooks/use-services";
 import { useProfessionals } from "@/hooks/use-professionals";
 import { useSalon } from "@/hooks/use-salon";
-import { useAppointments } from "@/hooks/use-appointments";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -48,7 +47,19 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
   const { services, loading: sLoading } = useServices(tenantId);
   const { professionals, loading: pLoading } = useProfessionals(tenantId);
   const { salon } = useSalon(tenantId);
-  const { getClassAttendeeCount } = useAppointments(tenantId);
+
+  // Consulta acotada (solo turnos confirmados de este profesional) para contar
+  // cupo de clase — evita traer todo el historial de turnos del salón.
+  const profAppointmentsQuery = useMemoFirebase(() => {
+    if (!db || !tenantId || !apt?.professionalId) return null;
+    return query(
+      collection(db, "appointments"),
+      where("salonId", "==", tenantId),
+      where("professionalId", "==", apt.professionalId),
+      where("status", "==", "confirmed"),
+    );
+  }, [db, tenantId, apt?.professionalId]);
+  const { data: profAppointments } = useCollection<any>(profAppointmentsQuery);
 
   if (aptLoading || sLoading || pLoading) {
     return (
@@ -84,7 +95,11 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
   const classService = aptServices.length === 1 ? aptServices[0] : undefined;
   const isClassAppt = classService && (classService as any).type === 'clase';
   const classCount = isClassAppt
-    ? getClassAttendeeCount(classService!.id, apt.professionalId, dateObj, format(dateObj, 'HH:mm'))
+    ? (profAppointments || []).filter((a: any) => {
+        if (!(a.serviceIds || []).includes(classService!.id)) return false;
+        const aDate = parseFirestoreDate(a.startTime);
+        return format(aDate, 'yyyy-MM-dd') === format(dateObj, 'yyyy-MM-dd') && format(aDate, 'HH:mm') === format(dateObj, 'HH:mm');
+      }).length
     : 0;
   const displayAddress = (isClassAppt && (classService as any)?.address) || salon?.address;
   const currentStatus = cancelled ? "cancelled" : apt.status;
