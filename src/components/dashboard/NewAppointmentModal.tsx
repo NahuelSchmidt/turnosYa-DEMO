@@ -138,10 +138,7 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
         // Enviar WhatsApp de confirmación al cliente si tiene teléfono
         if (customerPhone) {
           const formattedDate = format(startTime, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
-          const baseServiceName = freeTextService ? customServiceName.trim() : (selectedService?.name || '');
-          const serviceName = isClassBooking && selectedService
-            ? `${baseServiceName} (cupo ${(classSlotInfo?.[selectedTime]?.count ?? 0) + 1}/${selectedService.capacity || '∞'})`
-            : baseServiceName;
+          const serviceName = freeTextService ? customServiceName.trim() : (selectedService?.name || '');
           const professional = professionals.find(p => p.id === selectedProfessionalId);
           const turnoLink = `${window.location.origin}/turno/${id}`;
           const locationAddress = (isClassBooking && (selectedService as any)?.address) || (salon as any)?.address;

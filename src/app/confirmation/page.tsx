@@ -78,9 +78,7 @@ function ConfirmationContent() {
 
     const dateObj = parseFirestoreDate(startTime);
     const formattedDate = format(dateObj, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
-    const serviceNames = classInfo
-      ? `${classInfo.service.name} (cupo ${classInfo.count}/${classInfo.capacity || '∞'})`
-      : aptServices.map(s => s.name).join(', ');
+    const serviceNames = aptServices.map(s => s.name).join(', ');
     const turnoLink = getTurnoLink(appointment.id);
 
     const locationAddress = classInfo?.service.address || salon?.address;
