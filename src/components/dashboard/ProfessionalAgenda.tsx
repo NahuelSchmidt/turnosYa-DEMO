@@ -31,9 +31,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-type AppStatus = 'confirmed' | 'completed' | 'cancelled' | 'no-show';
+export type AppStatus = 'confirmed' | 'completed' | 'cancelled' | 'no-show';
 
-interface PopulatedAppointment extends Omit<Appointment, 'serviceIds' | 'professionalId'> {
+export interface PopulatedAppointment extends Omit<Appointment, 'serviceIds' | 'professionalId'> {
   services: Service[];
   professional: Professional | undefined;
 }
@@ -85,7 +85,7 @@ interface ProfessionalAgendaProps { tenantId: string; }
 
 const PROD_DOMAIN = 'https://turnos-ya-demo.vercel.app';
 
-const STATUS_CONFIG: Record<AppStatus, { label: string; cardClass: string; borderClass: string; badgeClass: string; timeClass: string; icon: any }> = {
+export const STATUS_CONFIG: Record<AppStatus, { label: string; cardClass: string; borderClass: string; badgeClass: string; timeClass: string; icon: any }> = {
   confirmed:  {
     label: 'Confirmado',
     cardClass: 'bg-green-50 dark:bg-green-950/20',

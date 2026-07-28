@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminSettings } from "@/components/dashboard/AdminSettings";
 import { ProfessionalAgenda } from "@/components/dashboard/ProfessionalAgenda";
+import { AppointmentHistory } from "@/components/dashboard/AppointmentHistory";
 import { DollarSign, Calendar, Users, Activity, LogIn, LogOut, Loader2, AlertCircle, ShieldCheck } from "lucide-react";
 import { PlanBadge } from "@/components/ui/plan-badge";
 import { LockedFeature } from "@/components/ui/locked-feature";
@@ -493,6 +494,7 @@ export default function DashboardPage() {
                     )}
                   </span>
                 </TabsTrigger>
+                <TabsTrigger value="history" className="flex-1">Historial</TabsTrigger>
                 <TabsTrigger value="clients" className="flex-1">Clientes</TabsTrigger>
                 <TabsTrigger value="stats" className="flex-1">Métricas</TabsTrigger>
                 <TabsTrigger value="settings" className="flex-1">
@@ -501,6 +503,7 @@ export default function DashboardPage() {
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="agenda"><ProfessionalAgenda tenantId={tenantId} /></TabsContent>
+              <TabsContent value="history"><AppointmentHistory tenantId={tenantId} /></TabsContent>
               <TabsContent value="clients">
                 {features.hasMetrics
                   ? <ClientsSection tenantId={tenantId} />
