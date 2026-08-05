@@ -26,6 +26,7 @@ import { format, subMonths, startOfMonth, endOfMonth, isToday } from "date-fns";
 import { es } from "date-fns/locale";
 import { parseFirestoreDate } from "@/lib/utils";
 import { Trophy, Clock, Star, TrendingUp, Phone, MessageCircle } from "lucide-react";
+import { AccountDeactivated } from "@/components/shared/AccountDeactivated";
 
 const chartConfig = {
   Ingresos: { label: "Ingresos ($)", color: "hsl(var(--primary))" },
@@ -466,6 +467,9 @@ export default function DashboardPage() {
               </Button>
             </CardContent>
           </Card>
+
+        ) : currentSalon?.isActive === false ? (
+          <AccountDeactivated salonName={currentSalon?.name} onLogout={handleLogout} />
 
         ) : (
           /* Panel del negocio */

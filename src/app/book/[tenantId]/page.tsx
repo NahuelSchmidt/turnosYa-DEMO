@@ -8,6 +8,7 @@ import { useSalon } from '@/hooks/use-salon';
 import { useBranches } from '@/hooks/use-branches';
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, ChevronRight, Loader2 } from "lucide-react";
+import { AccountDeactivated } from "@/components/shared/AccountDeactivated";
 
 export default function BookingPage() {
   const params = useParams();
@@ -17,6 +18,16 @@ export default function BookingPage() {
   const { branches, loading: branchesLoading } = useBranches(tenantId);
 
   const loading = salonLoading || branchesLoading;
+
+  if (!loading && salon?.isActive === false) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <main className="flex-grow"><AccountDeactivated salonName={salon?.name} /></main>
+        <Footer />
+      </div>
+    );
+  }
 
   // Si hay sucursales, mostrar selector
   if (!loading && branches.length > 0) {

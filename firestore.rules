@@ -46,8 +46,12 @@ service cloud.firestore {
       );
       // Solo usuarios reales pueden crear su salón
       allow create: if isRealUser();
-      // Solo el admin del salón o global admin pueden editar/borrar
-      allow update: if isSalonAdmin(salonId) || isGlobalAdmin();
+      // Solo el admin del salón o global admin pueden editar/borrar.
+      // El campo isActive (activar/desactivar cuenta) solo lo puede tocar un global admin.
+      allow update: if isGlobalAdmin() || (
+        isSalonAdmin(salonId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isActive'])
+      );
       allow delete: if isGlobalAdmin();
 
       match /services/{serviceId} {

@@ -3,9 +3,9 @@
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, doc, query, orderBy } from "firebase/firestore";
-import { Loader2, Store, ExternalLink, Calendar, Search, ShieldCheck, Trash2, ShieldAlert, LogOut, AlertTriangle, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
+import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { collection, doc, query, orderBy, serverTimestamp } from "firebase/firestore";
+import { Loader2, Store, ExternalLink, Calendar, Search, ShieldCheck, Trash2, ShieldAlert, LogOut, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Power, PowerOff } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { useState, useMemo } from "react";
@@ -99,6 +99,21 @@ export default function SuperAdminPage() {
     toast({
       title: "Negocio Eliminado",
       description: `${salonName} ha sido removido de la plataforma.`,
+    });
+  };
+
+  const handleToggleActive = (salonId: string, salonName: string, isActive: boolean) => {
+    if (!db) return;
+    const salonDocRef = doc(db, "salons", salonId);
+    updateDocumentNonBlocking(salonDocRef, {
+      isActive: !isActive,
+      updatedAt: serverTimestamp(),
+    });
+    toast({
+      title: isActive ? "Cuenta Desactivada" : "Cuenta Reactivada",
+      description: isActive
+        ? `${salonName} fue desactivado. Sus datos se conservan y puede reactivarse cuando quiera.`
+        : `${salonName} volvió a tener acceso al panel y a su página de reservas.`,
     });
   };
 
@@ -201,8 +216,9 @@ export default function SuperAdminPage() {
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {filteredSalons.map((salon) => {
               const sub = getSubscriptionStatus(salon);
+              const isActive = salon.isActive !== false;
               return (
-              <Card key={salon.id} className={`group hover:border-primary transition-all duration-300 shadow-sm rounded-3xl overflow-hidden ${sub.status === 'expired' ? 'border-destructive/50' : sub.status === 'expiring' ? 'border-orange-400/50' : ''}`}>
+              <Card key={salon.id} className={`group hover:border-primary transition-all duration-300 shadow-sm rounded-3xl overflow-hidden ${!isActive ? 'border-muted-foreground/30 opacity-70' : sub.status === 'expired' ? 'border-destructive/50' : sub.status === 'expiring' ? 'border-orange-400/50' : ''}`}>
                 <CardHeader className="pb-4 bg-muted/5 group-hover:bg-primary/5 transition-colors">
                   <div className="flex justify-between items-start mb-4">
                     <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all">
@@ -217,6 +233,11 @@ export default function SuperAdminPage() {
                     <Badge variant="outline" className={`text-[10px] py-0.5 px-2 font-black ${planLabels[salon.plan || 'basic'].className}`}>
                       {planLabels[salon.plan || 'basic'].label}
                     </Badge>
+                    {!isActive && (
+                      <Badge variant="outline" className="text-[10px] py-0.5 px-2 font-black bg-muted text-muted-foreground border-muted-foreground/30">
+                        <PowerOff className="w-3 h-3 mr-1" /> Desactivado
+                      </Badge>
+                    )}
                   </div>
                   <CardDescription className="flex items-center gap-2 font-medium">
                     <Calendar className="w-4 h-4 text-primary" />
@@ -260,6 +281,41 @@ export default function SuperAdminPage() {
                         <ExternalLink className="mr-2 h-4 w-4" /> Ver Web
                       </Link>
                     </Button>
+                    {isActive ? (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="lg" className="rounded-2xl text-orange-600 hover:bg-orange-500/10">
+                            <PowerOff className="h-5 w-5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="rounded-3xl">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle className="text-2xl font-black">¿Desactivar Negocio?</AlertDialogTitle>
+                            <AlertDialogDescription className="text-lg">
+                              <strong>{salon.name}</strong> perderá acceso al panel y su página de reservas quedará bloqueada. No se borra ningún dato y podés reactivarlo cuando quiera retomar.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter className="gap-2">
+                            <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleToggleActive(salon.id, salon.name, true)}
+                              className="bg-orange-600 text-white hover:bg-orange-600/90 rounded-xl font-bold"
+                            >
+                              Desactivar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="lg"
+                        className="rounded-2xl text-green-600 hover:bg-green-500/10"
+                        onClick={() => handleToggleActive(salon.id, salon.name, false)}
+                      >
+                        <Power className="h-5 w-5" />
+                      </Button>
+                    )}
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="lg" className="rounded-2xl text-destructive hover:bg-destructive/10">
