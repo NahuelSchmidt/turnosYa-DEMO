@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useUser, useAuth as useFirebaseAuth, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { LoadingScreen } from "@/components/shared/LoadingScreen";
 import { signInWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { collection, query, where } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -416,7 +417,7 @@ export default function DashboardPage() {
   const handleLogout = () => signOut(auth);
 
   if (isUserLoading) {
-    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
+    return <LoadingScreen message="Verificando sesión..." />;
   }
 
   const isRealUser = user && !user.isAnonymous;
@@ -453,7 +454,7 @@ export default function DashboardPage() {
           </Card>
 
         ) : isSalonsLoading ? (
-          <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+          <LoadingScreen message="Cargando tu negocio..." fullScreen={false} />
 
         ) : !tenantId ? (
           <Card className="max-w-md mx-auto text-center">

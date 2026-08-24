@@ -8,7 +8,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Calendar, User, Clock, XCircle, MessageCircle, Loader2, Ban, MapPin } from "lucide-react";
+import { CheckCircle2, Calendar, User, Clock, XCircle, MessageCircle, Ban, MapPin } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -18,6 +18,7 @@ const fmtAR = (date: Date, fmt: string) => formatInTimeZone(date, TZ, fmt);
 import { parseFirestoreDate } from "@/lib/utils";
 import { useServices } from "@/hooks/use-services";
 import { useProfessionals } from "@/hooks/use-professionals";
+import { LoadingScreen } from "@/components/shared/LoadingScreen";
 import { useSalon } from "@/hooks/use-salon";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import {
@@ -66,7 +67,7 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
       <div className="flex flex-col min-h-screen">
         <Header />
         <main className="flex-grow flex items-center justify-center">
-          <Loader2 className="w-12 h-12 animate-spin text-primary" />
+          <LoadingScreen message="Buscando tu turno..." fullScreen={false} />
         </main>
         <Footer />
       </div>
