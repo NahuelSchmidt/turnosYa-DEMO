@@ -72,15 +72,29 @@ service cloud.firestore {
         isSalonAdmin(resource.data.salonId) ||
         isGlobalAdmin()
       );
+      // TODO(seguridad): esto permite a cualquier usuario logueado listar TODOS los
+      // turnos de TODOS los salones (nombres, teléfonos). No se puede restringir a
+      // "solo mis turnos" o "solo mi salón" sin romper la disponibilidad de horarios
+      // del flujo público de reserva (BookingFlow necesita ver los turnos de otros
+      // clientes para saber qué horarios están ocupados). Solución correcta: exponer
+      // la ocupación de horarios desde una colección/endpoint separado que no incluya
+      // datos del cliente, y recién ahí restringir esta regla a dueño/admin del salón.
       allow list: if isSignedIn();
       // Cualquier usuario autenticado puede crear una reserva
       allow create: if isSignedIn() && request.resource.data.customerId == request.auth.uid;
-      // Solo el cliente dueño del turno o el admin del salón pueden cancelar
-      // El cron puede actualizar solo los flags de reminder y status (sin auth)
+      // Solo el cliente dueño del turno o el admin del salón pueden cancelar.
+      // El cron (llamada sin auth, vía API key) solo puede: (a) tocar los flags de
+      // recordatorio/reseña, o (b) auto-completar un turno que ya pasó (confirmed ->
+      // completed). Nunca puede cancelar un turno ni tocar cualquier otro campo —
+      // antes la regla permitía cambiar `status` a cualquier valor sin ningún auth,
+      // lo que dejaba cancelar turnos de cualquier salón a cualquiera sin loguearse.
       allow update: if (
-        // Cron: solo puede tocar campos de reminder/status
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['reminderSent24h', 'reminderSentSameDay', 'reviewSent', 'status'])
+          .hasOnly(['reminderSent24h', 'reminderSentSameDay', 'reviewSent'])
+      ) || (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+        resource.data.status == 'confirmed' &&
+        request.resource.data.status == 'completed'
       ) || (isSignedIn() && (
         resource.data.customerId == request.auth.uid ||
         isSalonAdmin(resource.data.salonId) ||
@@ -90,7 +104,11 @@ service cloud.firestore {
     }
 
     match /payments/{paymentId} {
-      allow read, write: if isRealUser();
+      // Colección sin ningún uso en el código actual (no hay lecturas ni escrituras
+      // en el repo) pero estaba abierta a lectura/escritura de cualquier usuario
+      // logueado, de cualquier documento. La cierro hasta que se implemente con un
+      // esquema y reglas propias acorde a los datos que vaya a guardar.
+      allow read, write: if false;
     }
   }
 }
