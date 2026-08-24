@@ -11,11 +11,11 @@ const PHONE = "542216229441";
 const PLANS = [
   {
     name: "Basic",
-    price: "14.999",
-    priceAnual: "149.990",
+    price: "14.900",
+    priceAnual: "149.000",
     oldPrice: null,
-    oldPriceAnual: "179.988",
-    savingAnual: "29.998",
+    oldPriceAnual: "178.800",
+    savingAnual: "29.800",
     badge: null,
     style: "default" as const,
     features: [
@@ -31,11 +31,11 @@ const PLANS = [
   },
   {
     name: "Pro",
-    price: "29.999",
-    priceAnual: "299.990",
+    price: "24.900",
+    priceAnual: "249.000",
     oldPrice: "39.999",
-    oldPriceAnual: "359.988",
-    savingAnual: "59.998",
+    oldPriceAnual: "298.800",
+    savingAnual: "49.800",
     badge: "Más elegido",
     style: "pro" as const,
     features: [
@@ -59,11 +59,11 @@ const PLANS = [
   },
   {
     name: "Premium",
-    price: "49.999",
-    priceAnual: "499.990",
+    price: "44.900",
+    priceAnual: "449.000",
     oldPrice: "59.999",
-    oldPriceAnual: "599.988",
-    savingAnual: "99.998",
+    oldPriceAnual: "538.800",
+    savingAnual: "89.800",
     badge: "Mejor valor 🔥",
     style: "premium" as const,
     features: [
