@@ -83,18 +83,24 @@ service cloud.firestore {
       // Cualquier usuario autenticado puede crear una reserva
       allow create: if isSignedIn() && request.resource.data.customerId == request.auth.uid;
       // Solo el cliente dueño del turno o el admin del salón pueden cancelar.
-      // El cron (llamada sin auth, vía API key) solo puede: (a) tocar los flags de
-      // recordatorio/reseña, o (b) auto-completar un turno que ya pasó (confirmed ->
-      // completed). Nunca puede cancelar un turno ni tocar cualquier otro campo —
-      // antes la regla permitía cambiar `status` a cualquier valor sin ningún auth,
-      // lo que dejaba cancelar turnos de cualquier salón a cualquiera sin loguearse.
+      // Hay dos excepciones sin auth, ambas acotadas a una transición puntual de
+      // `status` (no a cualquier valor, como permitía la regla vieja):
+      // (a) el cron y el efecto de auto-completado del cliente marcan un turno
+      //     vencido como completed (confirmed -> completed);
+      // (b) la página pública /turno/[id] (link de WhatsApp) deja cancelar el
+      //     turno aunque la sesión anónima actual no coincida con la que reservó
+      //     (ej: abrió el link en otro dispositivo) — el conocer el ID del turno
+      //     ya funciona como token de acceso (confirmed -> cancelled).
+      // Ninguna de las dos deja tocar otro campo ni pisar un turno que no esté
+      // "confirmed", así que no se puede reabrir, marcar no-show, ni afectar
+      // turnos ya cancelados/completados sin loguearse.
       allow update: if (
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['reminderSent24h', 'reminderSentSameDay', 'reviewSent'])
       ) || (
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
         resource.data.status == 'confirmed' &&
-        request.resource.data.status == 'completed'
+        request.resource.data.status in ['completed', 'cancelled']
       ) || (isSignedIn() && (
         resource.data.customerId == request.auth.uid ||
         isSalonAdmin(resource.data.salonId) ||

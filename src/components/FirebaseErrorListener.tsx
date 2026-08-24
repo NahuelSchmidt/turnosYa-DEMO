@@ -15,8 +15,14 @@ export function FirebaseErrorListener() {
   useEffect(() => {
     // The callback now expects a strongly-typed error, matching the event payload.
     const handleError = (error: FirestorePermissionError) => {
-      // Set error in state to trigger a re-render.
-      setError(error);
+      // En producción no tiramos abajo toda la app por un permiso denegado puntual
+      // (rompía la SPA entera para cualquier usuario ante cualquier error de reglas,
+      // incluso uno acotado a una sola escritura). Solo lo logueamos.
+      if (process.env.NODE_ENV !== 'production') {
+        setError(error);
+      } else {
+        console.error(error);
+      }
     };
 
     // The typed emitter will enforce that the callback for 'permission-error'
@@ -29,7 +35,7 @@ export function FirebaseErrorListener() {
     };
   }, []);
 
-  // On re-render, if an error exists in state, throw it.
+  // On re-render, if an error exists in state, throw it (solo en desarrollo).
   if (error) {
     throw error;
   }
