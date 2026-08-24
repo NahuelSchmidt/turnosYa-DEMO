@@ -622,7 +622,7 @@ function AppointmentDetailDialog({ apt, tenantId, onUpdate, onReschedule, onClos
 const HOURS = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00'];
 const DAYS_LABELS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 
-function GridView({ agenda, onUpdate, onReschedule, tenantId, initialWeekOffset = 0, onDayClick, getBookedSlotsForDate }: {
+function GridView({ agenda, onUpdate, onReschedule, tenantId, initialWeekOffset = 0, onDayClick, getBookedSlotsForDate, professionals, getSlotsForDate, blockedSlots, onSlotClick }: {
   agenda: PopulatedAppointment[];
   onUpdate: (id: string, status: AppStatus) => void;
   onReschedule: (id: string, newStart: Date, newEnd: Date) => void;
@@ -630,9 +630,14 @@ function GridView({ agenda, onUpdate, onReschedule, tenantId, initialWeekOffset 
   initialWeekOffset?: number;
   onDayClick?: (day: Date) => void;
   getBookedSlotsForDate: (professionalId: string | null, date: Date | undefined, slots: string[], blockedSlots: any[], excludeId?: string) => string[];
+  professionals: Professional[];
+  getSlotsForDate: (date?: Date, professional?: any, forClass?: boolean) => string[];
+  blockedSlots: { date: string; time: string }[];
+  onSlotClick: (date: Date, time: string, professionalId: string) => void;
 }) {
   const [weekOffset, setWeekOffset] = useState(initialWeekOffset);
   const [selectedApt, setSelectedApt] = useState<PopulatedAppointment | null>(null);
+  const [profFilter, setProfFilter] = useState<string>('none');
   const weekStart = useMemo(() => addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), weekOffset * 7), [weekOffset]);
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
@@ -644,8 +649,80 @@ function GridView({ agenda, onUpdate, onReschedule, tenantId, initialWeekOffset 
     });
   };
 
+  type FreeSlot = { time: string; professionalId: string };
+
+  // Slots libres por día — en "Todos" se combinan los horarios de todos los profesionales
+  // (una hora es libre si al menos uno la tiene libre); en un profesional puntual, solo los suyos.
+  const freeSlotsByDay = useMemo(() => {
+    const map: Record<string, FreeSlot[]> = {};
+    if (profFilter === 'none') return map;
+    const targetProfessionals = profFilter === 'all' ? professionals : professionals.filter(p => p.id === profFilter);
+    if (targetProfessionals.length === 0) return map;
+    weekDays.forEach(day => {
+      const dayKey = format(day, 'yyyy-MM-dd');
+      const entries: FreeSlot[] = [];
+      const seen = new Set<string>();
+      targetProfessionals.forEach(prof => {
+        const slots = getSlotsForDate(day, prof, false);
+        const booked = getBookedSlotsForDate(prof.id, day, slots, blockedSlots);
+        slots.forEach(s => {
+          if (!booked.includes(s) && !seen.has(s)) {
+            seen.add(s);
+            entries.push({ time: s, professionalId: prof.id });
+          }
+        });
+      });
+      map[dayKey] = entries;
+    });
+    return map;
+  }, [weekDays, profFilter, professionals, getSlotsForDate, getBookedSlotsForDate, blockedSlots]);
+
+  const getFreeSlotsForCell = (day: Date, hour: string): FreeSlot[] => {
+    const dayEntries = freeSlotsByDay[format(day, 'yyyy-MM-dd')];
+    if (!dayEntries) return [];
+    const hourPrefix = hour.slice(0, 2) + ':';
+    let free = dayEntries.filter(f => f.time.startsWith(hourPrefix));
+    if (isToday(day)) {
+      const now = new Date();
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      free = free.filter(f => {
+        const [h, m] = f.time.split(':').map(Number);
+        return h * 60 + m > nowMinutes;
+      });
+    }
+    return free.sort((a, b) => a.time.localeCompare(b.time));
+  };
+
   return (
     <div className="space-y-3">
+      {professionals.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Ver libres de:</span>
+          <div className="flex gap-1.5 flex-wrap">
+            <button
+              onClick={() => setProfFilter('none')}
+              className={cn("text-xs px-3 py-1.5 rounded-full border font-bold transition-all", profFilter === 'none' ? "bg-primary text-primary-foreground border-primary" : "bg-muted/30 hover:bg-muted")}
+            >
+              Nadie
+            </button>
+            <button
+              onClick={() => setProfFilter('all')}
+              className={cn("text-xs px-3 py-1.5 rounded-full border font-bold transition-all", profFilter === 'all' ? "bg-primary text-primary-foreground border-primary" : "bg-muted/30 hover:bg-muted")}
+            >
+              Todos
+            </button>
+            {professionals.map(p => (
+              <button
+                key={p.id}
+                onClick={() => setProfFilter(p.id)}
+                className={cn("text-xs px-3 py-1.5 rounded-full border font-bold transition-all", profFilter === p.id ? "bg-primary text-primary-foreground border-primary" : "bg-muted/30 hover:bg-muted")}
+              >
+                {(p as any).emoji || ''} {p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <Button variant="outline" size="sm" onClick={() => setWeekOffset(o => o - 1)}><ChevronLeft className="w-4 h-4" /></Button>
         <span className="font-bold text-sm capitalize">
@@ -676,6 +753,7 @@ function GridView({ agenda, onUpdate, onReschedule, tenantId, initialWeekOffset 
                 <td className="text-[9px] text-muted-foreground font-mono text-right pr-1.5 align-middle w-10">{hour}</td>
                 {weekDays.map((day, i) => {
                   const apts = getAptsForCell(day, hour);
+                  const freeSlots = apts.length === 0 ? getFreeSlotsForCell(day, hour) : [];
                   return (
                     <td key={i} className={cn("px-0.5 border-l overflow-hidden", isToday(day) ? 'bg-primary/3' : '')} style={{ height: 48, maxHeight: 48 }}>
                       {apts.map(apt => {
@@ -695,6 +773,16 @@ function GridView({ agenda, onUpdate, onReschedule, tenantId, initialWeekOffset 
                           </button>
                         );
                       })}
+                      {freeSlots.length > 0 && (
+                        <button
+                          onClick={() => onSlotClick(day, freeSlots[0].time, freeSlots[0].professionalId)}
+                          title={`Libre: ${freeSlots.map(f => profFilter === 'all' ? `${f.time} (${professionals.find(p => p.id === f.professionalId)?.name || ''})` : f.time).join(', ')}`}
+                          style={{ height: 44 }}
+                          className="w-full min-w-0 flex items-center justify-center rounded border border-dashed border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 text-[9px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-950/40 transition-colors"
+                        >
+                          Libre
+                        </button>
+                      )}
                     </td>
                   );
                 })}
@@ -843,10 +931,13 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
   const { salon } = useSalon(tenantId);
   const { features } = usePlan(tenantId);
   const { branches } = useBranches(tenantId);
+  const { getSlotsForDate } = useSchedules(tenantId);
   const [view, setView] = useState<'list' | 'grid' | 'month'>('list');
   const [localOverrides, setLocalOverrides] = useState<Record<string, AppStatus>>({});
   const [showNewAppointment, setShowNewAppointment] = useState(false);
   const [newAppointmentDate, setNewAppointmentDate] = useState<Date | undefined>(undefined);
+  const [newAppointmentTime, setNewAppointmentTime] = useState<string | undefined>(undefined);
+  const [newAppointmentProfessionalId, setNewAppointmentProfessionalId] = useState<string | undefined>(undefined);
   const [weekOffsetForDay, setWeekOffsetForDay] = useState(0);
   const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
   const [agendaKind, setAgendaKind] = useState<'turnos' | 'clases'>('turnos');
@@ -1022,6 +1113,15 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
           tenantId={tenantId}
           initialWeekOffset={weekOffsetForDay}
           getBookedSlotsForDate={getBookedSlotsForDate}
+          professionals={professionals || []}
+          getSlotsForDate={getSlotsForDate}
+          blockedSlots={(salon as any)?.blockedSlots || []}
+          onSlotClick={(date, time, professionalId) => {
+            setNewAppointmentDate(date);
+            setNewAppointmentTime(time);
+            setNewAppointmentProfessionalId(professionalId);
+            setShowNewAppointment(true);
+          }}
         />
       )}
       {view === 'month' && (
@@ -1044,12 +1144,19 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
 
       <NewAppointmentModal
         open={showNewAppointment}
-        onClose={() => { setShowNewAppointment(false); setNewAppointmentDate(undefined); }}
+        onClose={() => {
+          setShowNewAppointment(false);
+          setNewAppointmentDate(undefined);
+          setNewAppointmentTime(undefined);
+          setNewAppointmentProfessionalId(undefined);
+        }}
         tenantId={tenantId}
         services={services || []}
         professionals={professionals || []}
         blockedSlots={(salon as any)?.blockedSlots || []}
         defaultDate={newAppointmentDate}
+        defaultTime={newAppointmentTime}
+        defaultProfessionalId={newAppointmentProfessionalId}
       />
     </div>
   );

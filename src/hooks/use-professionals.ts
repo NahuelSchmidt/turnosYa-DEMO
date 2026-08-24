@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemoFirebase, useCollection, useFirestore } from '@/firebase';
-import { collection, doc, writeBatch, deleteField } from 'firebase/firestore';
+import { collection, doc, writeBatch, getDocs } from 'firebase/firestore';
 import { Professional, initialProfessionals } from '@/lib/data';
 
 export function useProfessionals(tenantId: string = 'default') {
@@ -20,18 +20,23 @@ export function useProfessionals(tenantId: string = 'default') {
   const updateProfessionals = async (updatedProfessionals: Professional[]) => {
     if (!db || !tenantId) return;
 
-    const batch = writeBatch(db);
-    updatedProfessionals.forEach(prof => {
-      const pRef = doc(db, 'salons', tenantId, 'professionals', prof.id);
-      if ((prof as any).weekSchedule === undefined) {
-        // Si no tiene weekSchedule, borrarlo explícitamente de Firestore
-        batch.set(pRef, { ...prof, weekSchedule: deleteField() }, { merge: true });
-      } else {
-        batch.set(pRef, prof, { merge: true });
-      }
-    });
+    const ref = collection(db, 'salons', tenantId, 'professionals');
 
-    await batch.commit();
+    // 1. Borrar todos los docs existentes (así se reflejan también las bajas)
+    const existing = await getDocs(ref);
+    const deleteBatch = writeBatch(db);
+    existing.docs.forEach(d => deleteBatch.delete(d.ref));
+    await deleteBatch.commit();
+
+    // 2. Escribir los nuevos
+    if (updatedProfessionals.length > 0) {
+      const writeBatch2 = writeBatch(db);
+      updatedProfessionals.forEach(prof => {
+        const pRef = doc(db, 'salons', tenantId, 'professionals', prof.id);
+        writeBatch2.set(pRef, prof);
+      });
+      await writeBatch2.commit();
+    }
   };
 
   return { professionals, loading: isLoading, updateProfessionals };

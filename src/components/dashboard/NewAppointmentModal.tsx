@@ -24,9 +24,11 @@ interface NewAppointmentModalProps {
   professionals: Professional[];
   blockedSlots?: { date: string; time: string }[];
   defaultDate?: Date;
+  defaultTime?: string;
+  defaultProfessionalId?: string;
 }
 
-export function NewAppointmentModal({ open, onClose, tenantId, services, professionals, blockedSlots = [], defaultDate }: NewAppointmentModalProps) {
+export function NewAppointmentModal({ open, onClose, tenantId, services, professionals, blockedSlots = [], defaultDate, defaultTime, defaultProfessionalId }: NewAppointmentModalProps) {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
@@ -34,8 +36,12 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(defaultDate ?? new Date());
 
   useEffect(() => {
-    if (open) setSelectedDate(defaultDate ?? new Date());
-  }, [open, defaultDate]);
+    if (open) {
+      setSelectedDate(defaultDate ?? new Date());
+      setSelectedProfessionalId(defaultProfessionalId ?? "");
+      setSelectedTime(defaultTime ?? "");
+    }
+  }, [open, defaultDate, defaultProfessionalId, defaultTime]);
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [extraDuration, setExtraDuration] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
