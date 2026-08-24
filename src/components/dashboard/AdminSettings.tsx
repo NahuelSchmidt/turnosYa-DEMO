@@ -615,6 +615,25 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
         </CardContent>
       </Card>
 
+      {/* ── CLASES GRUPALES (on/off) ── */}
+      {features.hasClasses && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5 text-violet-600" /> Clases Grupales</CardTitle>
+            <CardDescription>Activalo solo si tu negocio da clases o talleres con cupo (yoga, pilates, etc). Si no, dejalo apagado.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between gap-4 rounded-xl border p-4">
+              <div>
+                <p className="font-bold text-sm">¿Ofrecés clases grupales?</p>
+                <p className="text-xs text-muted-foreground">Muestra la sección para configurar clases con cupo máximo, aparte de tus turnos normales.</p>
+              </div>
+              <Switch checked={!!(salon as any)?.classesEnabled} onCheckedChange={v => updateSalon({ classesEnabled: v })} />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ── HORARIOS POR DÍA ── */}
       <Card>
         <CardHeader>
@@ -625,7 +644,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
           <Tabs defaultValue="turnos">
             <TabsList className="mb-4">
               <TabsTrigger value="turnos">Turnos</TabsTrigger>
-              {features.hasClasses && <TabsTrigger value="clases">Clases</TabsTrigger>}
+              {features.hasClasses && (salon as any)?.classesEnabled && <TabsTrigger value="clases">Clases</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="turnos" className="space-y-3">
@@ -690,7 +709,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
               </Button>
             </TabsContent>
 
-            {features.hasClasses && (
+            {features.hasClasses && (salon as any)?.classesEnabled && (
               <TabsContent value="clases" className="space-y-3">
                 <p className="text-xs text-muted-foreground -mt-1 mb-1">Definí los horarios puntuales de tus clases (ej: 18:00), independientes de la grilla de turnos.</p>
                 {DIAS.map((dia, i) => {
@@ -1010,7 +1029,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
       {/* ── CLASES ── */}
       {!features.hasClasses ? (
         <LockedFeature featureName="Clases con Cupo" requiredPlan="pro" />
-      ) : (
+      ) : !(salon as any)?.classesEnabled ? null : (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5 text-violet-600" /> Clases</CardTitle>
