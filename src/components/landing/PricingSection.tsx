@@ -11,12 +11,12 @@ const PHONE = "542216229441";
 const PLANS = [
   {
     name: "Basic",
-    price: "14.900",
-    priceAnual: "149.000",
+    price: "0",
+    priceAnual: "0",
     oldPrice: null,
-    oldPriceAnual: "178.800",
-    savingAnual: "29.800",
-    badge: null,
+    oldPriceAnual: null,
+    savingAnual: null,
+    badge: "Gratis",
     style: "default" as const,
     features: [
       "1 profesional",
@@ -26,8 +26,8 @@ const PLANS = [
       "Soporte por email",
       "✓ Sin costo de configuración",
     ],
-    waMsg: "Hola! Me interesa el Plan Basic de Turnify. ¿Cómo arranco?",
-    btnLabel: "Empezar con Basic",
+    waMsg: "Hola! Me interesa el Plan Basic gratuito de Turnify. ¿Cómo arranco?",
+    btnLabel: "Empezar gratis",
   },
   {
     name: "Pro",
@@ -134,6 +134,7 @@ export function PricingSection() {
             const waUrl = `https://wa.me/${PHONE}?text=${encodeURIComponent(plan.waMsg)}`;
             const isPro = plan.style === "pro";
             const isPremium = plan.style === "premium";
+            const isFree = plan.price === "0";
             const displayPrice = anual ? plan.priceAnual : plan.price;
             const displayOldPrice = anual ? plan.oldPriceAnual : plan.oldPrice;
 
@@ -155,6 +156,7 @@ export function PricingSection() {
                         "text-xs font-black px-4 py-1.5 rounded-full",
                         isPro && "bg-background text-foreground",
                         isPremium && "bg-amber-400 text-amber-900",
+                        !isPro && !isPremium && "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400",
                       )}
                     >
                       {plan.badge}
@@ -171,17 +173,25 @@ export function PricingSection() {
                     Plan {plan.name}
                   </p>
                   <div className="flex items-end gap-2 flex-wrap">
-                    <span className="text-4xl font-black transition-all duration-300">${displayPrice}</span>
-                    <span className={cn("text-sm mb-1.5", isPro ? "text-background/60" : "text-muted-foreground")}>
-                      {anual ? "/año" : "/mes"}
+                    <span className="text-4xl font-black transition-all duration-300">
+                      {isFree ? "Gratis" : `$${displayPrice}`}
                     </span>
+                    {!isFree && (
+                      <span className={cn("text-sm mb-1.5", isPro ? "text-background/60" : "text-muted-foreground")}>
+                        {anual ? "/año" : "/mes"}
+                      </span>
+                    )}
                   </div>
                   {displayOldPrice && (
                     <p className={cn("text-sm mt-1 line-through", isPro ? "text-background/40" : "text-muted-foreground/60")}>
                       ${displayOldPrice}
                     </p>
                   )}
-                  {anual ? (
+                  {isFree ? (
+                    <p className={cn("text-xs mt-2 font-semibold px-2.5 py-1 rounded-lg inline-block", "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400")}>
+                      Para siempre gratis, sin tarjeta
+                    </p>
+                  ) : anual ? (
                     <p className={cn("text-xs mt-1 font-bold", isPro ? "text-green-300" : "text-green-600")}>
                       Ahorrás ${plan.savingAnual}
                     </p>
