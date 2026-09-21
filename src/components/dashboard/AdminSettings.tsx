@@ -470,7 +470,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
                 <p className="text-xs text-muted-foreground">Se muestra en la parte superior de tu página de perfil.</p>
               </>
             ) : (
-              <LockedFeature featureName="Foto de Portada" requiredPlan="premium" />
+              <LockedFeature featureName="Foto de Portada" requiredPlan="pro" />
             )}
           </div>
           <div className="space-y-3">
@@ -592,7 +592,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
               </Button>
             </div>
           ) : (
-            <LockedFeature featureName="Página de Perfil Pública" requiredPlan="premium" />
+            <LockedFeature featureName="Página de Perfil Pública" requiredPlan="pro" />
           )}
         </CardContent>
       </Card>

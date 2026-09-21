@@ -123,8 +123,8 @@ export async function GET(req: NextRequest) {
     }
     const salon = salonCache[salonId];
 
-    // Reseña solo para negocios Premium (tienen página de perfil)
-    const needsReview = needsReviewTime && salon?.plan === 'premium';
+    // Reseña solo para negocios Pro y Premium (tienen página de perfil)
+    const needsReview = needsReviewTime && (salon?.plan === 'pro' || salon?.plan === 'premium');
 
     // Resolver el servicio (nombre + cupo si es una clase)
     if (!(salonId in servicesCache)) {

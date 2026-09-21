@@ -24,7 +24,7 @@ export const PLAN_FEATURES = {
     hasWeeklyView: true,
     hasBrandColor: true,
     hasAdminBooking: true,
-    hasProfilePage: false,
+    hasProfilePage: true,
     hasClasses: true,
   },
   premium: {
