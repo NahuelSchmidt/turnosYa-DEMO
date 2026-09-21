@@ -13,6 +13,7 @@ export const PLAN_FEATURES = {
     hasAdminBooking: false,
     hasProfilePage: false,
     hasClasses: false,
+    hasWhatsAppAutomation: false,
   },
   pro: {
     label: 'Pro',
@@ -26,6 +27,7 @@ export const PLAN_FEATURES = {
     hasAdminBooking: true,
     hasProfilePage: true,
     hasClasses: true,
+    hasWhatsAppAutomation: true,
   },
   premium: {
     label: 'Premium',
@@ -39,6 +41,7 @@ export const PLAN_FEATURES = {
     hasAdminBooking: true,
     hasProfilePage: true,
     hasClasses: true,
+    hasWhatsAppAutomation: true,
   },
 } as const;
 

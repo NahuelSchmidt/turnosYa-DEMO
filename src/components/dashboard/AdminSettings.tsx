@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Edit, Users, Briefcase, Link as LinkIcon, Copy, Check, Palette, Plus, ExternalLink, Clock, Loader2, Phone, MessageCircle, Tag, Percent, Ban, Instagram, Facebook, Building2, CalendarClock, ChevronDown, ChevronUp, X } from "lucide-react";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { WhatsAppConnect } from "./WhatsAppConnect";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -576,6 +577,11 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
           </Button>
         </CardContent>
       </Card>
+
+      {/* ── CONEXIÓN WHATSAPP ── */}
+      {features.hasWhatsAppAutomation
+        ? <WhatsAppConnect tenantId={tenantId} />
+        : <LockedFeature featureName="WhatsApp automático (confirmaciones y recordatorios)" requiredPlan="pro" />}
 
       {/* ── PERFIL PÚBLICO ── */}
       <Card>

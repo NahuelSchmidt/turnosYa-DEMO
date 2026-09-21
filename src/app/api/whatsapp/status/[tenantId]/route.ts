@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSalonById } from '@/lib/firestore-server';
+import { requireSalonAdmin } from '@/lib/api-auth';
 
 const EVOLUTION_URL = process.env.EVOLUTION_API_URL;
 const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY;
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ tenantId: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ tenantId: string }> }) {
   const { tenantId } = await params;
 
   if (!EVOLUTION_URL || !EVOLUTION_KEY) {
     return NextResponse.json({ state: 'notConfigured' });
   }
 
-  const salon = await getSalonById(tenantId);
-  const instanceName = salon?.evolutionInstanceName;
+  const auth = await requireSalonAdmin(req, tenantId);
+  if (!auth.ok) return auth.response;
+
+  const instanceName = auth.salon.evolutionInstanceName;
 
   if (!instanceName) {
     return NextResponse.json({ state: 'notConfigured' });

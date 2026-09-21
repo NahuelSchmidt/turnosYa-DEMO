@@ -2,8 +2,8 @@
 // No requiere firebase-admin ni service account key.
 
 const PROJECT_ID = 'studio-6398913436-7a565';
-const API_KEY = 'AIzaSyBc1gttodLpfA3SFufoYdPQZPxx9XCCGLI';
-const BASE_URL = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
+export const API_KEY = 'AIzaSyBc1gttodLpfA3SFufoYdPQZPxx9XCCGLI';
+export const BASE_URL = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 
 function parseValue(value: any): any {
   if (!value) return null;
