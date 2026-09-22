@@ -86,16 +86,16 @@ export async function GET(req: NextRequest) {
 
     // Si el cliente reservó el turno el mismo día para el que es, ya recibió
     // la confirmación al reservar: no hace falta mandarle también un recordatorio.
-    // Si lo reservó para el día siguiente, solo tiene sentido el recordatorio de
-    // último momento (3hs antes) — el de 24hs caería casi encima de la confirmación.
+    // El de 24hs solo suma valor si reservó con bastante anticipación (más de 4
+    // días): si no, ya lo recuerda solo y el mensaje de 24hs es de más.
     const createdAt = apt.createdAt instanceof Date ? apt.createdAt : (apt.createdAt ? new Date(apt.createdAt) : null);
     const leadDays = (!!createdAt && !isNaN(createdAt.getTime()))
       ? daysBetweenDateStrings(formatInTimeZone(createdAt, TZ, 'yyyy-MM-dd'), formatInTimeZone(startTime, TZ, 'yyyy-MM-dd'))
       : null;
     const bookedSameDay = leadDays === 0;
-    const bookedForNextDay = leadDays === 1;
+    const bookedLongAhead = leadDays !== null && leadDays > 4;
 
-    const needs24h = !bookedSameDay && !bookedForNextDay && !apt.reminderSent24h && startMs >= window24hStart && startMs <= window24hEnd;
+    const needs24h = bookedLongAhead && !apt.reminderSent24h && startMs >= window24hStart && startMs <= window24hEnd;
     const needsSameDay = !bookedSameDay && !apt.reminderSentSameDay && startMs >= windowSameDayStart && startMs <= windowSameDayEnd;
     const needsReviewTime = !apt.reviewSent && startMs >= windowReviewStart && startMs <= windowReviewEnd;
 
