@@ -7,6 +7,7 @@ import { Share2, Settings, BarChart3, ArrowRight, Phone, CalendarCheck, Users, B
 import BookingFlow from "@/components/booking/BookingFlow";
 import { FeaturesAccordion } from "@/components/landing/FeaturesAccordion";
 import { PricingSection } from "@/components/landing/PricingSection";
+import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
@@ -331,6 +332,8 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        <TestimonialsSection />
 
         <PricingSection />
 

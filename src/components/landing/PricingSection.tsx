@@ -31,11 +31,11 @@ const PLANS = [
   },
   {
     name: "Pro",
-    price: "24.900",
-    priceAnual: "249.000",
-    oldPrice: "39.999",
-    oldPriceAnual: "298.800",
-    savingAnual: "49.800",
+    price: "19.900",
+    priceAnual: "199.000",
+    oldPrice: "24.900",
+    oldPriceAnual: "249.000",
+    savingAnual: "39.800",
     badge: "Más elegido",
     style: "pro" as const,
     features: [
@@ -61,11 +61,11 @@ const PLANS = [
   },
   {
     name: "Premium",
-    price: "44.900",
-    priceAnual: "449.000",
-    oldPrice: "59.999",
-    oldPriceAnual: "538.800",
-    savingAnual: "89.800",
+    price: "34.900",
+    priceAnual: "349.000",
+    oldPrice: "44.900",
+    oldPriceAnual: "449.000",
+    savingAnual: "69.800",
     badge: "Mejor valor 🔥",
     style: "premium" as const,
     features: [
@@ -183,8 +183,13 @@ export function PricingSection() {
                     )}
                   </div>
                   {displayOldPrice && (
-                    <p className={cn("text-sm mt-1 line-through", isPro ? "text-background/40" : "text-muted-foreground/60")}>
-                      ${displayOldPrice}
+                    <p className="text-sm mt-1 flex items-center gap-2 flex-wrap">
+                      <span className={cn("line-through", isPro ? "text-background/40" : "text-muted-foreground/60")}>
+                        ${displayOldPrice}
+                      </span>
+                      <span className={cn("text-xs font-bold", isPro ? "text-green-300" : "text-green-600")}>
+                        Precio de lanzamiento
+                      </span>
                     </p>
                   )}
                   {isFree ? (
