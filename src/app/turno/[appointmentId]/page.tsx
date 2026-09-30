@@ -32,6 +32,8 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   confirmed: { label: "Confirmado",  color: "bg-green-100 text-green-700 border-green-200" },
   cancelled: { label: "Cancelado",   color: "bg-red-100 text-red-700 border-red-200" },
   completed: { label: "Completado",  color: "bg-blue-100 text-blue-700 border-blue-200" },
+  pending_payment: { label: "Esperando seña", color: "bg-amber-100 text-amber-800 border-amber-200" },
+  expired: { label: "Seña vencida", color: "bg-muted text-muted-foreground" },
 };
 
 function TurnoContent({ appointmentId }: { appointmentId: string }) {

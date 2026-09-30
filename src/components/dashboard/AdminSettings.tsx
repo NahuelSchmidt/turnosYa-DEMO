@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Trash2, Edit, Users, Briefcase, Link as LinkIcon, Copy, Check, Palette, Plus, ExternalLink, Clock, Loader2, Phone, MessageCircle, Tag, Percent, Ban, Instagram, Facebook, Building2, CalendarClock, ChevronDown, ChevronUp, X } from "lucide-react";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { WhatsAppConnect } from "./WhatsAppConnect";
+import { DepositSettings } from "./DepositSettings";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -582,6 +583,11 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
       {features.hasWhatsAppAutomation
         ? <WhatsAppConnect tenantId={tenantId} />
         : <LockedFeature featureName="WhatsApp automático (confirmaciones y recordatorios)" requiredPlan="pro" />}
+
+      {/* ── SEÑA CON MERCADO PAGO ── */}
+      {features.hasDeposits
+        ? <DepositSettings tenantId={tenantId} />
+        : <LockedFeature featureName="Seña con Mercado Pago" requiredPlan="pro" />}
 
       {/* ── PERFIL PÚBLICO ── */}
       <Card>

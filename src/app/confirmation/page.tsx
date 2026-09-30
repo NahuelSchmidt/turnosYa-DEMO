@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, Calendar, User, Clock, Loader2, ExternalLink, MapPin } from "lucide-react";
+import { CheckCircle2, Calendar, User, Clock, Loader2, ExternalLink, MapPin, CreditCard, XCircle } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { useAppointments } from "@/hooks/use-appointments";
@@ -70,9 +70,12 @@ function ConfirmationContent() {
     return { service: svc, count, capacity: (svc as any).capacity || 0 };
   }, [appointment, getClassAttendeeCount]);
 
-  // Mandar WA automáticamente (una vez)
+  // Mandar WA automáticamente (una vez). Los turnos con seña los confirma el servidor
+  // cuando Mercado Pago acredita el pago, y ese mismo aviso manda el WhatsApp.
   useEffect(() => {
     if (!appointment || waSent) return;
+    if (appointment.status !== 'confirmed') return;
+    if (appointment.depositStatus === 'paid' || appointment.depositStatus === 'pending') return;
     const { customerPhone, customerName, professional, startTime, services: aptServices } = appointment;
     if (!customerPhone) return;
 
@@ -133,6 +136,23 @@ function ConfirmationContent() {
     );
   }
 
+  if (appointment.status === 'pending_payment' || appointment.status === 'expired' || appointment.status === 'cancelled') {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <main className="flex-grow container mx-auto px-4 md:px-6 py-16 md:py-24 flex items-center justify-center">
+          <DepositPending
+            appointment={appointment}
+            tenantId={tenantId}
+            returnedFromPayment={searchParams.get("status") || searchParams.get("collection_status")}
+            paymentId={searchParams.get("payment_id") || searchParams.get("collection_id")}
+          />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   const appointmentDate = parseFirestoreDate(appointment.startTime);
   const turnoLink = getTurnoLink(appointment.id);
   const displayAddress = classInfo?.service.address || salon?.address;
@@ -181,6 +201,12 @@ function ConfirmationContent() {
                     <span><strong>Ubicación:</strong> {displayAddress}</span>
                   </div>
                 )}
+                {appointment.depositStatus === 'paid' && (
+                  <div className="flex items-center gap-3">
+                    <CreditCard className="w-5 h-5 text-primary shrink-0" />
+                    <span><strong>Seña pagada:</strong> ${(appointment.depositPaidAmount || appointment.depositAmount || 0).toLocaleString('es-AR')}</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -207,6 +233,111 @@ function ConfirmationContent() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+/** Turno esperando la seña (o que ya no se puede pagar). */
+function DepositPending({ appointment, tenantId, returnedFromPayment, paymentId }: {
+  appointment: PopulatedAppointment;
+  tenantId: string;
+  returnedFromPayment: string | null;
+  paymentId: string | null;
+}) {
+  const [paying, setPaying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Al volver de Mercado Pago verificamos el pago al toque, sin esperar el aviso
+  useEffect(() => {
+    if (returnedFromPayment !== 'approved' || !paymentId || appointment.status !== 'pending_payment') return;
+    fetch('/api/payments/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tenantId, appointmentId: appointment.id, paymentId }),
+    }).catch(() => {});
+  }, [returnedFromPayment, paymentId, appointment.id, appointment.status, tenantId]);
+
+  const expiresMs = appointment.paymentExpiresAt ? parseFirestoreDate(appointment.paymentExpiresAt).getTime() : 0;
+  const secondsLeft = Math.max(0, Math.floor((expiresMs - now) / 1000));
+  const timeLeft = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`;
+  const approved = returnedFromPayment === 'approved';
+  const bookAgain = `/book/${tenantId}`;
+
+  const pay = async () => {
+    setPaying(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/payments/create-deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: appointment.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo generar el pago.');
+      if (data.initPoint) window.location.href = data.initPoint;
+      else setPaying(false);
+    } catch (e: any) {
+      setError(e.message);
+      setPaying(false);
+    }
+  };
+
+  if (appointment.status !== 'pending_payment' || (!approved && secondsLeft === 0)) {
+    const cancelled = appointment.status === 'cancelled';
+    return (
+      <Card className="w-full max-w-lg text-center shadow-lg">
+        <CardHeader className="items-center">
+          <XCircle className="w-14 h-14 text-muted-foreground" />
+          <CardTitle className="text-2xl font-bold mt-2 font-headline">
+            {cancelled ? 'Reserva cancelada' : 'Se venció el tiempo para pagar la seña'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-muted-foreground">
+            {cancelled
+              ? 'Este turno no quedó reservado.'
+              : 'El horario se liberó. Si ya pagaste, el negocio se va a comunicar con vos.'}
+          </p>
+          <Button asChild size="lg"><Link href={bookAgain}>Volver a reservar</Link></Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (approved) {
+    return (
+      <Card className="w-full max-w-lg text-center shadow-lg">
+        <CardContent className="py-12 space-y-4">
+          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+          <p className="font-bold text-lg">Estamos confirmando tu pago…</p>
+          <p className="text-muted-foreground text-sm">Suele tardar unos segundos. No cierres esta página.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="w-full max-w-lg text-center shadow-lg">
+      <CardHeader className="items-center">
+        <CreditCard className="w-14 h-14 text-primary" />
+        <CardTitle className="text-2xl font-bold mt-2 font-headline">Falta pagar la seña</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-muted-foreground">
+          Tu horario está reservado por <strong className="text-foreground tabular-nums">{timeLeft}</strong> minutos.
+          Pagá la seña{appointment.depositAmount ? ` de $${appointment.depositAmount.toLocaleString('es-AR')}` : ''} con Mercado Pago para confirmar el turno.
+        </p>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <Button size="lg" onClick={pay} disabled={paying} className="w-full">
+          {paying ? <Loader2 className="animate-spin" /> : 'Pagar seña con Mercado Pago'}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 

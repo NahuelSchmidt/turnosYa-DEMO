@@ -14,6 +14,7 @@ export const PLAN_FEATURES = {
     hasProfilePage: false,
     hasClasses: false,
     hasWhatsAppAutomation: false,
+    hasDeposits: false,
   },
   pro: {
     label: 'Pro',
@@ -28,6 +29,7 @@ export const PLAN_FEATURES = {
     hasProfilePage: true,
     hasClasses: true,
     hasWhatsAppAutomation: true,
+    hasDeposits: true,
   },
   premium: {
     label: 'Premium',
@@ -42,6 +44,7 @@ export const PLAN_FEATURES = {
     hasProfilePage: true,
     hasClasses: true,
     hasWhatsAppAutomation: true,
+    hasDeposits: true,
   },
 } as const;
 
@@ -90,7 +93,7 @@ export interface Appointment {
   startTime: any;
   endTime: any;
   total: number;
-  status: 'confirmed' | 'cancelled' | 'completed' | 'blocked';
+  status: 'confirmed' | 'cancelled' | 'completed' | 'blocked' | 'pending_payment' | 'expired';
   customerId: string;
   customerName: string;
   customerPhone: string;
@@ -100,6 +103,12 @@ export interface Appointment {
   reminderSentSameDay?: boolean;
   reviewSent?: boolean;
   branchId?: string;
+  // Seña con Mercado Pago
+  paymentExpiresAt?: any;
+  depositStatus?: 'pending' | 'paid' | 'none';
+  depositAmount?: number;
+  depositPaidAmount?: number;
+  depositNeedsRefund?: boolean;
 }
 
 export const initialServices: Service[] = [

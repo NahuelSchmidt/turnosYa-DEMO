@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -383,6 +383,13 @@ export default function DashboardPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [dashboardTab, setDashboardTab] = useState("agenda");
+
+  // Permite abrir una pestaña directo (ej: al volver de conectar Mercado Pago)
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab) setDashboardTab(tab);
+  }, []);
 
   const salonsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid || user.isAnonymous) return null;
@@ -489,7 +496,7 @@ export default function DashboardPage() {
               </Button>
             </div>
 
-            <Tabs defaultValue="agenda">
+            <Tabs value={dashboardTab} onValueChange={setDashboardTab}>
               <TabsList className="mb-4 w-full">
                 <TabsTrigger value="agenda" className="flex-1">
                   <span className="flex items-center gap-1.5">

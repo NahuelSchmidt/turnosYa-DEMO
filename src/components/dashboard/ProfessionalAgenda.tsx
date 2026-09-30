@@ -31,7 +31,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export type AppStatus = 'confirmed' | 'completed' | 'cancelled' | 'no-show';
+export type AppStatus = 'confirmed' | 'completed' | 'cancelled' | 'no-show' | 'pending_payment' | 'expired';
 
 export interface PopulatedAppointment extends Omit<Appointment, 'serviceIds' | 'professionalId'> {
   services: Service[];
@@ -118,7 +118,26 @@ export const STATUS_CONFIG: Record<AppStatus, { label: string; cardClass: string
     timeClass: 'text-gray-500',
     icon: XCircle,
   },
+  pending_payment: {
+    label: 'Esperando seña',
+    cardClass: 'bg-amber-50 dark:bg-amber-950/20',
+    borderClass: 'border-l-amber-400',
+    badgeClass: 'bg-amber-100 text-amber-800 border-amber-300',
+    timeClass: 'text-amber-700 dark:text-amber-400',
+    icon: Clock,
+  },
+  expired: {
+    label: 'Seña vencida',
+    cardClass: 'bg-gray-50 dark:bg-gray-800/20',
+    borderClass: 'border-l-gray-300',
+    badgeClass: 'bg-gray-100 text-gray-500 border-gray-300',
+    timeClass: 'text-gray-400',
+    icon: XCircle,
+  },
 };
+
+// Estados que se muestran en la leyenda de la agenda
+const LEGEND_STATUSES: AppStatus[] = ['confirmed', 'completed', 'cancelled', 'no-show'];
 
 function openCancelWhatsApp(apt: PopulatedAppointment, tenantId: string) {
   if (!apt.customerPhone) return;
@@ -259,6 +278,12 @@ function AppointmentCard({ apt, onUpdate, onReschedule, tenantId }: {
             {apt.professional && (
               <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                 <User className="w-3 h-3" /> {apt.professional.name}
+              </p>
+            )}
+            {apt.depositStatus === 'paid' && (
+              <p className={cn("text-xs font-semibold mt-0.5", apt.depositNeedsRefund ? "text-red-600" : "text-green-700 dark:text-green-400")}>
+                Seña pagada ${(apt.depositPaidAmount || apt.depositAmount || 0).toLocaleString('es-AR')}
+                {apt.depositNeedsRefund ? ' · revisar devolución' : ''}
               </p>
             )}
           </div>
@@ -965,6 +990,9 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
 
   // Combina datos de Firestore con overrides locales para UI instantánea
   const agenda = (appointments || [])
+    .filter(apt => apt.status !== 'expired' && !(
+      apt.status === 'pending_payment' && parseFirestoreDate(apt.paymentExpiresAt).getTime() < Date.now()
+    ))
     .filter(apt => selectedBranchId === 'all' || (apt as any).branchId === selectedBranchId)
     .filter(apt => activeProfessionalId === 'all' || apt.professionalId === activeProfessionalId)
     .map(apt => ({
@@ -1112,7 +1140,7 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm text-muted-foreground font-medium">{upcomingCount} próximos</p>
           <div className="hidden sm:flex items-center gap-1.5 flex-wrap">
-            {(Object.entries(STATUS_CONFIG) as [AppStatus, typeof STATUS_CONFIG[AppStatus]][]).map(([key, val]) => {
+            {LEGEND_STATUSES.map(key => [key, STATUS_CONFIG[key]] as const).map(([key, val]) => {
               const Icon = val.icon;
               return (
                 <span key={key} className={cn("inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border", val.badgeClass)}>

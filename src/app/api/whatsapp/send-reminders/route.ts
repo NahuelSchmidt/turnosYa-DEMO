@@ -3,6 +3,8 @@ import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { queryConfirmedAppointments, getSalonById, getServicesForSalon, updateAppointmentReminder } from '@/lib/firestore-server';
 import { formatInTimeZone } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
+import { adminDb, isAdminConfigured } from '@/lib/firebase-admin';
+import { toMillis } from '@/lib/deposit-server';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -53,6 +55,24 @@ export async function GET(req: NextRequest) {
 
   const now = new Date();
   const nowMs = now.getTime();
+
+  // Turnos que esperaban la seña y no se pagaron a tiempo: se marcan vencidos.
+  // (La disponibilidad ya los ignora al vencer; esto es para que no queden colgados.)
+  let expiredDeposits = 0;
+  if (isAdminConfigured()) {
+    try {
+      const pending = await adminDb().collection('appointments').where('status', '==', 'pending_payment').get();
+      for (const d of pending.docs) {
+        const expiresMs = toMillis(d.data().paymentExpiresAt);
+        if (expiresMs !== null && expiresMs < nowMs - 2 * 60 * 1000) {
+          await d.ref.update({ status: 'expired', updatedAt: nowMs });
+          expiredDeposits++;
+        }
+      }
+    } catch (e) {
+      console.error('[Seña] Error venciendo señas impagas:', e);
+    }
+  }
 
   // Ventanas de tiempo para recordatorios
   const window24hStart = nowMs + 23 * 60 * 60 * 1000;  // 23hs desde ahora
@@ -186,6 +206,7 @@ export async function GET(req: NextRequest) {
     sentSameDay,
     sentReview,
     autoCompleted,
+    expiredDeposits,
     checkedAt: now.toISOString(),
   });
 }

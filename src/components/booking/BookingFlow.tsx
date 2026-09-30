@@ -19,6 +19,8 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { usePlan } from "@/hooks/use-plan";
+import { computeDepositAmount, getDepositConfig, isDepositActive } from "@/lib/deposit";
 
 type Step = "services" | "professional" | "time" | "confirm";
 
@@ -38,8 +40,9 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
   const [customerPhone, setCustomerPhone] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const { addAppointment, getBookedSlotsForDate, getClassAttendeeCount } = useAppointments(tenantId);
+  const { addAppointment, addPendingAppointment, cancelAppointment, getBookedSlotsForDate, getClassAttendeeCount } = useAppointments(tenantId);
   const { salon } = useSalon(tenantId);
+  const { features } = usePlan(tenantId);
   const { services, loading: servicesLoading } = useServices(tenantId);
   const { professionals: allProfessionals, loading: professionalsLoading } = useProfessionals(tenantId);
   const { getSlotsForDate, loading: schedulesLoading } = useSchedules(tenantId);
@@ -68,6 +71,10 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
 
   const total = selectedServices.reduce((sum, s) => sum + s.price, 0);
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration, 0);
+
+  const depositConfig = getDepositConfig(salon);
+  const depositAmount = computeDepositAmount(depositConfig, total);
+  const requiresDeposit = !!features.hasDeposits && isDepositActive(salon) && depositAmount > 0;
 
   const blockedDates: string[] = branchData?.blockedDates || (salon as any)?.blockedDates || [];
   const selectedDateStr = selectedDate ? selectedDate.toISOString().slice(0, 10) : '';
@@ -166,7 +173,7 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
     startTime.setHours(hours, minutes, 0, 0);
     const endTime = new Date(startTime.getTime() + totalDuration * 60000);
 
-    const appointmentId = addAppointment({
+    const appointmentData = {
       professionalId: selectedProfessional.id,
       serviceIds: selectedServices.map((s) => s.id),
       startTime,
@@ -174,9 +181,16 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
       total,
       customerName,
       customerPhone,
-      paymentMethod: "A coordinar con el negocio",
+      paymentMethod: requiresDeposit ? "Seña con Mercado Pago" : "A coordinar con el negocio",
       ...(branchId ? { branchId } : {}),
-    } as any);
+    } as any;
+
+    if (requiresDeposit) {
+      startDepositPayment(appointmentData);
+      return;
+    }
+
+    const appointmentId = addAppointment(appointmentData);
 
     if (appointmentId) {
       toast({
@@ -192,6 +206,37 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
         variant: "destructive",
         title: "Error al reservar",
         description: "No se pudo confirmar tu turno. Intentá de nuevo.",
+      });
+    }
+  };
+
+  // Reserva el horario mientras se paga la seña y manda al cliente a Mercado Pago
+  const startDepositPayment = async (appointmentData: any) => {
+    let appointmentId: string | null = null;
+    try {
+      appointmentId = await addPendingAppointment(appointmentData, depositConfig.expiryMinutes);
+      if (!appointmentId) throw new Error("no se pudo crear el turno");
+
+      const res = await fetch("/api/payments/create-deposit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointmentId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "no se pudo generar el pago");
+
+      if (data.initPoint) {
+        window.location.href = data.initPoint;
+      } else {
+        router.push(`/confirmation?tenantId=${tenantId}&appointmentId=${appointmentId}`);
+      }
+    } catch (e: any) {
+      if (appointmentId) cancelAppointment(appointmentId);
+      setIsProcessing(false);
+      toast({
+        variant: "destructive",
+        title: "No pudimos iniciar el pago",
+        description: "Tu turno no quedó reservado. Probá de nuevo en unos segundos.",
       });
     }
   };
@@ -302,8 +347,19 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <h2 className="text-2xl font-bold font-headline">Tus Datos</h2>
                 <p className="text-muted-foreground text-sm">
-                  Completá tus datos para confirmar el turno. El negocio te contactará para coordinar el pago.
+                  {requiresDeposit
+                    ? "Completá tus datos. Después vas a pagar la seña con Mercado Pago para confirmar el turno."
+                    : "Completá tus datos para confirmar el turno. El negocio te contactará para coordinar el pago."}
                 </p>
+                {requiresDeposit && (
+                  <div className="rounded-xl border bg-muted/40 p-4 text-sm space-y-1">
+                    <p className="font-bold">Seña para confirmar: ${depositAmount.toLocaleString('es-AR')}</p>
+                    <p className="text-muted-foreground">
+                      Se paga ahora con Mercado Pago{total > depositAmount ? ` y el resto ($${(total - depositAmount).toLocaleString('es-AR')}) lo abonás en el local` : ''}.
+                      Tenés {depositConfig.expiryMinutes} minutos para pagarla; si no, el horario se libera.
+                    </p>
+                  </div>
+                )}
                 <div className="grid gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Nombre Completo</Label>
@@ -362,7 +418,7 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
                   (step === "confirm" && (!customerName || !customerPhone))
                 }
               >
-                {isProcessing ? <Loader2 className="animate-spin" /> : step === "confirm" ? "Confirmar Turno" : "Continuar"}
+                {isProcessing ? <Loader2 className="animate-spin" /> : step === "confirm" ? (requiresDeposit ? "Pagar seña y confirmar" : "Confirmar Turno") : "Continuar"}
               </Button>
               {step !== "services" && (
                 <Button variant="ghost" onClick={() => setStep(steps[currentStepIndex - 1].id as Step)} className="text-muted-foreground h-9 text-sm">

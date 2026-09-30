@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemoFirebase, useCollection, useFirestore, useUser } from '@/firebase';
-import { collection, query, where, serverTimestamp, doc } from 'firebase/firestore';
+import { collection, query, where, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Appointment } from '@/lib/data';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
@@ -43,7 +43,7 @@ export function useAppointments(tenantId: string = 'default') {
 
     appointments
       .filter((apt) => {
-        if (apt.status !== 'confirmed') return false;
+        if (!holdsSlot(apt)) return false;
         if (apt.professionalId !== professionalId) return false;
         if (excludeAppointmentId && apt.id === excludeAppointmentId) return false;
         const aptDate = toDate(apt.startTime);
@@ -90,7 +90,7 @@ export function useAppointments(tenantId: string = 'default') {
     const dateStr = format(date, 'yyyy-MM-dd');
 
     return appointments.filter((apt) => {
-      if (apt.status !== 'confirmed') return false;
+      if (!holdsSlot(apt)) return false;
       if (apt.professionalId !== professionalId) return false;
       if (!apt.serviceIds?.includes(serviceId)) return false;
       const aptDate = toDate(apt.startTime);
@@ -120,6 +120,32 @@ export function useAppointments(tenantId: string = 'default') {
     return appointmentId;
   };
   
+  /**
+   * Crea un turno que espera el pago de la seña. A diferencia de addAppointment,
+   * espera a que Firestore lo guarde: el servidor lo lee enseguida para armar el pago.
+   */
+  const addPendingAppointment = async (
+    newAppointment: Omit<Appointment, 'id' | 'customerId' | 'status' | 'salonId'>,
+    expiryMinutes: number,
+  ): Promise<string | null> => {
+    if (!db || !user) return null;
+    const apptDocRef = doc(collection(db, 'appointments'));
+    await setDoc(apptDocRef, {
+      ...newAppointment,
+      id: apptDocRef.id,
+      salonId: tenantId,
+      customerId: user.uid,
+      status: 'pending_payment',
+      depositStatus: 'pending',
+      paymentExpiresAt: new Date(Date.now() + expiryMinutes * 60 * 1000),
+      reminderSent24h: false,
+      reminderSentSameDay: false,
+      reviewSent: false,
+      createdAt: serverTimestamp(),
+    });
+    return apptDocRef.id;
+  };
+
   const cancelAppointment = (appointmentId: string) => {
     if (!db) return;
     const apptRef = doc(db, 'appointments', appointmentId);
@@ -129,7 +155,7 @@ export function useAppointments(tenantId: string = 'default') {
     });
   };
 
-  const updateAppointmentStatus = (appointmentId: string, status: 'confirmed' | 'completed' | 'cancelled' | 'no-show') => {
+  const updateAppointmentStatus = (appointmentId: string, status: Appointment['status'] | 'no-show') => {
     if (!db) return;
     const apptRef = doc(db, 'appointments', appointmentId);
     updateDocumentNonBlocking(apptRef, { status, updatedAt: serverTimestamp() });
@@ -169,6 +195,7 @@ export function useAppointments(tenantId: string = 'default') {
   return {
     appointments,
     addAppointment,
+    addPendingAppointment,
     cancelAppointment,
     updateAppointmentStatus,
     rescheduleAppointment,
@@ -178,6 +205,15 @@ export function useAppointments(tenantId: string = 'default') {
     loading: isCollectionLoading || isUserLoading,
     customerId
   };
+}
+
+/** Un turno ocupa el horario si está confirmado o esperando una seña que todavía no venció. */
+function holdsSlot(apt: Appointment): boolean {
+  if (apt.status === 'confirmed') return true;
+  if (apt.status === 'pending_payment') {
+    return !!apt.paymentExpiresAt && toDate(apt.paymentExpiresAt).getTime() > Date.now();
+  }
+  return false;
 }
 
 function toDate(val: any): Date {
