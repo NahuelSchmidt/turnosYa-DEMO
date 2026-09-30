@@ -16,7 +16,10 @@ export async function POST(req: NextRequest) {
   await db.collection('salons').doc(tenantId).set({
     mpConnected: false,
     mpUserId: null,
-    deposit: { ...(auth.salon.deposit || {}), enabled: false },
+    // Si la seña se cobraba por Mercado Pago, se apaga; si es por transferencia, sigue igual
+    ...((auth.salon.deposit?.method || 'mercadopago') === 'mercadopago'
+      ? { deposit: { ...(auth.salon.deposit || {}), enabled: false } }
+      : {}),
   }, { merge: true });
 
   return NextResponse.json({ ok: true });

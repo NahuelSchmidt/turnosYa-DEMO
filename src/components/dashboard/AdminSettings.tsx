@@ -584,10 +584,10 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
         ? <WhatsAppConnect tenantId={tenantId} />
         : <LockedFeature featureName="WhatsApp automático (confirmaciones y recordatorios)" requiredPlan="pro" />}
 
-      {/* ── SEÑA CON MERCADO PAGO ── */}
+      {/* ── SEÑA AL RESERVAR ── */}
       {features.hasDeposits
         ? <DepositSettings tenantId={tenantId} />
-        : <LockedFeature featureName="Seña con Mercado Pago" requiredPlan="pro" />}
+        : <LockedFeature featureName="Seña al reservar (Mercado Pago o transferencia)" requiredPlan="pro" />}
 
       {/* ── PERFIL PÚBLICO ── */}
       <Card>

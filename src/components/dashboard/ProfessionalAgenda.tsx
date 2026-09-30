@@ -20,6 +20,8 @@ import { parseFirestoreDate } from '@/lib/utils';
 import { useSalon } from '@/hooks/use-salon';
 import { usePlan } from '@/hooks/use-plan';
 import { useBranches } from '@/hooks/use-branches';
+import { useUser } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { AlertTriangle } from 'lucide-react';
 import {
@@ -179,7 +181,7 @@ function StatusBadge({ apt, onUpdate, onReschedule, tenantId }: {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          {(['completed', 'no-show'] as AppStatus[]).filter(k => k !== status).map(key => {
+          {(status === 'pending_payment' ? [] : (['completed', 'no-show'] as AppStatus[])).filter(k => k !== status).map(key => {
             const val = STATUS_CONFIG[key];
             const ItemIcon = val.icon;
             return (
@@ -189,7 +191,7 @@ function StatusBadge({ apt, onUpdate, onReschedule, tenantId }: {
               </DropdownMenuItem>
             );
           })}
-          {status !== 'confirmed' && !isInPast && (
+          {status !== 'confirmed' && status !== 'pending_payment' && !isInPast && (
             <DropdownMenuItem onClick={() => onUpdate(apt.id, 'confirmed')} className="flex items-center gap-2 cursor-pointer">
               <AlertCircle className="w-4 h-4" />
               <span>Confirmado</span>
@@ -949,6 +951,84 @@ function MonthView({ agenda, onNewAppointment, onDayClick }: {
 }
 
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
+/**
+ * Turnos con seña por transferencia que esperan que el dueño confirme el pago.
+ * El link del WhatsApp que recibe el negocio trae ?turno=ID y lo resalta acá.
+ */
+function PendingDeposits({ items, tenantId, highlightId }: {
+  items: PopulatedAppointment[];
+  tenantId: string;
+  highlightId: string | null;
+}) {
+  const { user } = useUser();
+  const { toast } = useToast();
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    document.getElementById(`pending-${highlightId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [highlightId, items.length]);
+
+  if (!items.length) return null;
+
+  const confirm = async (apt: PopulatedAppointment) => {
+    setBusyId(apt.id);
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch('/api/payments/confirm-transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tenantId, appointmentId: apt.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo confirmar');
+      toast({ title: 'Turno confirmado', description: `Le avisamos a ${apt.customerName} por WhatsApp.` });
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'No se pudo confirmar', description: e.message });
+    }
+    setBusyId(null);
+  };
+
+  return (
+    <div className="rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-3">
+      <div>
+        <p className="font-bold text-sm">Esperando seña por transferencia ({items.length})</p>
+        <p className="text-xs text-muted-foreground">Cuando te llegue la plata, confirmá el turno y al cliente le llega el aviso por WhatsApp.</p>
+      </div>
+      {items.map(apt => {
+        const dateObj = parseFirestoreDate(apt.startTime);
+        const expired = apt.status === 'expired';
+        const expiresAt = apt.paymentExpiresAt ? parseFirestoreDate(apt.paymentExpiresAt) : null;
+        return (
+          <div
+            key={apt.id}
+            id={`pending-${apt.id}`}
+            className={cn(
+              "rounded-xl border bg-background p-3 flex flex-col sm:flex-row sm:items-center gap-3",
+              apt.id === highlightId && "ring-2 ring-amber-400"
+            )}
+          >
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm truncate">{apt.customerName} · ${(apt.depositAmount || 0).toLocaleString('es-AR')}</p>
+              <p className="text-xs text-muted-foreground truncate">
+                {format(dateObj, "EEEE dd/MM 'a las' HH:mm'hs'", { locale: es })} · {apt.services.map(s => s.name).join(', ')}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {expired
+                  ? 'Venció el plazo. Si igual te pagó, podés confirmarlo si el horario sigue libre.'
+                  : expiresAt ? `Se libera el ${format(expiresAt, "dd/MM 'a las' HH:mm'hs'", { locale: es })} si no lo confirmás.` : ''}
+              </p>
+            </div>
+            <Button size="sm" onClick={() => confirm(apt)} disabled={busyId !== null} className="shrink-0">
+              {busyId === apt.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CheckCircle2 className="w-4 h-4 mr-1.5" /> Confirmar seña</>}
+            </Button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
   const { appointments, updateAppointmentStatus, rescheduleAppointment, getBookedSlotsForDate, appointmentsThisMonth, loading: aLoading } = useAppointments(tenantId);
   const { services, loading: sLoading } = useServices(tenantId);
@@ -967,6 +1047,11 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
   const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
   const [agendaKind, setAgendaKind] = useState<'turnos' | 'clases'>('turnos');
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>('all');
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setHighlightId(new URLSearchParams(window.location.search).get('turno'));
+  }, []);
   const loading = aLoading || sLoading || pLoading;
 
   // Cada dispositivo recuerda el profesional elegido (ej: el celu de cada empleado)
@@ -1065,6 +1150,22 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
           </span>
         </div>
       )}
+
+      <PendingDeposits
+        tenantId={tenantId}
+        highlightId={highlightId}
+        items={(appointments || [])
+          .filter(apt => apt.depositMethod === 'transfer' && apt.depositStatus !== 'paid' && (
+            (apt.status === 'pending_payment' && parseFirestoreDate(apt.paymentExpiresAt).getTime() > Date.now()) ||
+            (apt.id === highlightId && (apt.status === 'pending_payment' || apt.status === 'expired'))
+          ))
+          .map(apt => ({
+            ...apt,
+            services: (apt.serviceIds || []).map(id => (services || []).find(s => s.id === id)).filter(Boolean) as Service[],
+            professional: (professionals || []).find(p => p.id === apt.professionalId),
+          }) as PopulatedAppointment)
+          .sort((a, b) => parseFirestoreDate(a.startTime).getTime() - parseFirestoreDate(b.startTime).getTime())}
+      />
 
       {/* Selector Turnos / Clases */}
       {features.hasClasses && hasAnyClass && (

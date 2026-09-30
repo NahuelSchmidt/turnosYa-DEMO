@@ -106,6 +106,7 @@ export interface Appointment {
   // Seña con Mercado Pago
   paymentExpiresAt?: any;
   depositStatus?: 'pending' | 'paid' | 'none';
+  depositMethod?: 'mercadopago' | 'transfer';
   depositAmount?: number;
   depositPaidAmount?: number;
   depositNeedsRefund?: boolean;

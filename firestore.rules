@@ -18,11 +18,15 @@ service cloud.firestore {
       return isRealUser() && exists(/databases/$(database)/documents/globalAdmins/$(request.auth.uid));
     }
 
-    // El negocio cobra seña: la activó y tiene Mercado Pago conectado
+    // El negocio cobra seña: la activó y puede cobrarla (Mercado Pago conectado,
+    // o alias cargado si la cobra por transferencia)
     function depositRequired(salonId) {
       let salon = get(/databases/$(database)/documents/salons/$(salonId)).data;
-      return salon.get('mpConnected', false) == true &&
-        salon.get('deposit', {}).get('enabled', false) == true;
+      let deposit = salon.get('deposit', {});
+      return deposit.get('enabled', false) == true && (
+        (deposit.get('method', 'mercadopago') == 'transfer' && salon.get('paymentAlias', '') != '') ||
+        (deposit.get('method', 'mercadopago') != 'transfer' && salon.get('mpConnected', false) == true)
+      );
     }
 
     function isSalonAdmin(salonId) {
@@ -89,7 +93,8 @@ service cloud.firestore {
       allow list: if isSignedIn();
       // Cualquier usuario autenticado puede crear una reserva. Si el negocio cobra
       // seña, el cliente solo puede crearla "esperando seña" (la confirma el servidor
-      // cuando Mercado Pago acredita el pago) y con un vencimiento de menos de 1 hora.
+      // cuando Mercado Pago acredita el pago, o el dueño si es por transferencia) y
+      // con un vencimiento de hasta 24 horas.
       allow create: if isSignedIn()
         && request.resource.data.customerId == request.auth.uid
         && request.resource.data.get('depositStatus', 'none') != 'paid'
@@ -100,7 +105,7 @@ service cloud.firestore {
           )) ||
           (request.resource.data.status == 'pending_payment' &&
             request.resource.data.paymentExpiresAt is timestamp &&
-            request.resource.data.paymentExpiresAt < request.time + duration.value(65, 'm'))
+            request.resource.data.paymentExpiresAt < request.time + duration.value(1450, 'm'))
         );
       // Solo el cliente dueño del turno o el admin del salón pueden cancelar.
       // Hay dos excepciones sin auth, ambas acotadas a una transición puntual de
@@ -130,7 +135,7 @@ service cloud.firestore {
         isSignedIn() && resource.data.customerId == request.auth.uid &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'depositStatus', 'depositAmount', 'depositPaidAmount', 'depositPaymentId',
-          'depositNeedsRefund', 'paymentExpiresAt'
+          'depositNeedsRefund', 'paymentExpiresAt', 'depositMethod', 'transferNotifiedAt'
         ]) &&
         (request.resource.data.status == resource.data.status ||
           request.resource.data.status in ['cancelled', 'completed']) &&

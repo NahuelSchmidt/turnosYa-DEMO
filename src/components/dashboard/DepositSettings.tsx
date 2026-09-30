@@ -12,9 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle2, CreditCard, Loader2 } from 'lucide-react';
-import { computeDepositAmount, DepositConfig, getDepositConfig } from '@/lib/deposit';
-
-const EXPIRY_OPTIONS = [10, 15, 30, 60];
+import { computeDepositAmount, DepositConfig, DepositMethod, EXPIRY_OPTIONS, formatExpiry, getDepositConfig } from '@/lib/deposit';
 
 export function DepositSettings({ tenantId }: { tenantId: string }) {
   const { user } = useUser();
@@ -24,6 +22,15 @@ export function DepositSettings({ tenantId }: { tenantId: string }) {
   const [busy, setBusy] = useState<'connect' | 'disconnect' | null>(null);
 
   const connected = !!(salon as any)?.mpConnected;
+  const alias: string = (salon as any)?.paymentAlias || '';
+  const byTransfer = config.method === 'transfer';
+  const canEnable = byTransfer ? !!alias : connected;
+  const expiryOptions = EXPIRY_OPTIONS[config.method];
+
+  const setMethod = (method: DepositMethod) => {
+    const options = EXPIRY_OPTIONS[method];
+    setConfig({ ...config, method, expiryMinutes: options.includes(config.expiryMinutes) ? config.expiryMinutes : options[1] });
+  };
 
   useEffect(() => {
     if (salon) setConfig(getDepositConfig(salon));
@@ -76,6 +83,10 @@ export function DepositSettings({ tenantId }: { tenantId: string }) {
 
   const save = () => {
     const value = Math.max(0, Number(config.value) || 0);
+    if (config.enabled && !canEnable) {
+      toast({ variant: 'destructive', title: byTransfer ? 'Cargá primero tu alias de pago' : 'Conectá primero Mercado Pago' });
+      return;
+    }
     if (config.type === 'percent' && value > 100) {
       toast({ variant: 'destructive', title: 'El porcentaje no puede ser mayor a 100' });
       return;
@@ -89,13 +100,44 @@ export function DepositSettings({ tenantId }: { tenantId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><CreditCard className="w-5 h-5 text-primary" /> Seña con Mercado Pago</CardTitle>
+        <CardTitle className="flex items-center gap-2"><CreditCard className="w-5 h-5 text-primary" /> Seña al reservar</CardTitle>
         <CardDescription>
-          Tus clientes pagan una seña al reservar y el turno se confirma solo cuando se acredita. La plata va directo a tu cuenta de Mercado Pago.
+          Pedile a tus clientes una seña para reservar. Así el que reserva viene, y si no viene, la seña te queda a vos.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        {connected ? (
+        <div className="space-y-2">
+          <Label>¿Cómo la cobrás?</Label>
+          <RadioGroup value={config.method} onValueChange={v => setMethod(v as DepositMethod)} className="grid gap-2 sm:grid-cols-2">
+            <label className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer ${!byTransfer ? 'border-primary bg-primary/5' : ''}`}>
+              <RadioGroupItem value="mercadopago" id="deposit-mp" className="mt-0.5" />
+              <span className="text-sm">
+                <span className="font-semibold block">Mercado Pago</span>
+                <span className="text-xs text-muted-foreground">El cliente paga al reservar y el turno se confirma solo.</span>
+              </span>
+            </label>
+            <label className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer ${byTransfer ? 'border-primary bg-primary/5' : ''}`}>
+              <RadioGroupItem value="transfer" id="deposit-transfer" className="mt-0.5" />
+              <span className="text-sm">
+                <span className="font-semibold block">Transferencia</span>
+                <span className="text-xs text-muted-foreground">Te transfiere al alias y vos confirmás el turno cuando te llega. Sin comisión.</span>
+              </span>
+            </label>
+          </RadioGroup>
+        </div>
+
+        {byTransfer ? (
+          alias ? (
+            <div className="flex items-center gap-2 rounded-xl border p-3 text-sm">
+              <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+              <span>Se transfiere al alias <strong>{alias}</strong>. Te avisamos por WhatsApp cada vez que alguien reserve, con un link para confirmar.</span>
+            </div>
+          ) : (
+            <p className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3 text-sm">
+              Cargá tu alias o CBU en <strong>WhatsApp del Negocio → Alias o CBU de pago</strong> y guardalo. Es el que le mostramos al cliente para transferir.
+            </p>
+          )
+        ) : connected ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <CheckCircle2 className="w-4 h-4 text-green-600" /> Cuenta de Mercado Pago conectada
@@ -116,12 +158,16 @@ export function DepositSettings({ tenantId }: { tenantId: string }) {
         <div className="flex items-center justify-between gap-4">
           <div>
             <Label htmlFor="deposit-enabled" className="font-semibold">Pedir seña al reservar</Label>
-            <p className="text-xs text-muted-foreground">{connected ? 'Si la desactivás, se reserva sin pagar como siempre.' : 'Primero conectá tu cuenta de Mercado Pago.'}</p>
+            <p className="text-xs text-muted-foreground">
+              {canEnable
+                ? 'Si la desactivás, se reserva sin pagar como siempre.'
+                : byTransfer ? 'Primero cargá tu alias de pago.' : 'Primero conectá tu cuenta de Mercado Pago.'}
+            </p>
           </div>
           <Switch
             id="deposit-enabled"
-            checked={config.enabled && connected}
-            disabled={!connected}
+            checked={config.enabled && canEnable}
+            disabled={!canEnable}
             onCheckedChange={enabled => setConfig({ ...config, enabled })}
           />
         </div>
@@ -166,14 +212,24 @@ export function DepositSettings({ tenantId }: { tenantId: string }) {
             onChange={e => setConfig({ ...config, expiryMinutes: Number(e.target.value) })}
             className="block h-10 rounded-md border bg-background px-3 text-sm"
           >
-            {EXPIRY_OPTIONS.map(m => <option key={m} value={m}>{m} minutos</option>)}
+            {expiryOptions.map(m => <option key={m} value={m}>{formatExpiry(m)}</option>)}
           </select>
-          <p className="text-xs text-muted-foreground">Mientras tanto el horario queda reservado. Si no paga a tiempo, se libera.</p>
+          <p className="text-xs text-muted-foreground">
+            {byTransfer
+              ? 'Mientras tanto el horario queda reservado. Si no confirmás la seña en ese tiempo, se libera.'
+              : 'Mientras tanto el horario queda reservado. Si no paga a tiempo, se libera.'}
+          </p>
         </div>
 
         <div className="rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
-          <p><Badge variant="outline" className="mr-1">Importante</Badge> Mercado Pago cobra su comisión solo sobre la seña, según el plazo de acreditación que elijas en tu cuenta.</p>
-          <p>Si un cliente cancela, la devolución de la seña la hacés vos desde Mercado Pago, según tu política.</p>
+          {byTransfer ? (
+            <p><Badge variant="outline" className="mr-1">Importante</Badge> Revisá que la transferencia te haya llegado antes de confirmar el turno. Si un cliente cancela, la devolución la manejás vos según tu política.</p>
+          ) : (
+            <>
+              <p><Badge variant="outline" className="mr-1">Importante</Badge> Mercado Pago cobra su comisión solo sobre la seña, según el plazo de acreditación que elijas en tu cuenta.</p>
+              <p>Si un cliente cancela, la devolución de la seña la hacés vos desde Mercado Pago, según tu política.</p>
+            </>
+          )}
         </div>
 
         <Button onClick={save} variant="secondary">Guardar seña</Button>

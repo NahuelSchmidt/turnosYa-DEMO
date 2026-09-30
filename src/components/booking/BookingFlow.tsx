@@ -20,7 +20,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { usePlan } from "@/hooks/use-plan";
-import { computeDepositAmount, getDepositConfig, isDepositActive } from "@/lib/deposit";
+import { computeDepositAmount, formatExpiry, getDepositConfig, isDepositActive } from "@/lib/deposit";
 
 type Step = "services" | "professional" | "time" | "confirm";
 
@@ -75,6 +75,7 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
   const depositConfig = getDepositConfig(salon);
   const depositAmount = computeDepositAmount(depositConfig, total);
   const requiresDeposit = !!features.hasDeposits && isDepositActive(salon) && depositAmount > 0;
+  const depositByTransfer = depositConfig.method === "transfer";
 
   const blockedDates: string[] = branchData?.blockedDates || (salon as any)?.blockedDates || [];
   const selectedDateStr = selectedDate ? selectedDate.toISOString().slice(0, 10) : '';
@@ -181,7 +182,9 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
       total,
       customerName,
       customerPhone,
-      paymentMethod: requiresDeposit ? "Seña con Mercado Pago" : "A coordinar con el negocio",
+      paymentMethod: requiresDeposit
+        ? (depositByTransfer ? "Seña por transferencia" : "Seña con Mercado Pago")
+        : "A coordinar con el negocio",
       ...(branchId ? { branchId } : {}),
     } as any;
 
@@ -347,16 +350,21 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <h2 className="text-2xl font-bold font-headline">Tus Datos</h2>
                 <p className="text-muted-foreground text-sm">
-                  {requiresDeposit
-                    ? "Completá tus datos. Después vas a pagar la seña con Mercado Pago para confirmar el turno."
-                    : "Completá tus datos para confirmar el turno. El negocio te contactará para coordinar el pago."}
+                  {!requiresDeposit
+                    ? "Completá tus datos para confirmar el turno. El negocio te contactará para coordinar el pago."
+                    : depositByTransfer
+                    ? "Completá tus datos. Te guardamos el horario y te pasamos el alias para transferir la seña."
+                    : "Completá tus datos. Después vas a pagar la seña con Mercado Pago para confirmar el turno."}
                 </p>
                 {requiresDeposit && (
                   <div className="rounded-xl border bg-muted/40 p-4 text-sm space-y-1">
                     <p className="font-bold">Seña para confirmar: ${depositAmount.toLocaleString('es-AR')}</p>
                     <p className="text-muted-foreground">
-                      Se paga ahora con Mercado Pago{total > depositAmount ? ` y el resto ($${(total - depositAmount).toLocaleString('es-AR')}) lo abonás en el local` : ''}.
-                      Tenés {depositConfig.expiryMinutes} minutos para pagarla; si no, el horario se libera.
+                      {depositByTransfer
+                        ? `Se paga por transferencia y el negocio confirma tu turno cuando le llega`
+                        : `Se paga ahora con Mercado Pago`}
+                      {total > depositAmount ? `; el resto ($${(total - depositAmount).toLocaleString('es-AR')}) lo abonás en el local` : ''}.
+                      Tenés {formatExpiry(depositConfig.expiryMinutes)} para pagarla; si no, el horario se libera.
                     </p>
                   </div>
                 )}
@@ -418,7 +426,7 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
                   (step === "confirm" && (!customerName || !customerPhone))
                 }
               >
-                {isProcessing ? <Loader2 className="animate-spin" /> : step === "confirm" ? (requiresDeposit ? "Pagar seña y confirmar" : "Confirmar Turno") : "Continuar"}
+                {isProcessing ? <Loader2 className="animate-spin" /> : step === "confirm" ? (requiresDeposit ? (depositByTransfer ? "Reservar y pagar seña" : "Pagar seña y confirmar") : "Confirmar Turno") : "Continuar"}
               </Button>
               {step !== "services" && (
                 <Button variant="ghost" onClick={() => setStep(steps[currentStepIndex - 1].id as Step)} className="text-muted-foreground h-9 text-sm">

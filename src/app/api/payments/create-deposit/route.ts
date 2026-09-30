@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdminConfigured } from '@/lib/firebase-admin';
+import { adminDb, isAdminConfigured } from '@/lib/firebase-admin';
 import { computeDepositAmount, getDepositConfig, isDepositActive } from '@/lib/deposit';
-import { loadAppointmentContext, serviceTotal, toMillis } from '@/lib/deposit-server';
+import { loadAppointmentContext, sendTransferInstructions, serviceTotal, toMillis } from '@/lib/deposit-server';
 import { createDepositPreference, getAccessToken } from '@/lib/mercadopago';
 
 /**
@@ -42,6 +42,26 @@ export async function POST(req: NextRequest) {
 
   if (!isDepositActive(salon) || amount <= 0) return confirmWithoutDeposit();
 
+  // Transferencia: se avisa una sola vez al cliente y al negocio; confirma el dueño desde su panel
+  if (config.method === 'transfer') {
+    const notify = await adminDb().runTransaction(async tx => {
+      const fresh = await tx.get(aptRef);
+      if (fresh.data()?.transferNotifiedAt) return false;
+      tx.update(aptRef, {
+        depositMethod: 'transfer',
+        depositStatus: 'pending',
+        depositAmount: amount,
+        serviceTotal: total,
+        paymentExpiresAt: new Date(expiresMs),
+        transferNotifiedAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      return true;
+    });
+    if (notify) await sendTransferInstructions(ctx, appointmentId, amount, expiresMs);
+    return NextResponse.json({ transfer: true, amount, alias: salon?.paymentAlias || null });
+  }
+
   if (apt.depositInitPoint && apt.depositAmount === amount) {
     return NextResponse.json({ initPoint: apt.depositInitPoint, amount });
   }
@@ -63,6 +83,7 @@ export async function POST(req: NextRequest) {
     });
 
     await aptRef.update({
+      depositMethod: 'mercadopago',
       depositStatus: 'pending',
       depositAmount: amount,
       serviceTotal: total,

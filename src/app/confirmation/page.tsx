@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, Calendar, User, Clock, Loader2, ExternalLink, MapPin, CreditCard, XCircle } from "lucide-react";
+import { CheckCircle2, Calendar, User, Clock, Loader2, ExternalLink, MapPin, CreditCard, XCircle, Copy, MessageCircle } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { useAppointments } from "@/hooks/use-appointments";
@@ -146,6 +146,7 @@ function ConfirmationContent() {
             tenantId={tenantId}
             returnedFromPayment={searchParams.get("status") || searchParams.get("collection_status")}
             paymentId={searchParams.get("payment_id") || searchParams.get("collection_id")}
+            salon={salon}
           />
         </main>
         <Footer />
@@ -237,11 +238,12 @@ function ConfirmationContent() {
 }
 
 /** Turno esperando la seña (o que ya no se puede pagar). */
-function DepositPending({ appointment, tenantId, returnedFromPayment, paymentId }: {
+function DepositPending({ appointment, tenantId, returnedFromPayment, paymentId, salon }: {
   appointment: PopulatedAppointment;
   tenantId: string;
   returnedFromPayment: string | null;
   paymentId: string | null;
+  salon: any;
 }) {
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -309,6 +311,10 @@ function DepositPending({ appointment, tenantId, returnedFromPayment, paymentId 
     );
   }
 
+  if (appointment.depositMethod === 'transfer') {
+    return <TransferPending appointment={appointment} salon={salon} expiresMs={expiresMs} />;
+  }
+
   if (approved) {
     return (
       <Card className="w-full max-w-lg text-center shadow-lg">
@@ -336,6 +342,62 @@ function DepositPending({ appointment, tenantId, returnedFromPayment, paymentId 
         <Button size="lg" onClick={pay} disabled={paying} className="w-full">
           {paying ? <Loader2 className="animate-spin" /> : 'Pagar seña con Mercado Pago'}
         </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Seña por transferencia: alias, monto, plazo y botón para mandar el comprobante. */
+function TransferPending({ appointment, salon, expiresMs }: { appointment: PopulatedAppointment; salon: any; expiresMs: number }) {
+  const [copied, setCopied] = useState(false);
+  const alias: string = salon?.paymentAlias || '';
+  const amount = appointment.depositAmount || 0;
+  const deadline = expiresMs ? format(new Date(expiresMs), "EEEE d 'de' MMMM 'a las' HH:mm'hs'", { locale: es }) : '';
+  const dateObj = parseFirestoreDate(appointment.startTime);
+  const businessPhone = String(salon?.whatsappNumber || '').replace(/\D/g, '');
+  const receiptText = `Hola! Te mando el comprobante de la seña de $${amount.toLocaleString('es-AR')} para mi turno del ${format(dateObj, "dd/MM 'a las' HH:mm'hs'", { locale: es })}. Soy ${appointment.customerName}.`;
+
+  const copyAlias = async () => {
+    try {
+      await navigator.clipboard.writeText(alias);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+
+  return (
+    <Card className="w-full max-w-lg text-center shadow-lg">
+      <CardHeader className="items-center">
+        <Clock className="w-14 h-14 text-primary" />
+        <CardTitle className="text-2xl font-bold mt-2 font-headline">Te guardamos el turno</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5 text-left">
+        <p className="text-muted-foreground text-center">
+          Para confirmarlo, transferí la seña y mandale el comprobante al negocio. Cuando lo confirme, te llega el aviso por WhatsApp.
+        </p>
+        <div className="rounded-xl border bg-muted/40 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm text-muted-foreground">Seña</span>
+            <span className="text-xl font-black">${amount.toLocaleString('es-AR')}</span>
+          </div>
+          <div className="space-y-1">
+            <span className="text-sm text-muted-foreground">Alias</span>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 truncate rounded border bg-background px-2 py-1.5 text-sm font-bold select-all">{alias}</code>
+              <Button size="sm" variant="outline" onClick={copyAlias}>
+                {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </Button>
+            </div>
+          </div>
+          {deadline && <p className="text-xs text-muted-foreground">Tenés tiempo hasta el {deadline}. Si no, el horario se libera.</p>}
+        </div>
+        {businessPhone && (
+          <Button asChild size="lg" className="w-full">
+            <a href={`https://wa.me/${businessPhone}?text=${encodeURIComponent(receiptText)}`} target="_blank" rel="noopener noreferrer">
+              <MessageCircle className="w-4 h-4 mr-2" /> Enviar comprobante por WhatsApp
+            </a>
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

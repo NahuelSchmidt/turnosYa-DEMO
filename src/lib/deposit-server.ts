@@ -110,6 +110,29 @@ export async function sendDepositConfirmation(ctx: AppointmentContext, appointme
   }
 }
 
+/**
+ * Seña por transferencia: al cliente le llegan el alias, el monto y el plazo;
+ * al negocio, el aviso con el link a su panel para confirmar cuando le llegue la plata.
+ */
+export async function sendTransferInstructions(ctx: AppointmentContext, appointmentId: string, amount: number, expiresMs: number) {
+  const { apt, salon, services, professional } = ctx;
+  const credentials = credentialsFor(salon);
+  const startMs = toMillis(apt.startTime)!;
+  const formattedDate = formatInTimeZone(new Date(startMs), TZ, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
+  const deadline = formatInTimeZone(new Date(expiresMs), TZ, "eeee dd/MM 'a las' HH:mm'hs'", { locale: es });
+  const serviceNames = services.map(s => s.name).join(', ');
+  const emoji = salon?.whatsappEmoji || '📋';
+
+  const customerMsg = `*Turno reservado* 🕐\n\nHola ${apt.customerName}! Te guardamos este turno:\n\n🗓 ${formattedDate}\n${emoji} ${serviceNames}${professional ? `\n👤 Con ${professional.name}` : ''}\n\nPara confirmarlo, transferí la seña de *${money(amount)}* al alias:\n*${salon?.paymentAlias}*\n\nDespués respondé a este mensaje con el comprobante. Tenés tiempo hasta el ${deadline}; si no, el horario se libera.\n\nApenas lo confirmemos te llega el aviso por acá.`;
+  if (apt.customerPhone) await sendWhatsAppMessage(apt.customerPhone, customerMsg, credentials);
+
+  if (salon?.whatsappNumber && credentials) {
+    const confirmLink = `${APP_URL}/dashboard?tab=agenda&turno=${appointmentId}`;
+    const businessMsg = `🕐 *Turno esperando seña*\n\n👤 ${apt.customerName || 'Cliente'}\n📱 ${apt.customerPhone || ''}\n🗓 ${formattedDate}\n📋 ${serviceNames}${professional ? `\n👤 Con ${professional.name}` : ''}\n💳 Seña: ${money(amount)} por transferencia\n\nCuando te llegue la transferencia, confirmá el turno acá:\n${confirmLink}\n\nSi no se confirma antes del ${deadline}, el horario se libera solo.`;
+    await sendWhatsAppMessage(salon.whatsappNumber, businessMsg, credentials);
+  }
+}
+
 /** Aviso al negocio cuando una seña llega pero el turno ya no se puede confirmar. */
 export async function notifyDepositNeedsRefund(ctx: AppointmentContext, paidAmount: number, reason: string) {
   const { apt, salon } = ctx;
