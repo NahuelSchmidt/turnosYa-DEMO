@@ -15,6 +15,7 @@ import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/firebase";
+import { CreateBusinessDialog } from "@/components/admin/CreateBusinessDialog";
 import { signOut } from "firebase/auth";
 import {
   AlertDialog,
@@ -174,7 +175,8 @@ export default function SuperAdminPage() {
             <h1 className="text-5xl font-black font-headline tracking-tighter mb-2 uppercase italic">Panel de Control Global</h1>
             <p className="text-muted-foreground text-lg">Administración centralizada de todos los negocios.</p>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 items-center">
+            <CreateBusinessDialog />
             <div className="flex items-center gap-3 bg-primary text-primary-foreground px-6 py-3 rounded-2xl shadow-2xl">
               <Store className="w-6 h-6" />
               <div><span className="font-black text-2xl">{stats.total}</span><p className="text-[10px] uppercase opacity-80">Total</p></div>

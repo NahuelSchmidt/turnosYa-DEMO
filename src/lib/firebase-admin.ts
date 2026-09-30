@@ -5,16 +5,39 @@
 
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
+import { getAuth, type Auth } from 'firebase-admin/auth';
 
 export function isAdminConfigured(): boolean {
   return !!process.env.FIREBASE_SERVICE_ACCOUNT;
 }
 
-export function adminDb(): Firestore {
+function ensureApp() {
   if (!getApps().length) {
     const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT no configurado');
     initializeApp({ credential: cert(JSON.parse(raw)) });
   }
+}
+
+export function adminDb(): Firestore {
+  ensureApp();
   return getFirestore();
+}
+
+export function adminAuth(): Auth {
+  ensureApp();
+  return getAuth();
+}
+
+/** Verifica que el request venga de un administrador global de Turnify. */
+export async function requireGlobalAdmin(authorization: string | null): Promise<string | null> {
+  const idToken = authorization?.replace(/^Bearer\s+/i, '');
+  if (!idToken) return null;
+  try {
+    const { uid } = await adminAuth().verifyIdToken(idToken);
+    const snap = await adminDb().collection('globalAdmins').doc(uid).get();
+    return snap.exists ? uid : null;
+  } catch {
+    return null;
+  }
 }
