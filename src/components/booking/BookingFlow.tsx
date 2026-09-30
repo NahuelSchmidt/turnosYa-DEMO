@@ -193,7 +193,16 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
       return;
     }
 
-    const appointmentId = addAppointment(appointmentData);
+    // Cuando el turno queda guardado, el servidor le avisa al negocio (notificación del celu).
+    // keepalive: el aviso sale aunque el cliente cierre la página enseguida.
+    const appointmentId = addAppointment(appointmentData, (savedId) => {
+      fetch("/api/appointments/notify-new", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointmentId: savedId }),
+        keepalive: true,
+      }).catch(() => {});
+    });
 
     if (appointmentId) {
       toast({

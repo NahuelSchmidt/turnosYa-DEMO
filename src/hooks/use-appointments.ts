@@ -99,13 +99,16 @@ export function useAppointments(tenantId: string = 'default') {
     }).length;
   };
 
-  const addAppointment = (newAppointment: Omit<Appointment, 'id' | 'customerId' | 'status' | 'salonId'>) => {
+  const addAppointment = (
+    newAppointment: Omit<Appointment, 'id' | 'customerId' | 'status' | 'salonId'>,
+    onSaved?: (appointmentId: string) => void,
+  ) => {
     if (!db || !user) return null;
     
     const apptDocRef = doc(collection(db, 'appointments'));
     const appointmentId = apptDocRef.id;
 
-    setDocumentNonBlocking(apptDocRef, {
+    const data = {
       ...newAppointment,
       id: appointmentId,
       salonId: tenantId,
@@ -115,7 +118,13 @@ export function useAppointments(tenantId: string = 'default') {
       reminderSentSameDay: false,
       reviewSent: false,
       createdAt: serverTimestamp(),
-    }, { merge: true });
+    };
+
+    if (onSaved) {
+      setDoc(apptDocRef, data, { merge: true }).then(() => onSaved(appointmentId)).catch(() => {});
+    } else {
+      setDocumentNonBlocking(apptDocRef, data, { merge: true });
+    }
 
     return appointmentId;
   };

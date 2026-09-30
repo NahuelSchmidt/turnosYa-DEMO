@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { getSalonById } from '@/lib/firestore-server';
-import { notifySalon } from '@/lib/push';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -25,13 +24,8 @@ export async function POST(req: NextRequest) {
     // 1. Enviar confirmación al cliente
     const sent = await sendWhatsAppMessage(phone, message, credentials);
 
-    // 2. Notificar al negocio del nuevo turno (notificación del celu + WhatsApp)
-    if (tenantId) {
-      await notifySalon(tenantId, {
-        title: 'Nuevo turno',
-        body: [customerName || 'Cliente', appointmentDate, serviceNames].filter(Boolean).join(' · '),
-      });
-    }
+    // 2. Notificar al negocio del nuevo turno por WhatsApp
+    //    (la notificación del celu la manda /api/appointments/notify-new al guardarse el turno)
     if (salon?.whatsappNumber && credentials) {
       const businessMsg = `📬 *Nuevo turno reservado*\n\n👤 ${customerName || 'Cliente'}\n📱 ${customerPhone || phone}\n🗓 ${appointmentDate || ''}\n📋 ${serviceNames || ''}${professionalName ? `\n👤 Con ${professionalName}` : ''}`;
       await sendWhatsAppMessage(salon.whatsappNumber, businessMsg, credentials);
