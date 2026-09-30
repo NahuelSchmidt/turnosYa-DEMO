@@ -9,7 +9,9 @@ export const metadata: Metadata = {
   title: "Turnify - Gestión Inteligente de Citas para tu Negocio",
   description:
     "La forma más fácil de agendar, gestionar y cobrar turnos para cualquier tipo de servicio profesional.",
-  icons: { icon: "/favicon.png" },
+  icons: { icon: "/favicon.png", apple: "/icon-180.png" },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Turnify", statusBarStyle: "default" },
 };
 
 export default function RootLayout({

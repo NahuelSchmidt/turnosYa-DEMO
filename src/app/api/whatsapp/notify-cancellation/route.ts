@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { getSalonById } from '@/lib/firestore-server';
+import { notifySalon } from '@/lib/push';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,6 +10,11 @@ export async function POST(req: NextRequest) {
     if (!tenantId) {
       return NextResponse.json({ error: 'Falta tenantId' }, { status: 400 });
     }
+
+    await notifySalon(tenantId, {
+      title: 'Turno cancelado',
+      body: [customerName || 'Un cliente', appointmentDate, 'canceló su turno'].filter(Boolean).join(' · '),
+    });
 
     const salon = await getSalonById(tenantId);
     if (!salon?.whatsappNumber || !salon?.evolutionInstanceName) {

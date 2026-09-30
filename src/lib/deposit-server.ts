@@ -5,6 +5,7 @@ import { es } from 'date-fns/locale';
 import { adminDb } from '@/lib/firebase-admin';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { APP_URL, getAccessToken, getPayment } from '@/lib/mercadopago';
+import { notifySalon } from '@/lib/push';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -104,6 +105,10 @@ export async function sendDepositConfirmation(ctx: AppointmentContext, appointme
   if (apt.customerPhone) await sendWhatsAppMessage(apt.customerPhone, customerMsg, credentials);
 
   if (salon?.whatsappNumber && credentials) {
+    await notifySalon(apt.salonId, {
+      title: 'Nuevo turno con seña',
+      body: `${apt.customerName || 'Cliente'} · ${formattedDate} · seña ${money(paidAmount)} pagada`,
+    });
     const businessMsg = `📬 *Nuevo turno con seña*\n\n👤 ${apt.customerName || 'Cliente'}\n📱 ${apt.customerPhone || ''}\n🗓 ${formattedDate}\n📋 ${serviceNames}${professional ? `\n👤 Con ${professional.name}` : ''}\n💳 Seña cobrada por Mercado Pago: ${money(paidAmount)}`;
     await sendWhatsAppMessage(salon.whatsappNumber, businessMsg, credentials);
   }
@@ -124,6 +129,12 @@ export async function sendTransferInstructions(ctx: AppointmentContext, appointm
 
   const customerMsg = `*Turno reservado* 🕐\n\nHola ${apt.customerName}! Te guardamos este turno:\n\n🗓 ${formattedDate}\n${emoji} ${serviceNames}${professional ? `\n👤 Con ${professional.name}` : ''}\n\nPara confirmarlo, transferí la seña de *${money(amount)}* al alias:\n*${salon?.paymentAlias}*\n\nDespués respondé a este mensaje con el comprobante. Tenés tiempo hasta el ${deadline}; si no, el horario se libera.\n\nApenas lo confirmemos te llega el aviso por acá.`;
   if (apt.customerPhone) await sendWhatsAppMessage(apt.customerPhone, customerMsg, credentials);
+
+  await notifySalon(apt.salonId, {
+    title: 'Nuevo turno pendiente',
+    body: `${apt.customerName || 'Cliente'} · ${formattedDate} · seña ${money(amount)} por transferencia`,
+    path: `/dashboard?tab=agenda&turno=${appointmentId}`,
+  });
 
   if (salon?.whatsappNumber && credentials) {
     const confirmLink = `${APP_URL}/dashboard?tab=agenda&turno=${appointmentId}`;

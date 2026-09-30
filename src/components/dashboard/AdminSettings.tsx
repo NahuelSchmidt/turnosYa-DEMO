@@ -18,6 +18,7 @@ import { Trash2, Edit, Users, Briefcase, Link as LinkIcon, Copy, Check, Palette,
 import { ImageUpload } from "@/components/ui/image-upload";
 import { WhatsAppConnect } from "./WhatsAppConnect";
 import { DepositSettings } from "./DepositSettings";
+import { PushNotificationsCard } from "./PushNotifications";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -552,6 +553,9 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
           </Button>
         </CardContent>
       </Card>
+
+      {/* ── NOTIFICACIONES ── */}
+      <PushNotificationsCard tenantId={tenantId} />
 
       {/* ── WHATSAPP ── */}
       <Card>

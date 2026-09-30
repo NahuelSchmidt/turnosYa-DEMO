@@ -16,6 +16,7 @@ import { Loader2, User, Clock, Phone, MessageCircle, List, LayoutGrid, CalendarD
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useSchedules } from '@/hooks/use-schedules';
 import { NewAppointmentModal } from './NewAppointmentModal';
+import { PushNotificationsPrompt } from './PushNotifications';
 import { parseFirestoreDate } from '@/lib/utils';
 import { useSalon } from '@/hooks/use-salon';
 import { usePlan } from '@/hooks/use-plan';
@@ -1150,6 +1151,8 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
           </span>
         </div>
       )}
+
+      <PushNotificationsPrompt tenantId={tenantId} />
 
       <PendingDeposits
         tenantId={tenantId}

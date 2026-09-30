@@ -152,6 +152,10 @@ service cloud.firestore {
     match /mpOAuthStates/{stateId} {
       allow read, write: if false;
     }
+    // Dispositivos donde cada negocio activó las notificaciones: solo el servidor.
+    match /pushTokens/{tokenId} {
+      allow read, write: if false;
+    }
 
     match /payments/{paymentId} {
       // Colección sin ningún uso en el código actual (no hay lecturas ni escrituras
