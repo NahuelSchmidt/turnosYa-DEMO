@@ -992,8 +992,8 @@ function PendingDeposits({ items, tenantId, highlightId }: {
   return (
     <div className="rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-3">
       <div>
-        <p className="font-bold text-sm">Esperando seña por transferencia ({items.length})</p>
-        <p className="text-xs text-muted-foreground">Cuando te llegue la plata, confirmá el turno y al cliente le llega el aviso por WhatsApp.</p>
+        <p className="font-bold text-sm">Turnos pendientes ({items.length})</p>
+        <p className="text-xs text-muted-foreground">Esperan la seña por transferencia. Cuando te llegue la plata, confirmá el turno y al cliente le llega el aviso por WhatsApp.</p>
       </div>
       {items.map(apt => {
         const dateObj = parseFirestoreDate(apt.startTime);
