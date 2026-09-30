@@ -941,11 +941,32 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
   const [weekOffsetForDay, setWeekOffsetForDay] = useState(0);
   const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
   const [agendaKind, setAgendaKind] = useState<'turnos' | 'clases'>('turnos');
+  const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>('all');
   const loading = aLoading || sLoading || pLoading;
+
+  // Cada dispositivo recuerda el profesional elegido (ej: el celu de cada empleado)
+  const profStorageKey = `agenda-prof-${tenantId}`;
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(profStorageKey);
+      if (saved) setSelectedProfessionalId(saved);
+    } catch {}
+  }, [profStorageKey]);
+
+  const selectProfessional = (id: string) => {
+    setSelectedProfessionalId(id);
+    try { localStorage.setItem(profStorageKey, id); } catch {}
+  };
+
+  // Si el profesional guardado ya no existe, se vuelve a "Todos"
+  const activeProfessionalId = selectedProfessionalId !== 'all' && (professionals || []).some(p => p.id === selectedProfessionalId)
+    ? selectedProfessionalId
+    : 'all';
 
   // Combina datos de Firestore con overrides locales para UI instantánea
   const agenda = (appointments || [])
     .filter(apt => selectedBranchId === 'all' || (apt as any).branchId === selectedBranchId)
+    .filter(apt => activeProfessionalId === 'all' || apt.professionalId === activeProfessionalId)
     .map(apt => ({
       ...apt,
       status: localOverrides[apt.id] || apt.status,
@@ -1056,6 +1077,30 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
                 className={cn("text-xs px-3 py-1.5 rounded-full border font-bold transition-all", selectedBranchId === branch.id ? "bg-primary text-primary-foreground border-primary" : "bg-muted/30 hover:bg-muted")}
               >
                 {branch.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Selector de profesional */}
+      {(professionals || []).length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Profesional:</span>
+          <div className="flex gap-1.5 flex-wrap">
+            <button
+              onClick={() => selectProfessional('all')}
+              className={cn("text-xs px-3 py-1.5 rounded-full border font-bold transition-all", activeProfessionalId === 'all' ? "bg-primary text-primary-foreground border-primary" : "bg-muted/30 hover:bg-muted")}
+            >
+              Todos
+            </button>
+            {(professionals || []).map(p => (
+              <button
+                key={p.id}
+                onClick={() => selectProfessional(p.id)}
+                className={cn("text-xs px-3 py-1.5 rounded-full border font-bold transition-all", activeProfessionalId === p.id ? "bg-primary text-primary-foreground border-primary" : "bg-muted/30 hover:bg-muted")}
+              >
+                {(p as any).emoji || ''} {p.name}
               </button>
             ))}
           </div>
