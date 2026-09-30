@@ -98,9 +98,8 @@ export async function sendDepositConfirmation(ctx: AppointmentContext, appointme
   const address = classService?.address || salon?.address;
   const total = apt.serviceTotal ?? serviceTotal(ctx);
   const remaining = Math.max(0, total - paidAmount);
-  const turnoLink = `${APP_URL}/turno/${appointmentId}`;
 
-  const customerMsg = `*Turno Confirmado* ✅\n\nHola ${apt.customerName}! Recibimos tu seña y tu turno está confirmado:\n\n🗓 ${formattedDate}\n${emoji} ${serviceNames}${professional ? `\n👤 Con ${professional.name}` : ''}${address ? `\n📍 Ubicacion: ${address}` : ''}\n\n💳 Seña pagada: ${money(paidAmount)}${remaining > 0 ? `\nResta abonar en el local: ${money(remaining)}` : ''}\n\nPara ver tu turno, hace clic aca:\n${turnoLink}\n\n¡Te esperamos!`;
+  const customerMsg = `*Turno Confirmado* ✅\n\nHola ${apt.customerName}! Recibimos tu seña y tu turno está confirmado:\n\n🗓 ${formattedDate}\n${emoji} ${serviceNames}${professional ? `\n👤 Con ${professional.name}` : ''}${address ? `\n📍 Ubicacion: ${address}` : ''}\n\n💳 Seña pagada: ${money(paidAmount)}${remaining > 0 ? `\nResta abonar en el local: ${money(remaining)}` : ''}\n\nSi necesitás cancelar o reprogramar, respondé a este mensaje y lo vemos.\n\n¡Te esperamos!`;
 
   if (apt.customerPhone) await sendWhatsAppMessage(apt.customerPhone, customerMsg, credentials);
 

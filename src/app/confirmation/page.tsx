@@ -211,6 +211,18 @@ function ConfirmationContent() {
               </CardContent>
             </Card>
 
+            {appointment.depositStatus === 'paid' ? (
+              <div className="bg-muted/30 rounded-xl p-4 text-sm space-y-2">
+                <p>Si necesitás cancelar o reprogramar, escribile al negocio.</p>
+                {salon?.whatsappNumber && (
+                  <Button asChild size="sm" variant="outline">
+                    <a href={`https://wa.me/${String(salon.whatsappNumber).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer">
+                      <MessageCircle className="w-4 h-4 mr-2" /> Escribir al negocio
+                    </a>
+                  </Button>
+                )}
+              </div>
+            ) : (
             <div className="bg-muted/30 rounded-xl p-4 text-left space-y-2">
               <p className="text-xs font-bold uppercase text-muted-foreground">Tu link para ver o cancelar el turno</p>
               <div className="flex items-center gap-2">
@@ -220,14 +232,17 @@ function ConfirmationContent() {
                 </Button>
               </div>
             </div>
+            )}
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button asChild size="lg" variant="outline" className="flex-1">
                 <Link href="/">Volver al Inicio</Link>
               </Button>
-              <Button asChild size="lg" className="flex-1">
-                <a href={turnoLink}>Ver mi turno</a>
-              </Button>
+              {appointment.depositStatus !== 'paid' && (
+                <Button asChild size="lg" className="flex-1">
+                  <a href={turnoLink}>Ver mi turno</a>
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

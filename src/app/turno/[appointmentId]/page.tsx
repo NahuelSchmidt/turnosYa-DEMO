@@ -222,7 +222,22 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
               </div>
             </div>
 
-            {!isCancelled && (
+            {!isCancelled && apt.depositStatus === 'paid' ? (
+              <div className="rounded-xl border bg-muted/30 p-4 text-sm text-center space-y-2">
+                <p className="font-bold">Este turno tiene seña</p>
+                <p className="text-muted-foreground">Para cancelarlo o reprogramarlo, escribile al negocio.</p>
+                {salon?.whatsappNumber && (
+                  <a
+                    href={`https://wa.me/${salon.whatsappNumber}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 mt-1 text-[#25D366] font-bold hover:underline"
+                  >
+                    <MessageCircle className="w-4 h-4" /> Contactar al negocio
+                  </a>
+                )}
+              </div>
+            ) : !isCancelled && (
               canCancel ? (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>

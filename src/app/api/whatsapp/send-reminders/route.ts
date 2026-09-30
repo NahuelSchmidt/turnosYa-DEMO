@@ -162,6 +162,10 @@ export async function GET(req: NextRequest) {
 
     const formattedDate = formatInTimeZone(startTime, TZ, "eeee dd 'de' MMMM 'a las' HH:mm'hs'", { locale: es });
     const turnoLink = `${PROD_DOMAIN}/turno/${apt.id}`;
+    // Con seña, cancelar tiene que hablarse con el negocio: no mandamos el link para cancelar solo
+    const gestionLine = apt.depositStatus === 'paid'
+      ? 'Si necesitás cancelar o reprogramar, respondé a este mensaje.'
+      : `Gestioná tu turno: ${turnoLink}`;
     const locationAddress = (svc?.type === 'clase' && svc.address) || salon?.address;
     const ubicacion = locationAddress ? `\n📍 ${locationAddress}` : '';
     const alias = salon?.paymentAlias ? `\n💳 Alias de pago: ${salon.paymentAlias}` : '';
@@ -171,7 +175,7 @@ export async function GET(req: NextRequest) {
       : undefined;
 
     if (needs24h) {
-      const msg = `⏰ *Recordatorio de turno*\n\nHola ${apt.customerName}! Te recordamos que mañana tenés turno:\n\n🗓 ${formattedDate}${serviceLine}${ubicacion}${alias}\n\nGestioná tu turno: ${turnoLink}\n\n¡Te esperamos!`;
+      const msg = `⏰ *Recordatorio de turno*\n\nHola ${apt.customerName}! Te recordamos que mañana tenés turno:\n\n🗓 ${formattedDate}${serviceLine}${ubicacion}${alias}\n\n${gestionLine}\n\n¡Te esperamos!`;
       const ok = await sendWhatsAppMessage(phone, msg, credentials);
       if (ok) {
         await updateAppointmentReminder(apt.id, 'reminderSent24h');
@@ -180,7 +184,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (needsSameDay) {
-      const msg = `🔔 *Tu turno es hoy*\n\nHola ${apt.customerName}! En pocas horas tenés turno:\n\n🗓 ${formattedDate}${serviceLine}${ubicacion}${alias}\n\nGestioná tu turno: ${turnoLink}\n\n¡Te esperamos!`;
+      const msg = `🔔 *Tu turno es hoy*\n\nHola ${apt.customerName}! En pocas horas tenés turno:\n\n🗓 ${formattedDate}${serviceLine}${ubicacion}${alias}\n\n${gestionLine}\n\n¡Te esperamos!`;
       const ok = await sendWhatsAppMessage(phone, msg, credentials);
       if (ok) {
         await updateAppointmentReminder(apt.id, 'reminderSentSameDay');
