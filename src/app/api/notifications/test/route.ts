@@ -17,11 +17,9 @@ export async function POST(req: NextRequest) {
     if (!auth.ok) return auth.response;
   }
 
-  const sent = await notifySalon(tenantId, {
-    title: 'Turnify',
-    body: tenantId === ADMIN_PUSH_TENANT
-      ? '¡Listo! Así te vamos a avisar de cada nueva suscripción.'
-      : '¡Listo! Así te vamos a avisar cada vez que entre un turno.',
-  });
+  const sent = await notifySalon(tenantId, tenantId === ADMIN_PUSH_TENANT
+    // Igual a un aviso real, para ver cómo llega
+    ? { title: 'Nueva suscripción', body: 'Barbería de prueba · Pro (prueba 7 días) · ejemplo@mail.com', path: '/super-admin' }
+    : { title: 'Turnify', body: '¡Listo! Así te vamos a avisar cada vez que entre un turno.' });
   return NextResponse.json({ sent });
 }
