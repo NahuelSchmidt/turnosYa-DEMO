@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { CalendarCheck, Menu, LayoutDashboard, Home, UserCircle, Sun, Moon } from "lucide-react";
+import { CalendarCheck, Menu, LayoutDashboard, Home, UserCircle, Sun, Moon, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
-import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase";
+import { collection, doc, query, where } from "firebase/firestore";
 import { PlanBadge } from "@/components/ui/plan-badge";
 import { usePlan } from "@/hooks/use-plan";
 import { PlanType } from "@/lib/data";
@@ -30,11 +30,24 @@ function useSalonPlan() {
   return { tenantId, plan: tenantId ? plan : null };
 }
 
+/** ¿El usuario es administrador de Turnify? (las reglas solo le dejan leer su propio registro) */
+function useIsGlobalAdmin() {
+  const { user } = useUser();
+  const db = useFirestore();
+  const ref = useMemoFirebase(() => {
+    if (!db || !user?.uid || user.isAnonymous) return null;
+    return doc(db, "globalAdmins", user.uid);
+  }, [db, user?.uid, user?.isAnonymous]);
+  const { data } = useDoc(ref);
+  return !!data;
+}
+
 export function Header() {
   const pathname = usePathname();
   const [isDark, setIsDark] = useState(false);
   const { user } = useUser();
   const { tenantId, plan } = useSalonPlan();
+  const isGlobalAdmin = useIsGlobalAdmin();
 
   useEffect(() => {
     const theme = localStorage.getItem("theme");
@@ -62,6 +75,7 @@ export function Header() {
   const navItems = [
     { href: "/", label: "Inicio", icon: Home },
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    ...(isGlobalAdmin ? [{ href: "/super-admin", label: "Super-admin", icon: ShieldCheck }] : []),
   ];
 
   const isRealUser = user && !user.isAnonymous;
