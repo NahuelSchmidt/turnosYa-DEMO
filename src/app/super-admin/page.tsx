@@ -276,6 +276,11 @@ export default function SuperAdminPage() {
                     <Badge variant="outline" className={`text-[10px] py-0.5 px-2 font-black ${planLabels[salon.plan || 'basic'].className}`}>
                       {planLabels[salon.plan || 'basic'].label}
                     </Badge>
+                    {salon.subscriptionStatus === 'trial' && (
+                      <Badge variant="outline" className="text-[10px] py-0.5 px-2 font-black bg-violet-100 text-violet-700 border-violet-300">
+                        En prueba
+                      </Badge>
+                    )}
                     {!isActive && (
                       <Badge variant="outline" className="text-[10px] py-0.5 px-2 font-black bg-muted text-muted-foreground border-muted-foreground/30">
                         <PowerOff className="w-3 h-3 mr-1" /> Desactivado
@@ -290,8 +295,13 @@ export default function SuperAdminPage() {
                   {sub.expiresAt && (
                     <div className={`flex items-center gap-1.5 text-xs font-bold mt-1 ${sub.status === 'expired' ? 'text-destructive' : sub.status === 'expiring' ? 'text-orange-500' : 'text-green-600'}`}>
                       {sub.status === 'expired' ? <XCircle className="w-3.5 h-3.5" /> : sub.status === 'expiring' ? <AlertTriangle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                      {salon.subscriptionStatus === 'trial' ? 'Prueba gratis · ' : 'Pagando · '}
-                      {sub.status === 'expired' ? `Vencido hace ${Math.abs(sub.daysLeft!)} días` : sub.status === 'expiring' ? `Vence en ${sub.daysLeft} días` : `Vence ${format(sub.expiresAt, "dd MMM yyyy", { locale: es })}`}
+                      {salon.subscriptionStatus === 'trial'
+                        ? (sub.daysLeft! < 0
+                            ? `Prueba gratis · terminó hace ${Math.abs(sub.daysLeft!)} ${Math.abs(sub.daysLeft!) === 1 ? 'día' : 'días'}`
+                            : sub.daysLeft === 0 ? 'Prueba gratis · termina hoy'
+                            : sub.daysLeft === 1 ? 'Prueba gratis · termina mañana'
+                            : `Prueba gratis · quedan ${sub.daysLeft} días (termina el ${format(sub.expiresAt, "dd/MM", { locale: es })})`)
+                        : `Pagando · ${sub.status === 'expired' ? `vencido hace ${Math.abs(sub.daysLeft!)} días` : sub.status === 'expiring' ? `vence en ${sub.daysLeft} días` : `vence ${format(sub.expiresAt, "dd MMM yyyy", { locale: es })}`}`}
                     </div>
                   )}
                 </CardHeader>
