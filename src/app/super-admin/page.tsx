@@ -78,7 +78,10 @@ export default function SuperAdminPage() {
     const salons = allSalons || [];
     return {
       total: salons.length,
-      active: salons.filter(s => getSubscriptionStatus(s).status === 'active').length,
+      // Negocios que no están desactivados (con o sin fecha de vencimiento cargada)
+      active: salons.filter(s => s.isActive !== false).length,
+      trial: salons.filter(s => s.isActive !== false && s.subscriptionStatus === 'trial' && getSubscriptionStatus(s).status !== 'expired').length,
+      paying: salons.filter(s => s.isActive !== false && s.subscriptionStatus === 'active' && getSubscriptionStatus(s).status !== 'expired').length,
       expiring: salons.filter(s => getSubscriptionStatus(s).status === 'expiring').length,
       expired: salons.filter(s => getSubscriptionStatus(s).status === 'expired').length,
       byPlan: {
@@ -207,6 +210,14 @@ export default function SuperAdminPage() {
               <CheckCircle2 className="w-6 h-6" />
               <div><span className="font-black text-2xl">{stats.active}</span><p className="text-[10px] uppercase opacity-80">Activos</p></div>
             </div>
+            <div className="flex items-center gap-3 bg-card border-2 px-6 py-3 rounded-2xl">
+              <div><span className="font-black text-2xl">{stats.paying}</span><p className="text-[10px] uppercase text-muted-foreground">Pagando</p></div>
+            </div>
+            {stats.trial > 0 && (
+              <div className="flex items-center gap-3 bg-card border-2 px-6 py-3 rounded-2xl">
+                <div><span className="font-black text-2xl">{stats.trial}</span><p className="text-[10px] uppercase text-muted-foreground">En prueba</p></div>
+              </div>
+            )}
             {stats.expiring > 0 && (
               <div className="flex items-center gap-3 bg-orange-500 text-white px-6 py-3 rounded-2xl">
                 <AlertTriangle className="w-6 h-6" />
