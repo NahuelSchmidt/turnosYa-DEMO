@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendWhatsAppMessage } from '@/lib/whatsapp';
+import { sendWhatsAppMessage, waitBetweenMessages } from '@/lib/whatsapp';
 import { queryConfirmedAppointments, getSalonById, getServicesForSalon, updateAppointmentReminder } from '@/lib/firestore-server';
 import { formatInTimeZone } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
 import { adminDb, isAdminConfigured } from '@/lib/firebase-admin';
 import { toMillis } from '@/lib/deposit-server';
 import { checkSubscriptionAlerts } from '@/lib/subscriptions';
+
+// Los envíos van espaciados: si no entran todos en una corrida, siguen en la próxima
+export const maxDuration = 60;
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -101,6 +104,7 @@ export async function GET(req: NextRequest) {
   const salonCache: Record<string, Record<string, any> | null> = {};
   const servicesCache: Record<string, Record<string, any>[]> = {};
 
+  let sentAny = false;
   let sent24h = 0;
   let sentSameDay = 0;
   let sentReview = 0;
@@ -180,6 +184,9 @@ export async function GET(req: NextRequest) {
     const credentials = salon?.evolutionInstanceName
       ? { instanceName: salon.evolutionInstanceName }
       : undefined;
+
+    if (sentAny) await waitBetweenMessages();
+    sentAny = true;
 
     if (needs24h) {
       const msg = `⏰ *Recordatorio de turno*\n\nHola ${apt.customerName}! Te recordamos que mañana tenés turno:\n\n🗓 ${formattedDate}${serviceLine}${ubicacion}${alias}\n\n${gestionLine}\n\n¡Te esperamos!`;

@@ -18,6 +18,12 @@ service cloud.firestore {
       return isRealUser() && exists(/databases/$(database)/documents/globalAdmins/$(request.auth.uid));
     }
 
+    function isSalonAdmin(salonId) {
+      return isRealUser() && (
+        get(/databases/$(database)/documents/salons/$(salonId)).data.adminMembers[request.auth.uid] == true
+      );
+    }
+
     // El negocio cobra seña: la activó y puede cobrarla (Mercado Pago conectado,
     // o alias cargado si la cobra por transferencia)
     function depositRequired(salonId) {
@@ -26,12 +32,6 @@ service cloud.firestore {
       return deposit.get('enabled', false) == true && (
         (deposit.get('method', 'mercadopago') == 'transfer' && salon.get('paymentAlias', '') != '') ||
         (deposit.get('method', 'mercadopago') != 'transfer' && salon.get('mpConnected', false) == true)
-      );
-    }
-
-    function isSalonAdmin(salonId) {
-      return isRealUser() && (
-        get(/databases/$(database)/documents/salons/$(salonId)).data.adminMembers[request.auth.uid] == true
       );
     }
 
@@ -51,14 +51,12 @@ service cloud.firestore {
     match /salons/{salonId} {
       // Cualquiera puede leer para mostrar la página pública
       allow get: if true;
-      // Solo admins globales pueden listar todos
       allow list: if isGlobalAdmin() || (
         isRealUser() && resource.data.adminMembers[request.auth.uid] == true
       );
       // Los negocios los crea el servidor (registro gratis o super-admin), o un admin global.
       allow create: if isGlobalAdmin();
-      // El dueño edita su negocio, pero no su plan, suscripción, estado, dueños ni la
-      // conexión con Mercado Pago: eso lo cambian solo un admin global o el servidor.
+      // El dueño edita su negocio, pero no su plan, suscripción, estado, dueños ni Mercado Pago.
       allow update: if isGlobalAdmin() || (
         isSalonAdmin(salonId) &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny([
@@ -77,27 +75,43 @@ service cloud.firestore {
         allow get, list: if true;
         allow write: if isSalonAdmin(salonId) || isGlobalAdmin();
       }
+
+      // Sucursales: públicas (las usa la página de reservas), las edita el dueño
+      match /branches/{branchId} {
+        allow get, list: if true;
+        allow write: if isSalonAdmin(salonId) || isGlobalAdmin();
+      }
+    }
+
+    // Reseñas de la página pública del negocio: cualquiera las lee y cualquiera deja
+    // una, pero solo con los campos y tamaños esperados. El dueño puede borrarlas.
+    match /reviews/{reviewId} {
+      allow get, list: if true;
+      allow create: if request.resource.data.keys().hasOnly(['salonId', 'customerName', 'comment', 'rating', 'createdAt'])
+        && request.resource.data.salonId is string
+        && exists(/databases/$(database)/documents/salons/$(request.resource.data.salonId))
+        && request.resource.data.customerName is string
+        && request.resource.data.customerName.size() > 0 && request.resource.data.customerName.size() <= 60
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() > 0 && request.resource.data.comment.size() <= 1000
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1 && request.resource.data.rating <= 5
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if isSalonAdmin(resource.data.salonId) || isGlobalAdmin();
     }
 
     match /appointments/{appointmentId} {
-      // Solo usuarios autenticados pueden leer sus propios turnos o los del salón
       allow get: if isSignedIn() && (
         resource.data.customerId == request.auth.uid ||
         isSalonAdmin(resource.data.salonId) ||
         isGlobalAdmin()
       );
-      // TODO(seguridad): esto permite a cualquier usuario logueado listar TODOS los
-      // turnos de TODOS los salones (nombres, teléfonos). No se puede restringir a
-      // "solo mis turnos" o "solo mi salón" sin romper la disponibilidad de horarios
-      // del flujo público de reserva (BookingFlow necesita ver los turnos de otros
-      // clientes para saber qué horarios están ocupados). Solución correcta: exponer
-      // la ocupación de horarios desde una colección/endpoint separado que no incluya
-      // datos del cliente, y recién ahí restringir esta regla a dueño/admin del salón.
+      // TODO(seguridad): cualquier usuario logueado puede listar todos los turnos
+      // (lo necesita el flujo de reserva para ver horarios ocupados).
       allow list: if isSignedIn();
-      // Cualquier usuario autenticado puede crear una reserva. Si el negocio cobra
-      // seña, el cliente solo puede crearla "esperando seña" (la confirma el servidor
-      // cuando Mercado Pago acredita el pago, o el dueño si es por transferencia) y
-      // con un vencimiento de hasta 24 horas.
+      // Si el negocio cobra seña, el cliente solo puede crear el turno "esperando seña"
+      // (lo confirma el servidor con Mercado Pago, o el dueño si es por transferencia).
       allow create: if isSignedIn()
         && request.resource.data.customerId == request.auth.uid
         && request.resource.data.get('depositStatus', 'none') != 'paid'
@@ -110,31 +124,20 @@ service cloud.firestore {
             request.resource.data.paymentExpiresAt is timestamp &&
             request.resource.data.paymentExpiresAt < request.time + duration.value(1450, 'm'))
         );
-      // Solo el cliente dueño del turno o el admin del salón pueden cancelar.
-      // Hay dos excepciones sin auth, ambas acotadas a una transición puntual de
-      // `status` (no a cualquier valor, como permitía la regla vieja):
-      // (a) el cron y el efecto de auto-completado del cliente marcan un turno
-      //     vencido como completed (confirmed -> completed);
-      // (b) la página pública /turno/[id] (link de WhatsApp) deja cancelar el
-      //     turno aunque la sesión anónima actual no coincida con la que reservó
-      //     (ej: abrió el link en otro dispositivo) — el conocer el ID del turno
-      //     ya funciona como token de acceso (confirmed -> cancelled).
-      // Ninguna de las dos deja tocar otro campo ni pisar un turno que no esté
-      // "confirmed", así que no se puede reabrir, marcar no-show, ni afectar
-      // turnos ya cancelados/completados sin loguearse.
+      // El cron (sin auth) solo puede tocar los flags de recordatorio/reseña o
+      // auto-completar un turno que ya pasó (confirmed -> completed).
       allow update: if (
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['reminderSent24h', 'reminderSentSameDay', 'reviewSent'])
       ) || (
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
         resource.data.status == 'confirmed' &&
-        request.resource.data.status in ['completed', 'cancelled']
+        request.resource.data.status == 'completed'
       ) || (isSignedIn() && (
         isSalonAdmin(resource.data.salonId) ||
         isGlobalAdmin()
       )) || (
-        // El cliente puede editar su turno, pero no confirmarlo ni tocar la seña:
-        // eso lo hace solo el servidor al verificar el pago con Mercado Pago.
+        // El cliente puede editar su turno, pero no confirmarlo ni tocar la seña
         isSignedIn() && resource.data.customerId == request.auth.uid &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'depositStatus', 'depositAmount', 'depositPaidAmount', 'depositPaymentId',
@@ -147,29 +150,26 @@ service cloud.firestore {
       allow delete: if isGlobalAdmin();
     }
 
-    // Credenciales de Mercado Pago de cada negocio y estados de la conexión:
-    // solo las usa el servidor (con permisos de administrador), nadie más las lee.
+    // Solo el servidor (credenciales de Mercado Pago, dispositivos, límites, pagos)
     match /mpAccounts/{salonId} {
       allow read, write: if false;
     }
     match /mpOAuthStates/{stateId} {
       allow read, write: if false;
     }
-    // Dispositivos donde cada negocio activó las notificaciones: solo el servidor.
     match /pushTokens/{tokenId} {
       allow read, write: if false;
     }
-
-    // Límites de registros por IP: solo el servidor.
     match /signupLimits/{id} {
       allow read, write: if false;
     }
-
+    match /subscriptionPayments/{id} {
+      allow read, write: if false;
+    }
+    match /subscriptionAlerts/{id} {
+      allow read, write: if false;
+    }
     match /payments/{paymentId} {
-      // Colección sin ningún uso en el código actual (no hay lecturas ni escrituras
-      // en el repo) pero estaba abierta a lectura/escritura de cualquier usuario
-      // logueado, de cualquier documento. La cierro hasta que se implemente con un
-      // esquema y reglas propias acorde a los datos que vaya a guardar.
       allow read, write: if false;
     }
   }
