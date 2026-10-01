@@ -5,7 +5,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { collection, doc, query, orderBy, serverTimestamp } from "firebase/firestore";
-import { Loader2, Store, ExternalLink, Calendar, Search, ShieldCheck, Trash2, ShieldAlert, LogOut, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Power, PowerOff } from "lucide-react";
+import { Loader2, Store, ExternalLink, Calendar, Search, ShieldCheck, Trash2, ShieldAlert, LogOut, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Power, PowerOff, Mail, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { useState, useMemo, useEffect, useCallback } from "react";
@@ -58,9 +58,14 @@ export default function SuperAdminPage() {
 
   const { data: allSalons, isLoading: isSalonsLoading } = useCollection(salonsQuery);
 
+  const [onlySelfSignup, setOnlySelfSignup] = useState(false);
   const filteredSalons = allSalons?.filter(salon =>
-    salon.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    salon.id?.toLowerCase().includes(searchTerm.toLowerCase())
+    (!onlySelfSignup || salon.createdBy === 'self-signup') && (
+      salon.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      salon.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      salon.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      salon.whatsappNumber?.includes(searchTerm.replace(/\D/g, '') || '~')
+    )
   ) || [];
 
   const now = new Date();
@@ -244,11 +249,15 @@ export default function SuperAdminPage() {
         <div className="relative mb-12">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-6 h-6" />
           <Input
-            placeholder="Buscar por nombre de negocio o ID..."
+            placeholder="Buscar por negocio, mail, WhatsApp o ID..."
             className="pl-14 h-16 bg-card border-2 rounded-2xl text-lg shadow-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+          <label className="mt-3 inline-flex items-center gap-2 text-sm font-medium cursor-pointer">
+            <input type="checkbox" checked={onlySelfSignup} onChange={e => setOnlySelfSignup(e.target.checked)} />
+            Mostrar solo los que se registraron solos
+          </label>
         </div>
 
         {isSalonsLoading ? (
@@ -290,7 +299,27 @@ export default function SuperAdminPage() {
                   <CardDescription className="flex items-center gap-2 font-medium">
                     <Calendar className="w-4 h-4 text-primary" />
                     {salon.createdAt?.toDate ? format(salon.createdAt.toDate(), "dd MMM yyyy", { locale: es }) : 'Registro Reciente'}
+                    {salon.createdBy === 'self-signup' && <span className="text-xs font-bold text-violet-600">· Se registró solo</span>}
                   </CardDescription>
+                  {(salon.email || salon.whatsappNumber) && (
+                    <div className="flex flex-col gap-1.5 mt-2 text-sm">
+                      {salon.email && (
+                        <a href={`mailto:${salon.email}`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground truncate">
+                          <Mail className="w-4 h-4 shrink-0" /> <span className="truncate select-all">{salon.email}</span>
+                        </a>
+                      )}
+                      {salon.whatsappNumber && (
+                        <a
+                          href={`https://wa.me/${String(salon.whatsappNumber).replace(/\D/g, '')}?text=${encodeURIComponent(`¡Hola! Soy Nahuel, de Turnify. Vi que creaste tu cuenta para ${salon.name}. ¿Te ayudo a cargar tus servicios y horarios para que quede lista?`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 font-semibold text-[#128C7E] hover:underline w-fit"
+                        >
+                          <MessageCircle className="w-4 h-4 shrink-0" /> {salon.whatsappNumber} · Escribirle
+                        </a>
+                      )}
+                    </div>
+                  )}
                   {/* Vencimiento */}
                   {sub.expiresAt && (
                     <div className={`flex items-center gap-1.5 text-xs font-bold mt-1 ${sub.status === 'expired' ? 'text-destructive' : sub.status === 'expiring' ? 'text-orange-500' : 'text-green-600'}`}>
