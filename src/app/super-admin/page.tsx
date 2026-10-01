@@ -8,7 +8,7 @@ import { collection, doc, query, orderBy, serverTimestamp } from "firebase/fires
 import { Loader2, Store, ExternalLink, Calendar, Search, ShieldCheck, Trash2, ShieldAlert, LogOut, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Power, PowerOff } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/firebase";
 import { CreateBusinessDialog } from "@/components/admin/CreateBusinessDialog";
+import { RecordPaymentDialog } from "@/components/admin/RecordPaymentDialog";
 import { PushNotificationsCard } from "@/components/dashboard/PushNotifications";
 import { signOut } from "firebase/auth";
 import {
@@ -88,6 +89,18 @@ export default function SuperAdminPage() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allSalons]);
+
+  const [monthIncome, setMonthIncome] = useState<{ total: number; count: number } | null>(null);
+  const loadMonthIncome = useCallback(async () => {
+    if (!user || !globalAdminData) return;
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/admin/payments', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (res.ok) setMonthIncome({ total: data.monthTotal, count: data.monthCount });
+    } catch {}
+  }, [user, globalAdminData]);
+  useEffect(() => { loadMonthIncome(); }, [loadMonthIncome]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -182,6 +195,14 @@ export default function SuperAdminPage() {
               <Store className="w-6 h-6" />
               <div><span className="font-black text-2xl">{stats.total}</span><p className="text-[10px] uppercase opacity-80">Total</p></div>
             </div>
+            {monthIncome && (
+              <div className="flex items-center gap-3 bg-card border-2 px-6 py-3 rounded-2xl">
+                <div>
+                  <span className="font-black text-2xl tabular-nums">${monthIncome.total.toLocaleString('es-AR')}</span>
+                  <p className="text-[10px] uppercase text-muted-foreground">Cobrado este mes ({monthIncome.count})</p>
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-3 bg-green-600 text-white px-6 py-3 rounded-2xl">
               <CheckCircle2 className="w-6 h-6" />
               <div><span className="font-black text-2xl">{stats.active}</span><p className="text-[10px] uppercase opacity-80">Activos</p></div>
@@ -258,6 +279,7 @@ export default function SuperAdminPage() {
                   {sub.expiresAt && (
                     <div className={`flex items-center gap-1.5 text-xs font-bold mt-1 ${sub.status === 'expired' ? 'text-destructive' : sub.status === 'expiring' ? 'text-orange-500' : 'text-green-600'}`}>
                       {sub.status === 'expired' ? <XCircle className="w-3.5 h-3.5" /> : sub.status === 'expiring' ? <AlertTriangle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                      {salon.subscriptionStatus === 'trial' ? 'Prueba gratis · ' : 'Pagando · '}
                       {sub.status === 'expired' ? `Vencido hace ${Math.abs(sub.daysLeft!)} días` : sub.status === 'expiring' ? `Vence en ${sub.daysLeft} días` : `Vence ${format(sub.expiresAt, "dd MMM yyyy", { locale: es })}`}
                     </div>
                   )}
@@ -287,6 +309,7 @@ export default function SuperAdminPage() {
                   </div>
 
                   <div className="flex gap-3">
+                    <RecordPaymentDialog salon={salon} onRecorded={loadMonthIncome} />
                     <Button variant="outline" size="lg" className="flex-1 rounded-2xl font-bold hover:bg-primary hover:text-primary-foreground" asChild>
                       <Link href={`/book/${salon.id}`} target="_blank">
                         <ExternalLink className="mr-2 h-4 w-4" /> Ver Web

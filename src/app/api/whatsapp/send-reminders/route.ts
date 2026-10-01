@@ -5,6 +5,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
 import { adminDb, isAdminConfigured } from '@/lib/firebase-admin';
 import { toMillis } from '@/lib/deposit-server';
+import { checkSubscriptionAlerts } from '@/lib/subscriptions';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -59,7 +60,13 @@ export async function GET(req: NextRequest) {
   // Turnos que esperaban la seña y no se pagaron a tiempo: se marcan vencidos.
   // (La disponibilidad ya los ignora al vencer; esto es para que no queden colgados.)
   let expiredDeposits = 0;
+  let subscriptionAlerts = 0;
   if (isAdminConfigured()) {
+    try {
+      subscriptionAlerts = await checkSubscriptionAlerts();
+    } catch (e) {
+      console.error('[Suscripciones] Error revisando vencimientos:', e);
+    }
     try {
       const pending = await adminDb().collection('appointments').where('status', '==', 'pending_payment').get();
       for (const d of pending.docs) {
@@ -211,6 +218,7 @@ export async function GET(req: NextRequest) {
     sentReview,
     autoCompleted,
     expiredDeposits,
+    subscriptionAlerts,
     checkedAt: now.toISOString(),
   });
 }
