@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isAdminConfigured, requireGlobalAdmin } from '@/lib/firebase-admin';
 import { APP_URL } from '@/lib/mercadopago';
 import { BusinessError, createBusinessAccount, isValidEmail, Plan, PLANS } from '@/lib/business';
+import { notifyAdmins } from '@/lib/push';
 
 /**
  * Alta de un negocio desde el super-admin: crea (o reutiliza) el usuario del dueño
@@ -32,6 +33,13 @@ export async function POST(req: NextRequest) {
       createdBy: adminUid,
       allowExistingUser: true,
     });
+    const planLabel = plan === 'basic' ? 'Basic' : plan === 'pro' ? 'Pro' : 'Premium';
+    const trialDays = Math.max(0, Math.min(90, Number(body.trialDays) || 0));
+    await notifyAdmins({
+      title: 'Nueva suscripción',
+      body: `${name} · ${planLabel}${trialDays ? ` (prueba ${trialDays} días)` : ''} · ${email}`,
+    });
+
     return NextResponse.json({
       salonId: result.salonId,
       existingUser: result.existingUser,

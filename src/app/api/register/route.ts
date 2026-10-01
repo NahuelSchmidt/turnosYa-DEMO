@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import { adminDb, isAdminConfigured } from '@/lib/firebase-admin';
 import { BusinessError, createBusinessAccount, isValidEmail } from '@/lib/business';
-import { notifySalon } from '@/lib/push';
+import { notifyAdmins } from '@/lib/push';
 
 const MAX_SIGNUPS_PER_HOUR = 3;
 
@@ -53,15 +53,10 @@ export async function POST(req: NextRequest) {
       allowExistingUser: false,
     });
 
-    // Aviso al administrador de Turnify (al panel del negocio configurado en ADMIN_NOTIFY_TENANT_ID)
-    const adminTenant = process.env.ADMIN_NOTIFY_TENANT_ID;
-    if (adminTenant) {
-      await notifySalon(adminTenant, {
-        title: 'Nuevo negocio registrado',
-        body: `${name} · ${email}${whatsappNumber ? ` · ${whatsappNumber}` : ''}`,
-        path: '/super-admin',
-      });
-    }
+    await notifyAdmins({
+      title: 'Nueva suscripción',
+      body: `${name} · Basic (se registró solo) · ${email}${whatsappNumber ? ` · ${whatsappNumber}` : ''}`,
+    });
 
     return NextResponse.json({ ok: true, salonId: result.salonId });
   } catch (e) {

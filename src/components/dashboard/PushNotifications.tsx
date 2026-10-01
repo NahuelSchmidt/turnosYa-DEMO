@@ -18,7 +18,7 @@ function IosInstallSteps() {
 }
 
 /** Tarjeta en Ajustes para activar, probar o desactivar las notificaciones en este dispositivo. */
-export function PushNotificationsCard({ tenantId }: { tenantId: string }) {
+export function PushNotificationsCard({ tenantId, title, description }: { tenantId: string; title?: string; description?: string }) {
   const { status, busy, enable, disable, sendTest } = usePushNotifications(tenantId);
   const { toast } = useToast();
   const [testing, setTesting] = useState(false);
@@ -46,10 +46,9 @@ export function PushNotificationsCard({ tenantId }: { tenantId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><Bell className="w-5 h-5 text-primary" /> Notificaciones en tu celu</CardTitle>
+        <CardTitle className="flex items-center gap-2"><Bell className="w-5 h-5 text-primary" /> {title || 'Notificaciones en tu celu'}</CardTitle>
         <CardDescription>
-          Te avisamos al instante cada vez que entra, se paga o se cancela un turno, aunque tengas Turnify cerrado.
-          Activalas en cada celu o compu donde quieras recibirlas.
+          {description || 'Te avisamos al instante cada vez que entra, se paga o se cancela un turno, aunque tengas Turnify cerrado. Activalas en cada celu o compu donde quieras recibirlas.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

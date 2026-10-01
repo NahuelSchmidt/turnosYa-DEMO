@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { getMessaging, getToken, deleteToken, isSupported, onMessage } from 'firebase/messaging';
+import { getMessaging, getToken, isSupported, onMessage } from 'firebase/messaging';
 import { useFirebaseApp, useUser } from '@/firebase';
 
 export type PushStatus =
@@ -14,16 +14,20 @@ export type PushStatus =
   | 'on';              // activadas en este dispositivo
 
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
-const STORAGE_KEY = 'turnify-push-token';
+const STORAGE_PREFIX = 'turnify-push-token';
 const SW_URL = '/firebase-messaging-sw.js';
 
-function readStoredToken(): string | null {
-  try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
-}
-function storeToken(token: string | null) {
+function readStoredToken(tenantId?: string): string | null {
   try {
-    if (token) localStorage.setItem(STORAGE_KEY, token);
-    else localStorage.removeItem(STORAGE_KEY);
+    // Las activaciones anteriores se guardaban sin el negocio en la clave
+    return localStorage.getItem(`${STORAGE_PREFIX}:${tenantId}`) || localStorage.getItem(STORAGE_PREFIX);
+  } catch { return null; }
+}
+function storeToken(tenantId: string | undefined, token: string | null) {
+  try {
+    const key = `${STORAGE_PREFIX}:${tenantId}`;
+    if (token) localStorage.setItem(key, token);
+    else { localStorage.removeItem(key); localStorage.removeItem(STORAGE_PREFIX); }
   } catch {}
 }
 
@@ -50,11 +54,11 @@ export function usePushNotifications(tenantId: string | undefined) {
       if (!VAPID_KEY) next = 'not-configured';
       else if (!supported) next = isIos() && !isStandalone() ? 'ios-install' : 'unsupported';
       else if (Notification.permission === 'denied') next = 'denied';
-      else next = Notification.permission === 'granted' && readStoredToken() ? 'on' : 'off';
+      else next = Notification.permission === 'granted' && readStoredToken(tenantId) ? 'on' : 'off';
       if (!cancelled) setStatus(next);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [tenantId]);
 
   const authPost = useCallback(async (path: string, body: object) => {
     const idToken = await user?.getIdToken();
@@ -80,7 +84,7 @@ export function usePushNotifications(tenantId: string | undefined) {
       const registration = await navigator.serviceWorker.register(SW_URL);
       const token = await getToken(getMessaging(app), { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
       await authPost('/api/notifications/register', { tenantId, token });
-      storeToken(token);
+      storeToken(tenantId, token);
       setStatus('on');
     } finally {
       setBusy(false);
@@ -88,12 +92,11 @@ export function usePushNotifications(tenantId: string | undefined) {
   }, [app, authPost, tenantId]);
 
   const disable = useCallback(async () => {
-    const token = readStoredToken();
+    const token = readStoredToken(tenantId);
     setBusy(true);
     try {
       if (token && tenantId) await authPost('/api/notifications/unregister', { tenantId, token }).catch(() => {});
-      await deleteToken(getMessaging(app)).catch(() => {});
-      storeToken(null);
+      storeToken(tenantId, null);
       setStatus('off');
     } finally {
       setBusy(false);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSalonAdmin } from '@/lib/api-auth';
-import { isAdminConfigured } from '@/lib/firebase-admin';
-import { deletePushToken } from '@/lib/push';
+import { isAdminConfigured, requireGlobalAdmin } from '@/lib/firebase-admin';
+import { ADMIN_PUSH_TENANT, deletePushToken } from '@/lib/push';
 
 /** Deja de mandarle notificaciones a este dispositivo. */
 export async function POST(req: NextRequest) {
@@ -9,9 +9,15 @@ export async function POST(req: NextRequest) {
   if (!tenantId || !token) return NextResponse.json({ error: 'Faltan datos' }, { status: 400 });
   if (!isAdminConfigured()) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 500 });
 
-  const auth = await requireSalonAdmin(req, tenantId);
-  if (!auth.ok) return auth.response;
+  if (tenantId === ADMIN_PUSH_TENANT) {
+    if (!(await requireGlobalAdmin(req.headers.get('authorization')))) {
+      return NextResponse.json({ error: 'Sin permiso' }, { status: 403 });
+    }
+  } else {
+    const auth = await requireSalonAdmin(req, tenantId);
+    if (!auth.ok) return auth.response;
+  }
 
-  await deletePushToken(String(token));
+  await deletePushToken(String(token), tenantId);
   return NextResponse.json({ ok: true });
 }

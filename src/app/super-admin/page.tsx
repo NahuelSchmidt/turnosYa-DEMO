@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/firebase";
 import { CreateBusinessDialog } from "@/components/admin/CreateBusinessDialog";
+import { PushNotificationsCard } from "@/components/dashboard/PushNotifications";
 import { signOut } from "firebase/auth";
 import {
   AlertDialog,
@@ -198,6 +199,14 @@ export default function SuperAdminPage() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="mb-8 max-w-2xl">
+          <PushNotificationsCard
+            tenantId="__admin__"
+            title="Avisos de nuevas suscripciones"
+            description="Te avisamos al celu cada vez que un negocio se registra solo o le creás una cuenta. Activalo en cada dispositivo donde lo quieras recibir."
+          />
         </div>
 
         <div className="relative mb-12">
