@@ -952,6 +952,36 @@ function MonthView({ agenda, onNewAppointment, onDayClick }: {
 }
 
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
+/** Primeros pasos para un negocio recién creado (todavía sin servicios cargados). */
+function GettingStarted({ tenantId }: { tenantId: string }) {
+  const bookingLink = typeof window !== 'undefined' ? `${window.location.origin}/book/${tenantId}` : '';
+  const steps = [
+    { title: 'Cargá tus servicios', text: 'Nombre, precio y cuánto dura cada uno.' },
+    { title: 'Elegí tus días y horarios', text: 'Los horarios en los que tus clientes pueden reservar.' },
+    { title: 'Compartí tu link', text: 'Ponelo en tu Instagram o mandalo por WhatsApp.' },
+  ];
+  return (
+    <div className="rounded-2xl border bg-primary/5 p-5 space-y-4">
+      <div>
+        <p className="font-bold">¡Bienvenido a Turnify! Arrancá en 3 pasos</p>
+        <p className="text-sm text-muted-foreground">Todo se configura desde Ajustes y Link.</p>
+      </div>
+      <ol className="grid gap-3 sm:grid-cols-3">
+        {steps.map((st, i) => (
+          <li key={st.title} className="rounded-xl border bg-background p-3 text-sm">
+            <p className="font-bold">{i + 1}. {st.title}</p>
+            <p className="text-muted-foreground">{st.text}</p>
+          </li>
+        ))}
+      </ol>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild size="sm"><a href="/dashboard?tab=settings">Ir a Ajustes</a></Button>
+        <code className="text-xs bg-background border rounded px-2 py-1 truncate max-w-full">{bookingLink}</code>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Turnos con seña por transferencia que esperan que el dueño confirme el pago.
  * El link del WhatsApp que recibe el negocio trae ?turno=ID y lo resalta acá.
@@ -1151,6 +1181,8 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
           </span>
         </div>
       )}
+
+      {(services || []).length === 0 && <GettingStarted tenantId={tenantId} />}
 
       <PushNotificationsPrompt tenantId={tenantId} />
 

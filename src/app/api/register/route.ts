@@ -1,0 +1,72 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'crypto';
+import { adminDb, isAdminConfigured } from '@/lib/firebase-admin';
+import { BusinessError, createBusinessAccount, isValidEmail } from '@/lib/business';
+import { notifySalon } from '@/lib/push';
+
+const MAX_SIGNUPS_PER_HOUR = 3;
+
+/** Cuenta registros por IP en la última hora para frenar abusos. */
+async function allowSignup(ip: string): Promise<boolean> {
+  const ref = adminDb().collection('signupLimits').doc(createHash('sha256').update(ip).digest('hex'));
+  return adminDb().runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    const hourAgo = Date.now() - 60 * 60 * 1000;
+    const recent = ((snap.data()?.times as number[]) || []).filter(t => t > hourAgo);
+    if (recent.length >= MAX_SIGNUPS_PER_HOUR) return false;
+    tx.set(ref, { times: [...recent, Date.now()] });
+    return true;
+  });
+}
+
+/**
+ * Registro público gratuito: crea la cuenta del dueño y su negocio, siempre en plan Basic.
+ * Para Pro o Premium lo cambia el administrador.
+ */
+export async function POST(req: NextRequest) {
+  if (!isAdminConfigured()) return NextResponse.json({ error: 'El registro no está disponible' }, { status: 500 });
+
+  const body = await req.json().catch(() => ({}));
+  // Campo trampa: es invisible para las personas, solo lo completan los bots
+  if (body.website) return NextResponse.json({ ok: true });
+
+  const name = String(body.businessName || '').trim().slice(0, 80);
+  const email = String(body.email || '').trim().toLowerCase();
+  const password = String(body.password || '');
+  const whatsappNumber = String(body.whatsappNumber || '').replace(/\D/g, '').slice(0, 15);
+
+  if (name.length < 2) return NextResponse.json({ error: 'Poné el nombre de tu negocio' }, { status: 400 });
+  if (!isValidEmail(email)) return NextResponse.json({ error: 'El mail no es válido' }, { status: 400 });
+  if (password.length < 6) return NextResponse.json({ error: 'La clave tiene que tener al menos 6 caracteres' }, { status: 400 });
+
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+  if (!(await allowSignup(ip))) {
+    return NextResponse.json({ error: 'Demasiados registros seguidos. Probá de nuevo en un rato.' }, { status: 429 });
+  }
+
+  try {
+    const result = await createBusinessAccount({
+      name, email, password, whatsappNumber,
+      plan: 'basic',
+      trialDays: 0,
+      createdBy: 'self-signup',
+      allowExistingUser: false,
+    });
+
+    // Aviso al administrador de Turnify (al panel del negocio configurado en ADMIN_NOTIFY_TENANT_ID)
+    const adminTenant = process.env.ADMIN_NOTIFY_TENANT_ID;
+    if (adminTenant) {
+      await notifySalon(adminTenant, {
+        title: 'Nuevo negocio registrado',
+        body: `${name} · ${email}${whatsappNumber ? ` · ${whatsappNumber}` : ''}`,
+        path: '/super-admin',
+      });
+    }
+
+    return NextResponse.json({ ok: true, salonId: result.salonId });
+  } catch (e) {
+    if (e instanceof BusinessError) return NextResponse.json({ error: e.message }, { status: 400 });
+    console.error('[Registro] Error:', e);
+    return NextResponse.json({ error: 'No se pudo crear la cuenta. Probá de nuevo.' }, { status: 500 });
+  }
+}

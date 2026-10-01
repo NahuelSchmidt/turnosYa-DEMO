@@ -456,7 +456,9 @@ export default function DashboardPage() {
                 {isLoggingIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
                 Ingresar
               </Button>
-              <p className="text-center text-xs text-muted-foreground">¿No tenés acceso? Contactá al administrador.</p>
+              <p className="text-center text-sm text-muted-foreground">
+                ¿No tenés cuenta? <a href="/register" className="font-semibold underline">Registrate gratis</a>
+              </p>
             </CardContent>
           </Card>
 

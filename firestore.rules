@@ -55,13 +55,16 @@ service cloud.firestore {
       allow list: if isGlobalAdmin() || (
         isRealUser() && resource.data.adminMembers[request.auth.uid] == true
       );
-      // Solo usuarios reales pueden crear su salón
-      allow create: if isRealUser();
-      // Solo el admin del salón o global admin pueden editar/borrar.
-      // El campo isActive (activar/desactivar cuenta) solo lo puede tocar un global admin.
+      // Los negocios los crea el servidor (registro gratis o super-admin), o un admin global.
+      allow create: if isGlobalAdmin();
+      // El dueño edita su negocio, pero no su plan, suscripción, estado, dueños ni la
+      // conexión con Mercado Pago: eso lo cambian solo un admin global o el servidor.
       allow update: if isGlobalAdmin() || (
         isSalonAdmin(salonId) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isActive'])
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'isActive', 'plan', 'subscriptionExpiresAt', 'subscriptionStatus', 'subscriptionId',
+          'trialEndsAt', 'adminMembers', 'createdBy', 'mpConnected', 'mpUserId', 'mpConnectedAt'
+        ])
       );
       allow delete: if isGlobalAdmin();
 
@@ -154,6 +157,11 @@ service cloud.firestore {
     }
     // Dispositivos donde cada negocio activó las notificaciones: solo el servidor.
     match /pushTokens/{tokenId} {
+      allow read, write: if false;
+    }
+
+    // Límites de registros por IP: solo el servidor.
+    match /signupLimits/{id} {
       allow read, write: if false;
     }
 

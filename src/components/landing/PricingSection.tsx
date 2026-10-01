@@ -28,6 +28,7 @@ const PLANS = [
       "✓ Sin costo de configuración",
     ],
     waMsg: "Hola! Me interesa el Plan Basic gratuito de Turnify. ¿Cómo arranco?",
+    href: "/register",
     btnLabel: "Empezar gratis",
   },
   {
@@ -93,7 +94,7 @@ export function PricingSection() {
   const [anual, setAnual] = useState(false);
 
   return (
-    <section className="w-full py-28 border-b bg-background">
+    <section id="planes" className="w-full py-28 border-b bg-background scroll-mt-20">
       <div className="container mx-auto px-4 md:px-6">
         <div className="text-center mb-16">
           <Badge variant="outline" className="mb-4">PLANES Y PRECIOS</Badge>
@@ -239,9 +240,13 @@ export function PricingSection() {
                   )}
                   variant={isPro ? "default" : isPremium ? "outline" : "outline"}
                 >
-                  <a href={waUrl} target="_blank" rel="noopener noreferrer">
-                    {plan.btnLabel}
-                  </a>
+                  {"href" in plan && plan.href ? (
+                    <a href={plan.href}>{plan.btnLabel}</a>
+                  ) : (
+                    <a href={waUrl} target="_blank" rel="noopener noreferrer">
+                      {plan.btnLabel}
+                    </a>
+                  )}
                 </Button>
               </div>
             );
