@@ -26,7 +26,7 @@ const PLANS = [
       "Hasta 50 turnos por mes",
       "Notificación en tu celu de cada turno nuevo",
       "Soporte por email",
-      "✓ Sin costo de configuración",
+      "Sin costo de configuración",
     ],
     waMsg: "Hola! Me interesa el Plan Basic gratuito de Turnify. ¿Cómo arranco?",
     href: "/register",
