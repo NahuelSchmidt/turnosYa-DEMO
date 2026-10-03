@@ -953,7 +953,17 @@ function MonthView({ agenda, onNewAppointment, onDayClick }: {
 
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
 /** Primeros pasos para un negocio recién creado (todavía sin servicios cargados). */
-function GettingStarted({ tenantId }: { tenantId: string }) {
+// WhatsApp de Turnify para ayudar a configurar la cuenta
+const TURNIFY_WHATSAPP = '542216229441';
+
+function GettingStarted({ tenantId, salonName }: { tenantId: string; salonName?: string }) {
+  const { user } = useUser();
+  const helpText = [
+    `¡Hola! Me registré en Turnify con mi negocio *${salonName || ''}* y quiero que me ayuden a configurarlo.`,
+    user?.email ? `Mi cuenta: ${user.email}` : '',
+    `ID: ${tenantId}`,
+  ].filter(Boolean).join('\n');
+  const helpUrl = `https://wa.me/${TURNIFY_WHATSAPP}?text=${encodeURIComponent(helpText)}`;
   const bookingLink = typeof window !== 'undefined' ? `${window.location.origin}/book/${tenantId}` : '';
   const steps = [
     { title: 'Cargá tus servicios', text: 'Nombre, precio y cuánto dura cada uno.' },
@@ -977,6 +987,15 @@ function GettingStarted({ tenantId }: { tenantId: string }) {
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild size="sm"><a href="/dashboard?tab=settings">Ir a Ajustes</a></Button>
         <code className="text-xs bg-background border rounded px-2 py-1 truncate max-w-full">{bookingLink}</code>
+      </div>
+      <div className="rounded-xl border bg-background p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex-1 text-sm">
+          <p className="font-bold">¿Preferís que te lo armemos nosotros?</p>
+          <p className="text-muted-foreground">Pasanos tus servicios y horarios por WhatsApp y te dejamos todo listo, gratis.</p>
+        </div>
+        <Button asChild size="sm" variant="outline" className="shrink-0">
+          <a href={helpUrl} target="_blank" rel="noopener noreferrer"><MessageCircle className="w-4 h-4 mr-1.5" /> Quiero que me ayuden</a>
+        </Button>
       </div>
     </div>
   );
@@ -1182,7 +1201,7 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
         </div>
       )}
 
-      {(services || []).length === 0 && <GettingStarted tenantId={tenantId} />}
+      {(services || []).length === 0 && <GettingStarted tenantId={tenantId} salonName={salon?.name} />}
 
       <PushNotificationsPrompt tenantId={tenantId} />
 
