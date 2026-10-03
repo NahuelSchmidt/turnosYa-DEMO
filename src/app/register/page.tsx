@@ -42,6 +42,8 @@ export default function RegisterPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "No se pudo crear la cuenta");
+      // Meta Pixel: cuenta el registro para medir los anuncios
+      try { (window as any).fbq?.("track", "CompleteRegistration", { content_name: "Prueba Pro 14 días" }); } catch {}
       await signInWithEmailAndPassword(auth, form.email.trim().toLowerCase(), form.password);
       router.push("/dashboard");
     } catch (err: any) {
