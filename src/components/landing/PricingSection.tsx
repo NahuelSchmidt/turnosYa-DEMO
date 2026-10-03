@@ -62,7 +62,8 @@ const PLANS = [
       "+ Pago único de configuración",
     ],
     waMsg: "Hola! Me interesa el Plan Pro de Turnify. ¿Cómo arranco?",
-    btnLabel: "Empezar con Pro",
+    href: "/register",
+    btnLabel: "Probar gratis 14 días",
   },
   {
     name: "Premium",
@@ -248,6 +249,16 @@ export function PricingSection() {
                     </a>
                   )}
                 </Button>
+                {"href" in plan && plan.href && (
+                  <a
+                    href={waUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn("mt-3 text-center text-xs font-semibold underline-offset-2 hover:underline", isPro ? "text-background/70" : "text-muted-foreground")}
+                  >
+                    ¿Preferís que te lo armemos? Escribinos
+                  </a>
+                )}
               </div>
             );
           })}

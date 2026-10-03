@@ -28,6 +28,8 @@ import { es } from "date-fns/locale";
 import { parseFirestoreDate } from "@/lib/utils";
 import { Trophy, Clock, Star, TrendingUp, Phone, MessageCircle } from "lucide-react";
 import { AccountDeactivated } from "@/components/shared/AccountDeactivated";
+import { SubscriptionPaywall, TrialBanner } from "@/components/dashboard/SubscriptionPaywall";
+import { isSubscriptionBlocked } from "@/lib/subscription-status";
 
 const chartConfig = {
   Ingresos: { label: "Ingresos ($)", color: "hsl(var(--primary))" },
@@ -481,6 +483,9 @@ export default function DashboardPage() {
         ) : currentSalon?.isActive === false ? (
           <AccountDeactivated salonName={currentSalon?.name} onLogout={handleLogout} />
 
+        ) : isSubscriptionBlocked(currentSalon) ? (
+          <SubscriptionPaywall salon={currentSalon} onLogout={handleLogout} />
+
         ) : (
           /* Panel del negocio */
           <div className="space-y-6">
@@ -497,6 +502,8 @@ export default function DashboardPage() {
                 <LogOut className="mr-2 h-4 w-4" /> Cerrar Sesión
               </Button>
             </div>
+
+            <TrialBanner salon={currentSalon} />
 
             <Tabs value={dashboardTab} onValueChange={setDashboardTab}>
               <TabsList className="mb-4 w-full">

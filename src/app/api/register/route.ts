@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import { adminDb, isAdminConfigured } from '@/lib/firebase-admin';
 import { BusinessError, createBusinessAccount, isValidEmail } from '@/lib/business';
 import { notifyAdmins } from '@/lib/push';
+import { SELF_SIGNUP_TRIAL_DAYS } from '@/lib/subscription-status';
 
 const MAX_SIGNUPS_PER_HOUR = 3;
 
@@ -20,8 +21,8 @@ async function allowSignup(ip: string): Promise<boolean> {
 }
 
 /**
- * Registro público gratuito: crea la cuenta del dueño y su negocio, siempre en plan Basic.
- * Para Pro o Premium lo cambia el administrador.
+ * Registro público: crea la cuenta del dueño y su negocio en plan Pro con prueba gratis.
+ * Al terminar la prueba tiene que pagar o pasar al plan gratis; si no, se bloquea el panel.
  */
 export async function POST(req: NextRequest) {
   if (!isAdminConfigured()) return NextResponse.json({ error: 'El registro no está disponible' }, { status: 500 });
@@ -47,15 +48,15 @@ export async function POST(req: NextRequest) {
   try {
     const result = await createBusinessAccount({
       name, email, password, whatsappNumber,
-      plan: 'basic',
-      trialDays: 0,
+      plan: 'pro',
+      trialDays: SELF_SIGNUP_TRIAL_DAYS,
       createdBy: 'self-signup',
       allowExistingUser: false,
     });
 
     await notifyAdmins({
       title: 'Nueva suscripción',
-      body: `${name} · Basic (se registró solo) · ${email}${whatsappNumber ? ` · ${whatsappNumber}` : ''}`,
+      body: `${name} · Pro (prueba ${SELF_SIGNUP_TRIAL_DAYS} días, se registró solo) · ${email}${whatsappNumber ? ` · ${whatsappNumber}` : ''}`,
     });
 
     return NextResponse.json({ ok: true, salonId: result.salonId });

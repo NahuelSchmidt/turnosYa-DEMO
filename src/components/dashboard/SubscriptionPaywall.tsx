@@ -1,92 +1,143 @@
-
 "use client";
 
 import { useState } from "react";
+import { useUser } from "@/firebase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, CreditCard, ShieldCheck, Zap, Loader2 } from "lucide-react";
-import { useFirestore } from "@/firebase";
-import { doc, serverTimestamp } from "firebase/firestore";
-import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { CheckCircle2, CreditCard, Clock, Loader2, LogOut, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getSubscriptionState } from "@/lib/subscription-status";
 
-interface SubscriptionPaywallProps {
-  salonId: string;
-  salonName: string;
+// WhatsApp de Turnify para coordinar el pago
+const TURNIFY_WHATSAPP = "542216229441";
+// Link de la suscripción de Mercado Pago (Planes de suscripción). Si no está, solo se ofrece WhatsApp.
+const MP_SUBSCRIPTION_URL = process.env.NEXT_PUBLIC_MP_SUBSCRIPTION_URL;
+const PRO_PRICE = "$19.900";
+
+const PRO_FEATURES = [
+  "Turnos ilimitados",
+  "Confirmación y recordatorios automáticos por WhatsApp",
+  "Seña al reservar",
+  "Notificaciones en tu celu",
+  "Métricas, combos y página de perfil",
+];
+
+function payWhatsAppUrl(salon: any) {
+  const text = `¡Hola! Quiero pagar el plan Pro de Turnify para ${salon?.name || "mi negocio"} (ID: ${salon?.id}).`;
+  return `https://wa.me/${TURNIFY_WHATSAPP}?text=${encodeURIComponent(text)}`;
 }
 
-export function SubscriptionPaywall({ salonId, salonName }: SubscriptionPaywallProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const db = useFirestore();
-  const { toast } = useToast();
+function PayButtons({ salon, size = "lg" }: { salon: any; size?: "lg" | "sm" }) {
+  return (
+    <div className="flex flex-col sm:flex-row gap-2">
+      {MP_SUBSCRIPTION_URL && (
+        <Button asChild size={size} className="font-bold">
+          <a href={MP_SUBSCRIPTION_URL} target="_blank" rel="noopener noreferrer">
+            <CreditCard className="mr-2 h-4 w-4" /> Pagar con Mercado Pago
+          </a>
+        </Button>
+      )}
+      <Button asChild size={size} variant={MP_SUBSCRIPTION_URL ? "outline" : "default"} className="font-bold">
+        <a href={payWhatsAppUrl(salon)} target="_blank" rel="noopener noreferrer">
+          <MessageCircle className="mr-2 h-4 w-4" /> {MP_SUBSCRIPTION_URL ? "Pagar por transferencia" : "Quiero pagar el plan Pro"}
+        </a>
+      </Button>
+    </div>
+  );
+}
 
-  const handleSubscribe = () => {
-    setIsLoading(true);
-    // Simulación de redirección a Mercado Pago
-    setTimeout(() => {
-      const salonRef = doc(db, "salons", salonId);
-      updateDocumentNonBlocking(salonRef, {
-        subscriptionStatus: 'active',
-        subscriptionExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        updatedAt: serverTimestamp()
+/** Aviso arriba del panel mientras dura la prueba gratis (o si venció un pago hace poco). */
+export function TrialBanner({ salon }: { salon: any }) {
+  const sub = getSubscriptionState(salon);
+  if (sub.state !== "trial" && sub.state !== "grace") return null;
+  const urgent = sub.state === "grace" || (sub.daysLeft ?? 99) <= 3;
+  const text = sub.state === "grace"
+    ? "Venció tu plan Pro. Pagá en estos días para no perder el acceso."
+    : sub.daysLeft === 1
+    ? "Mañana termina tu prueba gratis del plan Pro."
+    : `Te quedan ${sub.daysLeft} días de prueba gratis del plan Pro.`;
+
+  return (
+    <div className={`rounded-2xl border p-4 flex flex-col md:flex-row md:items-center gap-3 ${urgent ? "border-amber-300 bg-amber-50 dark:bg-amber-950/20" : "bg-primary/5"}`}>
+      <Clock className="w-5 h-5 text-primary shrink-0 hidden md:block" />
+      <div className="flex-1 text-sm">
+        <p className="font-bold">{text}</p>
+        <p className="text-muted-foreground">Para seguir con todo después, el plan Pro sale {PRO_PRICE} por mes, sin permanencia.</p>
+      </div>
+      <PayButtons salon={salon} size="sm" />
+    </div>
+  );
+}
+
+/** Terminó la prueba o venció el pago: hay que pagar o pasar al plan gratis para seguir usando el panel. */
+export function SubscriptionPaywall({ salon, onLogout }: { salon: any; onLogout?: () => void }) {
+  const { user } = useUser();
+  const { toast } = useToast();
+  const [choosingBasic, setChoosingBasic] = useState(false);
+  const sub = getSubscriptionState(salon);
+
+  const chooseBasic = async () => {
+    setChoosingBasic(true);
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch("/api/subscription/choose-basic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tenantId: salon.id }),
       });
-      
-      toast({
-        title: "¡Suscripción Activada!",
-        description: "Bienvenido a Turnify Pro. Tu acceso ha sido habilitado.",
-      });
-      setIsLoading(false);
-    }, 2000);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "No se pudo cambiar el plan");
+      toast({ title: "Listo, seguís con el plan gratis", description: "Cuando quieras volver al Pro, escribinos." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "No se pudo cambiar el plan", description: e.message });
+      setChoosingBasic(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md p-4">
-      <Card className="max-w-xl w-full shadow-2xl border-primary/20 animate-in zoom-in-95 duration-300">
+    <div className="flex items-center justify-center p-4 py-12">
+      <Card className="max-w-lg w-full shadow-2xl">
         <CardHeader className="text-center space-y-2">
-          <div className="mx-auto bg-primary/10 rounded-full p-4 w-fit mb-4">
-            <ShieldCheck className="w-12 h-12 text-primary" />
-          </div>
-          <CardTitle className="text-4xl font-black font-headline tracking-tighter uppercase italic">
-            Suscripción Pendiente
+          <CardTitle className="text-3xl font-black font-headline tracking-tight">
+            {sub.isTrial ? "Terminó tu prueba gratis" : "Venció tu plan Pro"}
           </CardTitle>
-          <CardDescription className="text-lg">
-            Para gestionar <strong>{salonName}</strong>, necesitas activar o renovar tu plan mensual.
+          <CardDescription className="text-base">
+            Para seguir usando Turnify en <strong>{salon?.name}</strong>, activá el plan Pro o pasate al plan gratis.
+            Tus servicios, horarios y turnos quedan guardados.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-8 p-8">
-          <div className="bg-muted/50 rounded-2xl p-6 border space-y-4">
-            <div className="flex justify-between items-center border-b pb-4">
-              <span className="font-bold">Plan Profesional Mensual</span>
-              <span className="text-2xl font-black text-primary">$4.999 / mes</span>
+        <CardContent className="space-y-6">
+          <div className="rounded-2xl border bg-muted/40 p-5 space-y-3">
+            <div className="flex justify-between items-baseline">
+              <span className="font-bold">Plan Pro</span>
+              <span className="text-2xl font-black">{PRO_PRICE}<span className="text-sm font-medium text-muted-foreground"> /mes</span></span>
             </div>
-            <ul className="space-y-3">
-              {[
-                "Gestión ilimitada de turnos",
-                "Link de reserva personalizado",
-                "Reportes de ingresos y métricas",
-                "Soporte prioritario 24/7"
-              ].map((feature, i) => (
-                <li key={i} className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-green-500" />
-                  {feature}
+            <ul className="space-y-2">
+              {PRO_FEATURES.map(f => (
+                <li key={f} className="flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" /> {f}
                 </li>
               ))}
             </ul>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <Button 
-              onClick={handleSubscribe} 
-              disabled={isLoading}
-              className="h-20 rounded-2xl text-2xl font-black uppercase italic shadow-2xl transition-transform hover:scale-105"
-            >
-              {isLoading ? <Loader2 className="animate-spin mr-2" /> : <CreditCard className="mr-2" />}
-              Pagar con Mercado Pago
-            </Button>
-            <p className="text-[10px] text-center text-muted-foreground uppercase font-bold tracking-widest">
-              Cancela tu suscripción cuando quieras desde el panel de Mercado Pago.
+            <PayButtons salon={salon} />
+            <p className="text-xs text-muted-foreground">
+              Apenas se acredite el pago te reactivamos la cuenta. Si pagás por transferencia, mandanos el comprobante por WhatsApp.
             </p>
           </div>
+
+          <div className="text-center space-y-2">
+            <Button variant="ghost" onClick={chooseBasic} disabled={choosingBasic}>
+              {choosingBasic && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Seguir gratis con el plan Basic
+            </Button>
+            <p className="text-xs text-muted-foreground">1 profesional, hasta 50 turnos por mes y sin WhatsApp automático.</p>
+          </div>
+
+          {onLogout && (
+            <Button variant="outline" onClick={onLogout} className="w-full">
+              <LogOut className="mr-2 h-4 w-4" /> Cerrar sesión
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -13,12 +13,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Check, Loader2 } from "lucide-react";
+import { SELF_SIGNUP_TRIAL_DAYS } from "@/lib/subscription-status";
 
 const PERKS = [
   "Tus clientes reservan solos desde tu link",
-  "Agenda en el celu o la compu",
+  "Confirmación y recordatorios automáticos por WhatsApp",
+  "Seña al reservar para que no te falten clientes",
   "Te avisamos al celu cada vez que reservan",
-  "Gratis para siempre, sin tarjeta",
+  "Sin tarjeta: al terminar la prueba elegís si seguís",
 ];
 
 export default function RegisterPage() {
@@ -55,10 +57,10 @@ export default function RegisterPage() {
         <div className="grid md:grid-cols-2 gap-10 max-w-5xl mx-auto items-center">
           <div className="space-y-5">
             <h1 className="text-4xl md:text-5xl font-black font-headline tracking-tighter text-balance">
-              Empezá gratis con Turnify
+              Probá Turnify gratis {SELF_SIGNUP_TRIAL_DAYS} días
             </h1>
             <p className="text-muted-foreground text-lg">
-              Creá tu cuenta en un minuto y compartí tu link de reservas hoy mismo.
+              Creá tu cuenta en un minuto, con todo el plan Pro, y compartí tu link de reservas hoy mismo.
             </p>
             <ul className="space-y-3">
               {PERKS.map(p => (
@@ -68,15 +70,15 @@ export default function RegisterPage() {
               ))}
             </ul>
             <p className="text-sm text-muted-foreground">
-              ¿Querés confirmaciones y recordatorios automáticos por WhatsApp y seña al reservar? Eso viene en el{" "}
-              <Link href="/#planes" className="underline font-semibold">plan Pro</Link>.
+              Después de la prueba, el plan Pro sale $19.900 por mes, sin permanencia. Si no querés pagar, podés seguir con el{" "}
+              <Link href="/#planes" className="underline font-semibold">plan gratis</Link>.
             </p>
           </div>
 
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle>Creá tu cuenta</CardTitle>
-              <CardDescription>Plan gratis: 1 profesional y hasta 50 turnos por mes.</CardDescription>
+              <CardDescription>Plan Pro completo, gratis por {SELF_SIGNUP_TRIAL_DAYS} días. Sin tarjeta.</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={submit} className="space-y-4">
@@ -108,7 +110,7 @@ export default function RegisterPage() {
                   </Alert>
                 )}
                 <Button type="submit" disabled={loading} className="w-full h-12 font-bold">
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Crear mi cuenta gratis
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Empezar mi prueba gratis
                 </Button>
                 <p className="text-center text-xs text-muted-foreground">
                   ¿Ya tenés cuenta? <Link href="/dashboard" className="underline">Iniciá sesión</Link>

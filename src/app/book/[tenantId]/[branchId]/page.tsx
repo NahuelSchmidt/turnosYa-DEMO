@@ -9,6 +9,7 @@ import { useBranches } from '@/hooks/use-branches';
 import { ArrowLeft, Loader2, MapPin } from "lucide-react";
 import Link from "next/link";
 import { AccountDeactivated } from "@/components/shared/AccountDeactivated";
+import { isSubscriptionBlocked } from "@/lib/subscription-status";
 
 export default function BranchBookingPage({ params }: { params: Promise<{ tenantId: string; branchId: string }> }) {
   const { tenantId, branchId } = use(params);
@@ -18,11 +19,11 @@ export default function BranchBookingPage({ params }: { params: Promise<{ tenant
   const branch = branches.find(b => b.id === branchId);
   const loading = salonLoading || branchesLoading;
 
-  if (!loading && salon?.isActive === false) {
+  if (!loading && salon && (salon.isActive === false || isSubscriptionBlocked(salon))) {
     return (
       <div className="flex flex-col min-h-screen">
         <Header />
-        <main className="flex-grow"><AccountDeactivated salonName={salon?.name} /></main>
+        <main className="flex-grow"><AccountDeactivated salonName={salon?.name} forCustomers /></main>
         <Footer />
       </div>
     );
