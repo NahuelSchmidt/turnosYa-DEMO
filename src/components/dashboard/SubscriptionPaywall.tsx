@@ -81,7 +81,7 @@ function TransferBox({ plan, salon }: { plan: PaidPlan; salon: any }) {
           </Button>
         </div>
       )}
-      <Button asChild size="sm" className="w-full font-bold">
+      <Button asChild size="sm" className="h-auto min-h-10 whitespace-normal text-center w-full font-bold">
         <a href={transferWhatsAppUrl(plan, salon, user?.email)} target="_blank" rel="noopener noreferrer">
           <MessageCircle className="mr-2 h-4 w-4" /> {TRANSFER_ALIAS ? "Mandar comprobante por WhatsApp" : "Pedir datos por WhatsApp"}
         </a>
@@ -107,13 +107,13 @@ function PlanOptions({ salon }: { salon: any }) {
     } catch {}
   };
   return (
-    <div className="grid sm:grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {PAID_PLANS.map(plan => {
         const highlighted = plan.id === "pro";
         const prices = SUBSCRIPTION_PRICES[plan.id];
         const showTransfer = transferOpen === plan.id || !plan.mpUrl;
         return (
-          <div key={plan.id} className={`rounded-2xl border p-4 flex flex-col gap-3 ${highlighted ? "border-primary bg-primary/5" : "bg-muted/40"}`}>
+          <div key={plan.id} className={`min-w-0 rounded-2xl border p-4 flex flex-col gap-3 ${highlighted ? "border-primary bg-primary/5" : "bg-muted/40"}`}>
             <div className="flex justify-between items-baseline gap-2">
               <span className="font-bold">Plan {plan.name}</span>
               <span className="text-xl font-black whitespace-nowrap">{money(plan.mpUrl ? prices.mercadopago : prices.transfer)}<span className="text-xs font-medium text-muted-foreground"> /mes</span></span>
@@ -127,14 +127,14 @@ function PlanOptions({ salon }: { salon: any }) {
             </ul>
             <div className="flex flex-col gap-2">
               {plan.mpUrl && (
-                <Button asChild className="font-bold" variant={highlighted ? "default" : "secondary"}>
+                <Button asChild className="h-auto min-h-10 whitespace-normal text-center font-bold" variant={highlighted ? "default" : "secondary"}>
                   <a href={plan.mpUrl} target="_blank" rel="noopener noreferrer" onClick={() => markCheckout(plan.id)}>
                     <CreditCard className="mr-2 h-4 w-4" /> Mercado Pago · {money(prices.mercadopago)}/mes
                   </a>
                 </Button>
               )}
               {plan.mpUrl && !showTransfer && (
-                <Button type="button" variant="outline" className="font-bold" onClick={() => setTransferOpen(plan.id)}>
+                <Button type="button" variant="outline" className="h-auto min-h-10 whitespace-normal text-center font-bold" onClick={() => setTransferOpen(plan.id)}>
                   <Landmark className="mr-2 h-4 w-4" /> Transferencia · {money(prices.transfer)}/mes
                 </Button>
               )}
@@ -224,9 +224,9 @@ export function SubscriptionPaywall({ salon, onLogout }: { salon: any; onLogout?
   };
 
   return (
-    <div className="flex items-center justify-center p-4 py-12">
+    <div className="flex items-center justify-center py-6 sm:p-4 sm:py-12">
       <Card className="max-w-2xl w-full shadow-2xl">
-        <CardHeader className="text-center space-y-2">
+        <CardHeader className="text-center space-y-2 px-4 sm:px-6">
           <CardTitle className="text-3xl font-black font-headline tracking-tight">
             {sub.isTrial ? "Terminó tu prueba gratis" : `Venció tu plan ${salon?.plan === "premium" ? "Premium" : "Pro"}`}
           </CardTitle>
@@ -235,7 +235,7 @@ export function SubscriptionPaywall({ salon, onLogout }: { salon: any; onLogout?
             Tus servicios, horarios y turnos quedan guardados.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 px-4 sm:px-6">
           <PlanOptions salon={salon} />
           <p className="text-xs text-muted-foreground text-center">
             Apenas se acredite el pago te reactivamos la cuenta.
