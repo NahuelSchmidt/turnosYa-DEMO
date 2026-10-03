@@ -24,12 +24,18 @@ const PRO_FEATURES = [
   "Métricas, combos y página de perfil",
 ];
 
-function payWhatsAppUrl(salon: any) {
-  const text = `¡Hola! Quiero pagar el plan Pro de Turnify para ${salon?.name || "mi negocio"} (ID: ${salon?.id}).`;
+function payWhatsAppUrl(salon: any, email?: string | null) {
+  const text = [
+    `¡Hola! Quiero pagar el plan Pro de Turnify (${PRO_PRICE}/mes) para mi negocio *${salon?.name || ""}*.`,
+    email ? `Mi cuenta: ${email}` : "",
+    `ID: ${salon?.id}`,
+    "¿Cómo te lo pago?",
+  ].filter(Boolean).join("\n");
   return `https://wa.me/${TURNIFY_WHATSAPP}?text=${encodeURIComponent(text)}`;
 }
 
 function PayButtons({ salon, size = "lg" }: { salon: any; size?: "lg" | "sm" }) {
+  const { user } = useUser();
   return (
     <div className="flex flex-col sm:flex-row gap-2">
       {MP_SUBSCRIPTION_URL && (
@@ -40,7 +46,7 @@ function PayButtons({ salon, size = "lg" }: { salon: any; size?: "lg" | "sm" }) 
         </Button>
       )}
       <Button asChild size={size} variant={MP_SUBSCRIPTION_URL ? "outline" : "default"} className="font-bold">
-        <a href={payWhatsAppUrl(salon)} target="_blank" rel="noopener noreferrer">
+        <a href={payWhatsAppUrl(salon, user?.email)} target="_blank" rel="noopener noreferrer">
           <MessageCircle className="mr-2 h-4 w-4" /> {MP_SUBSCRIPTION_URL ? "Pagar por transferencia" : "Quiero pagar el plan Pro"}
         </a>
       </Button>
@@ -54,6 +60,7 @@ function dayLabel(date: Date) {
 
 /** Aviso chico arriba del panel: días de prueba que quedan, o en rojo cuando se acerca el vencimiento. */
 export function TrialBanner({ salon }: { salon: any }) {
+  const { user } = useUser();
   const sub = getSubscriptionState(salon);
   const days = sub.daysLeft ?? 99;
   const showTrial = sub.state === "trial";
@@ -67,7 +74,7 @@ export function TrialBanner({ salon }: { salon: any }) {
     : sub.isTrial
     ? urgent ? `Tu prueba gratis termina ${when}.` : `Prueba gratis del plan Pro: te quedan ${days} días.`
     : `Tu plan Pro vence ${when} (${dayLabel(sub.expiresAt!)}).`;
-  const payUrl = MP_SUBSCRIPTION_URL || payWhatsAppUrl(salon);
+  const payUrl = MP_SUBSCRIPTION_URL || payWhatsAppUrl(salon, user?.email);
 
   return (
     <div className={`rounded-xl border px-3 py-2 flex items-center gap-2 text-xs sm:text-sm ${urgent ? "border-red-300 bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300" : "bg-primary/5 text-muted-foreground"}`}>
