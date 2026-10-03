@@ -4,9 +4,11 @@ import { useState } from "react";
 import { useUser } from "@/firebase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, CreditCard, Clock, Loader2, LogOut, MessageCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CreditCard, Clock, Loader2, LogOut, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { getSubscriptionState } from "@/lib/subscription-status";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { EXPIRY_WARNING_DAYS, getSubscriptionState } from "@/lib/subscription-status";
 
 // WhatsApp de Turnify para coordinar el pago
 const TURNIFY_WHATSAPP = "542216229441";
@@ -46,25 +48,34 @@ function PayButtons({ salon, size = "lg" }: { salon: any; size?: "lg" | "sm" }) 
   );
 }
 
-/** Aviso arriba del panel mientras dura la prueba gratis (o si venció un pago hace poco). */
+function dayLabel(date: Date) {
+  return format(date, "EEEE d/MM", { locale: es });
+}
+
+/** Aviso chico arriba del panel: días de prueba que quedan, o en rojo cuando se acerca el vencimiento. */
 export function TrialBanner({ salon }: { salon: any }) {
   const sub = getSubscriptionState(salon);
-  if (sub.state !== "trial" && sub.state !== "grace") return null;
-  const urgent = sub.state === "grace" || (sub.daysLeft ?? 99) <= 3;
+  const days = sub.daysLeft ?? 99;
+  const showTrial = sub.state === "trial";
+  const expiringSoon = (sub.state === "trial" || sub.state === "active") && days <= EXPIRY_WARNING_DAYS;
+  if (!showTrial && !expiringSoon && sub.state !== "grace") return null;
+
+  const urgent = expiringSoon || sub.state === "grace";
+  const when = days <= 1 ? "mañana" : `en ${days} días`;
   const text = sub.state === "grace"
-    ? "Venció tu plan Pro. Pagá en estos días para no perder el acceso."
-    : sub.daysLeft === 1
-    ? "Mañana termina tu prueba gratis del plan Pro."
-    : `Te quedan ${sub.daysLeft} días de prueba gratis del plan Pro.`;
+    ? `Venció tu plan Pro. Podés seguir usándolo hasta el ${dayLabel(sub.usableUntil!)}.`
+    : sub.isTrial
+    ? urgent ? `Tu prueba gratis termina ${when}.` : `Prueba gratis del plan Pro: te quedan ${days} días.`
+    : `Tu plan Pro vence ${when} (${dayLabel(sub.expiresAt!)}).`;
+  const payUrl = MP_SUBSCRIPTION_URL || payWhatsAppUrl(salon);
 
   return (
-    <div className={`rounded-2xl border p-4 flex flex-col md:flex-row md:items-center gap-3 ${urgent ? "border-amber-300 bg-amber-50 dark:bg-amber-950/20" : "bg-primary/5"}`}>
-      <Clock className="w-5 h-5 text-primary shrink-0 hidden md:block" />
-      <div className="flex-1 text-sm">
-        <p className="font-bold">{text}</p>
-        <p className="text-muted-foreground">Para seguir con todo después, el plan Pro sale {PRO_PRICE} por mes, sin permanencia.</p>
-      </div>
-      <PayButtons salon={salon} size="sm" />
+    <div className={`rounded-xl border px-3 py-2 flex items-center gap-2 text-xs sm:text-sm ${urgent ? "border-red-300 bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300" : "bg-primary/5 text-muted-foreground"}`}>
+      {urgent ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <Clock className="w-4 h-4 shrink-0 text-primary" />}
+      <p className="flex-1 font-semibold">{text}</p>
+      <a href={payUrl} target="_blank" rel="noopener noreferrer" className={`shrink-0 font-bold underline underline-offset-2 ${urgent ? "" : "text-primary"}`}>
+        {sub.isTrial ? `Activar Pro (${PRO_PRICE}/mes)` : "Pagar ahora"}
+      </a>
     </div>
   );
 }

@@ -3,8 +3,10 @@
 
 /** Días de prueba gratis del plan Pro para los que se registran solos. */
 export const SELF_SIGNUP_TRIAL_DAYS = 14;
-/** Días de tolerancia cuando vence un mes ya pagado (se cobra a mano, puede demorar). */
-export const PAID_GRACE_DAYS = 3;
+/** Días de tolerancia cuando vence un mes ya pagado: si vence el 10, lo puede usar hasta el 12. */
+export const PAID_GRACE_DAYS = 2;
+/** Cuántos días antes del vencimiento se le avisa al dueño que tiene que pagar. */
+export const EXPIRY_WARNING_DAYS = 4;
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -30,14 +32,16 @@ export function getSubscriptionState(salon: any, now = Date.now()) {
   const expiresMs = toMillis(salon?.subscriptionExpiresAt);
   const isTrial = salon?.subscriptionStatus === 'trial';
   if (!expiresMs || (salon?.plan || 'basic') === 'basic') {
-    return { state: 'none' as SubscriptionState, isTrial: false, daysLeft: null as number | null, expiresAt: null as Date | null };
+    return { state: 'none' as SubscriptionState, isTrial: false, daysLeft: null as number | null, expiresAt: null as Date | null, usableUntil: null as Date | null };
   }
   const daysLeft = Math.ceil((expiresMs - now) / DAY);
   let state: SubscriptionState;
   if (expiresMs > now) state = isTrial ? 'trial' : 'active';
   else if (!isTrial && now - expiresMs < PAID_GRACE_DAYS * DAY) state = 'grace';
   else state = 'blocked';
-  return { state, isTrial, daysLeft, expiresAt: new Date(expiresMs) };
+  // Último día que lo puede usar si vence un mes pago (vencimiento + tolerancia)
+  const usableUntil = new Date(expiresMs + (isTrial ? 0 : PAID_GRACE_DAYS * DAY));
+  return { state, isTrial, daysLeft, expiresAt: new Date(expiresMs), usableUntil };
 }
 
 /** ¿El negocio no puede usar Turnify hasta que pague o pase al plan gratis? */

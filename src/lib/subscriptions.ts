@@ -6,8 +6,9 @@ import { addMonths } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
 import { adminDb } from '@/lib/firebase-admin';
-import { notifyAdmins } from '@/lib/push';
+import { notifyAdmins, notifySalon } from '@/lib/push';
 import { toMillis } from '@/lib/deposit-server';
+import { EXPIRY_WARNING_DAYS, PAID_GRACE_DAYS } from '@/lib/subscription-status';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 const DAY = 24 * 60 * 60 * 1000;
@@ -92,18 +93,31 @@ export async function checkSubscriptionAlerts() {
     let key: string | null = null;
     let title = '';
     let body = '';
+    // Aviso al dueño del negocio (push a su celu)
+    let ownerTitle = '';
+    let ownerBody = '';
     if (trial && left > 0 && left <= DAY) {
       key = 'trial-1d'; title = 'Mañana termina una prueba gratis';
       body = `${name} · ${plan} · termina el ${fmt(expiry)}`;
+      ownerTitle = 'Mañana termina tu prueba gratis';
+      ownerBody = 'Activá el plan Pro para seguir con todo.';
     } else if (trial && left <= 0 && left > -7 * DAY) {
       key = 'trial-ended'; title = 'Terminó una prueba gratis';
       body = `${name} · ${plan} · escribile para que siga`;
-    } else if (!trial && left > 0 && left <= 3 * DAY) {
-      key = 'paid-3d'; title = 'Suscripción por vencer';
+      ownerTitle = 'Terminó tu prueba gratis';
+      ownerBody = 'Entrá a Turnify para activar el plan Pro o seguir gratis con Basic.';
+    } else if (!trial && left > 0 && left <= EXPIRY_WARNING_DAYS * DAY) {
+      key = 'paid-4d'; title = 'Suscripción por vencer';
       body = `${name} · ${plan} · vence el ${fmt(expiry)}`;
+      ownerTitle = 'Tu plan vence pronto';
+      ownerBody = `Tu plan ${plan} vence el ${fmt(expiry)}. Pagalo para no cortar las reservas.`;
     } else if (!trial && left <= 0 && left > -7 * DAY) {
       key = 'paid-expired'; title = 'Venció una suscripción';
       body = `${name} · ${plan} · venció el ${fmt(expiry)}`;
+      if (left > -PAID_GRACE_DAYS * DAY) {
+        ownerTitle = 'Venció tu plan';
+        ownerBody = `Podés seguir usándolo hasta el ${fmt(expiry + PAID_GRACE_DAYS * DAY)}. Pagalo para no cortar las reservas.`;
+      }
     }
     if (!key) continue;
 
@@ -116,6 +130,7 @@ export async function checkSubscriptionAlerts() {
     });
     if (first) {
       await notifyAdmins({ title, body });
+      if (ownerTitle) await notifySalon(doc.id, { title: ownerTitle, body: ownerBody, path: '/dashboard' });
       sent++;
     }
   }
