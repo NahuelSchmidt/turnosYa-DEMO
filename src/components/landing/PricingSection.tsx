@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SUBSCRIPTION_PRICES, money } from "@/lib/pricing";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
@@ -263,6 +264,9 @@ export function PricingSection() {
             );
           })}
         </div>
+        <p className="mt-8 text-center text-sm text-muted-foreground">
+          Pagando por transferencia, mes a mes: Pro {money(SUBSCRIPTION_PRICES.pro.transfer)} · Premium {money(SUBSCRIPTION_PRICES.premium.transfer)}.
+        </p>
       </div>
     </section>
   );

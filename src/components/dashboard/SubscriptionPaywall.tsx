@@ -5,22 +5,25 @@ import { useUser } from "@/firebase";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertTriangle, CheckCircle2, CreditCard, Clock, Loader2, LogOut, MessageCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Copy, CreditCard, Clock, Landmark, Loader2, LogOut, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { EXPIRY_WARNING_DAYS, getSubscriptionState } from "@/lib/subscription-status";
+import { SUBSCRIPTION_PRICES, money, type PaidPlanId } from "@/lib/pricing";
 
 // WhatsApp de Turnify para coordinar el pago
 const TURNIFY_WHATSAPP = "542216229441";
 
+// Alias de Turnify para cobrar por transferencia. Si no está, se coordina por WhatsApp.
+const TRANSFER_ALIAS = process.env.NEXT_PUBLIC_TURNIFY_ALIAS;
+
 // Links de las suscripciones de Mercado Pago (Planes de suscripción), uno por plan.
-// Si un plan no tiene link, para ese plan solo se ofrece pagar por WhatsApp/transferencia.
+// Si un plan no tiene link, para ese plan solo se ofrece la transferencia.
 const PAID_PLANS = [
   {
-    id: "pro",
+    id: "pro" as PaidPlanId,
     name: "Pro",
-    price: "$19.900",
     mpUrl: process.env.NEXT_PUBLIC_MP_SUBSCRIPTION_URL,
     features: [
       "Hasta 3 profesionales",
@@ -31,9 +34,8 @@ const PAID_PLANS = [
     ],
   },
   {
-    id: "premium",
+    id: "premium" as PaidPlanId,
     name: "Premium",
-    price: "$34.900",
     mpUrl: process.env.NEXT_PUBLIC_MP_SUBSCRIPTION_URL_PREMIUM,
     features: [
       "Profesionales ilimitados",
@@ -47,28 +49,61 @@ const PAID_PLANS = [
 
 type PaidPlan = (typeof PAID_PLANS)[number];
 
-function payWhatsAppUrl(plan: PaidPlan, salon: any, email?: string | null) {
+function transferWhatsAppUrl(plan: PaidPlan, salon: any, email?: string | null) {
+  const price = money(SUBSCRIPTION_PRICES[plan.id].transfer);
   const text = [
-    `¡Hola! Quiero pagar el plan ${plan.name} de Turnify (${plan.price}/mes) para mi negocio *${salon?.name || ""}*.`,
+    TRANSFER_ALIAS
+      ? `¡Hola! Te transferí ${price} del plan ${plan.name} de Turnify para mi negocio *${salon?.name || ""}*. Te mando el comprobante.`
+      : `¡Hola! Quiero pagar el plan ${plan.name} de Turnify por transferencia (${price}/mes) para mi negocio *${salon?.name || ""}*. ¿Me pasás los datos?`,
     email ? `Mi cuenta: ${email}` : "",
     `ID: ${salon?.id}`,
-    "¿Cómo te lo pago?",
   ].filter(Boolean).join("\n");
   return `https://wa.me/${TURNIFY_WHATSAPP}?text=${encodeURIComponent(text)}`;
 }
 
-/** Los planes pagos con sus botones de pago (Mercado Pago y/o transferencia). */
-function PlanOptions({ salon }: { salon: any }) {
+function TransferBox({ plan, salon }: { plan: PaidPlan; salon: any }) {
   const { user } = useUser();
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(TRANSFER_ALIAS || ""); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
+  };
+  return (
+    <div className="rounded-xl border bg-background p-3 space-y-2 text-sm">
+      <div className="flex justify-between items-baseline">
+        <span className="text-muted-foreground">Transferí</span>
+        <span className="font-black text-lg">{money(SUBSCRIPTION_PRICES[plan.id].transfer)}</span>
+      </div>
+      {TRANSFER_ALIAS && (
+        <div className="flex items-center gap-2">
+          <code className="flex-1 truncate rounded border bg-muted/40 px-2 py-1.5 font-bold select-all">{TRANSFER_ALIAS}</code>
+          <Button type="button" size="sm" variant="outline" onClick={copy} aria-label="Copiar alias">
+            {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+          </Button>
+        </div>
+      )}
+      <Button asChild size="sm" className="w-full font-bold">
+        <a href={transferWhatsAppUrl(plan, salon, user?.email)} target="_blank" rel="noopener noreferrer">
+          <MessageCircle className="mr-2 h-4 w-4" /> {TRANSFER_ALIAS ? "Mandar comprobante por WhatsApp" : "Pedir datos por WhatsApp"}
+        </a>
+      </Button>
+    </div>
+  );
+}
+
+/** Los planes pagos con sus formas de pago: Mercado Pago (suscripción) o transferencia (más barata). */
+function PlanOptions({ salon }: { salon: any }) {
+  const [transferOpen, setTransferOpen] = useState<string | null>(null);
   return (
     <div className="grid sm:grid-cols-2 gap-3">
       {PAID_PLANS.map(plan => {
         const highlighted = plan.id === "pro";
+        const prices = SUBSCRIPTION_PRICES[plan.id];
+        const showTransfer = transferOpen === plan.id || !plan.mpUrl;
         return (
           <div key={plan.id} className={`rounded-2xl border p-4 flex flex-col gap-3 ${highlighted ? "border-primary bg-primary/5" : "bg-muted/40"}`}>
             <div className="flex justify-between items-baseline gap-2">
               <span className="font-bold">Plan {plan.name}</span>
-              <span className="text-xl font-black whitespace-nowrap">{plan.price}<span className="text-xs font-medium text-muted-foreground"> /mes</span></span>
+              <span className="text-xl font-black whitespace-nowrap">{money(plan.mpUrl ? prices.mercadopago : prices.transfer)}<span className="text-xs font-medium text-muted-foreground"> /mes</span></span>
             </div>
             <ul className="space-y-1.5 flex-1">
               {plan.features.map(f => (
@@ -81,15 +116,17 @@ function PlanOptions({ salon }: { salon: any }) {
               {plan.mpUrl && (
                 <Button asChild className="font-bold" variant={highlighted ? "default" : "secondary"}>
                   <a href={plan.mpUrl} target="_blank" rel="noopener noreferrer">
-                    <CreditCard className="mr-2 h-4 w-4" /> Pagar con Mercado Pago
+                    <CreditCard className="mr-2 h-4 w-4" /> Mercado Pago · {money(prices.mercadopago)}/mes
                   </a>
                 </Button>
               )}
-              <Button asChild variant={plan.mpUrl ? "outline" : highlighted ? "default" : "secondary"} className="font-bold">
-                <a href={payWhatsAppUrl(plan, salon, user?.email)} target="_blank" rel="noopener noreferrer">
-                  <MessageCircle className="mr-2 h-4 w-4" /> {plan.mpUrl ? "Pagar por transferencia" : `Quiero el plan ${plan.name}`}
-                </a>
-              </Button>
+              {plan.mpUrl && !showTransfer && (
+                <Button type="button" variant="outline" className="font-bold" onClick={() => setTransferOpen(plan.id)}>
+                  <Landmark className="mr-2 h-4 w-4" /> Transferencia · {money(prices.transfer)}/mes
+                </Button>
+              )}
+              {showTransfer && <TransferBox plan={plan} salon={salon} />}
+              {plan.mpUrl && <p className="text-[11px] text-muted-foreground text-center">Con Mercado Pago se renueva solo cada mes. Por transferencia pagás mes a mes.</p>}
             </div>
           </div>
         );
@@ -137,7 +174,7 @@ export function TrialBanner({ salon }: { salon: any }) {
           </DialogHeader>
           <PlanOptions salon={salon} />
           <p className="text-xs text-muted-foreground">
-            Apenas se acredite el pago te activamos el plan. Si pagás por transferencia, mandanos el comprobante por WhatsApp.
+            Apenas se acredite el pago te activamos el plan.
           </p>
         </DialogContent>
       </Dialog>
@@ -185,7 +222,7 @@ export function SubscriptionPaywall({ salon, onLogout }: { salon: any; onLogout?
         <CardContent className="space-y-6">
           <PlanOptions salon={salon} />
           <p className="text-xs text-muted-foreground text-center">
-            Apenas se acredite el pago te reactivamos la cuenta. Si pagás por transferencia, mandanos el comprobante por WhatsApp.
+            Apenas se acredite el pago te reactivamos la cuenta.
           </p>
 
           <div className="text-center space-y-2">

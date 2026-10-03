@@ -10,17 +10,12 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { DollarSign, Loader2 } from 'lucide-react';
+import { SUBSCRIPTION_PRICES, type PaidPlanId, type PaymentMethod } from '@/lib/pricing';
 
 // Precios de lista (lanzamiento); el anual son 10 meses
-const PRICES: Record<string, { month: number; year: number }> = {
-  basic: { month: 0, year: 0 },
-  pro: { month: 19900, year: 199000 },
-  premium: { month: 34900, year: 349000 },
-};
-
-function suggestedAmount(plan: string, months: number) {
-  const p = PRICES[plan] || PRICES.pro;
-  return months === 12 ? p.year : p.month * months;
+function suggestedAmount(plan: string, months: number, method: PaymentMethod) {
+  const p = SUBSCRIPTION_PRICES[plan as PaidPlanId] || SUBSCRIPTION_PRICES.pro;
+  return months === 12 ? p.year : p[method] * months;
 }
 
 interface Payment { id: string; amount: number; months: number; plan: string; paidAt: number; periodTo: number | null; }
@@ -33,11 +28,12 @@ export function RecordPaymentDialog({ salon, onRecorded }: { salon: any; onRecor
   const [open, setOpen] = useState(false);
   const [plan, setPlan] = useState(initialPlan);
   const [months, setMonths] = useState(1);
-  const [amount, setAmount] = useState(String(suggestedAmount(initialPlan, 1)));
+  const [method, setMethod] = useState<PaymentMethod>('transfer');
+  const [amount, setAmount] = useState(String(suggestedAmount(initialPlan, 1, 'transfer')));
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState<Payment[] | null>(null);
 
-  useEffect(() => { setAmount(String(suggestedAmount(plan, months))); }, [plan, months]);
+  useEffect(() => { setAmount(String(suggestedAmount(plan, months, method))); }, [plan, months, method]);
 
   useEffect(() => {
     if (!open) return;
@@ -100,6 +96,13 @@ export function RecordPaymentDialog({ salon, onRecorded }: { salon: any; onRecor
                 <option value={12}>12 meses (anual)</option>
               </select>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="rp-method">Cómo pagó</Label>
+            <select id="rp-method" value={method} onChange={e => setMethod(e.target.value as PaymentMethod)} className="block h-10 w-full rounded-md border bg-background px-3 text-sm">
+              <option value="transfer">Transferencia</option>
+              <option value="mercadopago">Mercado Pago</option>
+            </select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="rp-amount">Monto cobrado</Label>
