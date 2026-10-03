@@ -21,6 +21,12 @@ interface RecordPaymentInput {
   months: number;
   plan: string;
   recordedBy: string;
+  method?: 'transfer' | 'mercadopago';
+  /** Id fijo del pago (ej: el de Mercado Pago) para no registrarlo dos veces si llega repetido. */
+  paymentDocId?: string;
+  /** Contar desde hoy aunque tenga un vencimiento futuro (activación provisoria de Mercado Pago). */
+  fromNow?: boolean;
+  extra?: Record<string, any>;
 }
 
 /**
@@ -31,24 +37,31 @@ export async function recordPayment(input: RecordPaymentInput) {
   const db = adminDb();
   const salonRef = db.collection('salons').doc(input.salonId);
 
+  const paymentRef = input.paymentDocId
+    ? db.collection('subscriptionPayments').doc(input.paymentDocId)
+    : db.collection('subscriptionPayments').doc();
+
   return db.runTransaction(async tx => {
     const snap = await tx.get(salonRef);
     if (!snap.exists) throw new Error('Negocio no encontrado');
+    if (input.paymentDocId && (await tx.get(paymentRef)).exists) return { expiresAt: null, duplicate: true, firstPayment: false };
+    const previous = await tx.get(db.collection('subscriptionPayments').where('salonId', '==', input.salonId).limit(1));
     const salon = snap.data()!;
 
     const now = Date.now();
     const currentExpiry = toMillis(salon.subscriptionExpiresAt);
     const wasTrial = salon.subscriptionStatus === 'trial';
-    const from = !wasTrial && currentExpiry && currentExpiry > now ? currentExpiry : now;
+    const from = !input.fromNow && !wasTrial && currentExpiry && currentExpiry > now ? currentExpiry : now;
     const to = addMonths(new Date(from), input.months);
 
     tx.update(salonRef, {
       plan: input.plan,
       subscriptionExpiresAt: to,
       subscriptionStatus: 'active',
+      ...(input.extra || {}),
       updatedAt: FieldValue.serverTimestamp(),
     });
-    tx.set(db.collection('subscriptionPayments').doc(), {
+    tx.set(paymentRef, {
       salonId: input.salonId,
       salonName: salon.name || '',
       plan: input.plan,
@@ -58,8 +71,9 @@ export async function recordPayment(input: RecordPaymentInput) {
       periodTo: to,
       paidAt: now,
       recordedBy: input.recordedBy,
+      method: input.method || 'transfer',
     });
-    return { expiresAt: to };
+    return { expiresAt: to, duplicate: false, firstPayment: previous.empty };
   });
 }
 

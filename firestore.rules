@@ -61,7 +61,8 @@ service cloud.firestore {
         isSalonAdmin(salonId) &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'isActive', 'plan', 'subscriptionExpiresAt', 'subscriptionStatus', 'subscriptionId',
-          'trialEndsAt', 'adminMembers', 'createdBy', 'mpConnected', 'mpUserId', 'mpConnectedAt'
+          'trialEndsAt', 'adminMembers', 'createdBy', 'mpConnected', 'mpUserId', 'mpConnectedAt',
+          'mpPreapprovalId', 'mpSubscriptionStatus', 'mpPayerEmail', 'mpPendingFirstPayment', 'mpCheckout'
         ])
       );
       allow delete: if isGlobalAdmin();

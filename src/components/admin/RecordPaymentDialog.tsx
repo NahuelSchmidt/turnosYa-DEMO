@@ -53,7 +53,7 @@ export function RecordPaymentDialog({ salon, onRecorded }: { salon: any; onRecor
       const res = await fetch('/api/admin/record-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ salonId: salon.id, plan, months, amount: Number(amount) }),
+        body: JSON.stringify({ salonId: salon.id, plan, months, method, amount: Number(amount) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'No se pudo registrar');

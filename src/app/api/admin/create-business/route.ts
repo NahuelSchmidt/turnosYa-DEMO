@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const planLabel = plan === 'basic' ? 'Basic' : plan === 'pro' ? 'Pro' : 'Premium';
     const trialDays = Math.max(0, Math.min(90, Number(body.trialDays) || 0));
     await notifyAdmins({
-      title: 'Nueva suscripción',
+      title: 'Nuevo registro',
       body: `${name} · ${planLabel}${trialDays ? ` (prueba ${trialDays} días)` : ''} · ${email}`,
     });
 

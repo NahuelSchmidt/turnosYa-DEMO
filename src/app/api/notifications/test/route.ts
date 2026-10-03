@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   const sent = await notifySalon(tenantId, tenantId === ADMIN_PUSH_TENANT
     // Igual a un aviso real, para ver cómo llega
-    ? { title: 'Nueva suscripción', body: 'Barbería de prueba · Pro (prueba 7 días) · ejemplo@mail.com', path: '/super-admin' }
+    ? { title: 'Nueva suscripción 🎉', body: 'Barbería de prueba · Pro · $19.900 por Mercado Pago', path: '/super-admin' }
     : { title: 'Turnify', body: '¡Listo! Así te vamos a avisar cada vez que entre un turno.' });
   return NextResponse.json({ sent });
 }

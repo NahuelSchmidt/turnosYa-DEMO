@@ -386,6 +386,12 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [dashboardTab, setDashboardTab] = useState("agenda");
+  // Recalcula cada minuto, así si la prueba vence con el panel abierto se bloquea sin recargar
+  const [, setClockTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setClockTick(x => x + 1), 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
 
   // Permite abrir una pestaña directo (ej: al volver de conectar Mercado Pago)
   useEffect(() => {

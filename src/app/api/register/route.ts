@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     });
 
     await notifyAdmins({
-      title: 'Nueva suscripción',
+      title: 'Nuevo registro',
       body: `${name} · Pro (prueba ${SELF_SIGNUP_TRIAL_DAYS} días, se registró solo) · ${email}${whatsappNumber ? ` · ${whatsappNumber}` : ''}`,
     });
 

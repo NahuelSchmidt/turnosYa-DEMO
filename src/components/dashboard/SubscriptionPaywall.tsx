@@ -92,7 +92,20 @@ function TransferBox({ plan, salon }: { plan: PaidPlan; salon: any }) {
 
 /** Los planes pagos con sus formas de pago: Mercado Pago (suscripción) o transferencia (más barata). */
 function PlanOptions({ salon }: { salon: any }) {
+  const { user } = useUser();
   const [transferOpen, setTransferOpen] = useState<string | null>(null);
+  // Anota qué negocio va a pagar, para activarlo solo cuando Mercado Pago avise del pago
+  const markCheckout = async (plan: PaidPlanId) => {
+    try {
+      const token = await user?.getIdToken();
+      await fetch("/api/subscription/mp-start", {
+        method: "POST",
+        keepalive: true,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tenantId: salon?.id, plan }),
+      });
+    } catch {}
+  };
   return (
     <div className="grid sm:grid-cols-2 gap-3">
       {PAID_PLANS.map(plan => {
@@ -115,7 +128,7 @@ function PlanOptions({ salon }: { salon: any }) {
             <div className="flex flex-col gap-2">
               {plan.mpUrl && (
                 <Button asChild className="font-bold" variant={highlighted ? "default" : "secondary"}>
-                  <a href={plan.mpUrl} target="_blank" rel="noopener noreferrer">
+                  <a href={plan.mpUrl} target="_blank" rel="noopener noreferrer" onClick={() => markCheckout(plan.id)}>
                     <CreditCard className="mr-2 h-4 w-4" /> Mercado Pago · {money(prices.mercadopago)}/mes
                   </a>
                 </Button>
@@ -126,7 +139,7 @@ function PlanOptions({ salon }: { salon: any }) {
                 </Button>
               )}
               {showTransfer && <TransferBox plan={plan} salon={salon} />}
-              {plan.mpUrl && <p className="text-[11px] text-muted-foreground text-center">Con Mercado Pago se renueva solo cada mes. Por transferencia pagás mes a mes.</p>}
+              {plan.mpUrl && <p className="text-[11px] text-muted-foreground text-center">Con Mercado Pago se activa al instante y se renueva solo cada mes. Por transferencia pagás mes a mes.</p>}
             </div>
           </div>
         );

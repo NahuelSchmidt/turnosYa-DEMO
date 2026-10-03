@@ -16,8 +16,9 @@ export async function POST(req: NextRequest) {
   if (!salonId) return NextResponse.json({ error: 'Falta el negocio' }, { status: 400 });
 
   try {
-    const { expiresAt } = await recordPayment({ salonId, amount, months, plan, recordedBy: adminUid });
-    return NextResponse.json({ expiresAt: expiresAt.toISOString() });
+    const method = body.method === 'mercadopago' ? 'mercadopago' : 'transfer';
+    const { expiresAt } = await recordPayment({ salonId, amount, months, plan, method, recordedBy: adminUid });
+    return NextResponse.json({ expiresAt: expiresAt?.toISOString() });
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'No se pudo registrar el pago' }, { status: 400 });
   }
