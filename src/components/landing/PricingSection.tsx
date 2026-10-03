@@ -54,7 +54,7 @@ const PLANS = [
       "Reseñas de clientes",
       "Confirmaciones automáticas por WhatsApp",
       "Recordatorios automáticos 24hs y mismo día",
-      "Seña al reservar: el turno se confirma cuando pagan (transferencia; Mercado Pago muy pronto)",
+      "Seña al reservar con Mercado Pago o transferencia: el turno se confirma cuando pagan",
       "Notificación en tu celu de cada turno, seña y cancelación",
       "Agenda filtrada por profesional",
       "Resumen diario de agenda al negocio",
