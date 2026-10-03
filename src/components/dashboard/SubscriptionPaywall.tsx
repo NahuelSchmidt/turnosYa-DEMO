@@ -9,7 +9,7 @@ import { AlertTriangle, CheckCircle2, Copy, CreditCard, Clock, Landmark, Loader2
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { EXPIRY_WARNING_DAYS, getSubscriptionState } from "@/lib/subscription-status";
+import { EXPIRY_WARNING_DAYS, getSubscriptionState, isAutoRenew, isSubscriptionCancelled } from "@/lib/subscription-status";
 import { SUBSCRIPTION_PRICES, money, type PaidPlanId } from "@/lib/pricing";
 
 // WhatsApp de Turnify para coordinar el pago
@@ -158,7 +158,8 @@ export function TrialBanner({ salon }: { salon: any }) {
   const sub = getSubscriptionState(salon);
   const days = sub.daysLeft ?? 99;
   const showTrial = sub.state === "trial";
-  const expiringSoon = (sub.state === "trial" || sub.state === "active") && days <= EXPIRY_WARNING_DAYS;
+  const cancelled = isSubscriptionCancelled(salon);
+  const expiringSoon = (sub.state === "trial" || (sub.state === "active" && !isAutoRenew(salon))) && days <= EXPIRY_WARNING_DAYS;
   if (!showTrial && !expiringSoon && sub.state !== "grace") return null;
 
   const urgent = expiringSoon || sub.state === "grace";
@@ -168,6 +169,8 @@ export function TrialBanner({ salon }: { salon: any }) {
     ? `Venció tu plan ${planName}. Podés seguir usándolo hasta el ${dayLabel(sub.usableUntil!)}.`
     : sub.isTrial
     ? urgent ? `Tu prueba gratis termina ${when}.` : `Prueba gratis del plan Pro: te quedan ${days} días.`
+    : cancelled
+    ? `Cancelaste la suscripción: tu plan ${planName} termina ${when} (${dayLabel(sub.expiresAt!)}).`
     : `Tu plan ${planName} vence ${when} (${dayLabel(sub.expiresAt!)}).`;
 
   return (
@@ -176,7 +179,7 @@ export function TrialBanner({ salon }: { salon: any }) {
         {urgent ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <Clock className="w-4 h-4 shrink-0 text-primary" />}
         <p className="flex-1 font-semibold">{text}</p>
         <button type="button" onClick={() => setOpen(true)} className={`shrink-0 font-bold underline underline-offset-2 ${urgent ? "" : "text-primary"}`}>
-          {sub.isTrial ? "Activar plan" : "Pagar ahora"}
+          {sub.isTrial ? "Activar plan" : cancelled ? "Volver a suscribirme" : "Pagar ahora"}
         </button>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>

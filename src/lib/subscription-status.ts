@@ -28,19 +28,30 @@ function toMillis(value: any): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+/** Suscripción de Mercado Pago activa: se cobra sola cada mes, no hace falta avisarle que pague. */
+export function isAutoRenew(salon: any) {
+  return salon?.mpSubscriptionStatus === 'authorized';
+}
+
+/** Canceló la suscripción de Mercado Pago: usa lo que pagó y se bloquea al vencer, sin tolerancia. */
+export function isSubscriptionCancelled(salon: any) {
+  return salon?.mpSubscriptionStatus === 'cancelled';
+}
+
 export function getSubscriptionState(salon: any, now = Date.now()) {
   const expiresMs = toMillis(salon?.subscriptionExpiresAt);
   const isTrial = salon?.subscriptionStatus === 'trial';
+  const graceDays = isTrial || isSubscriptionCancelled(salon) ? 0 : PAID_GRACE_DAYS;
   if (!expiresMs || (salon?.plan || 'basic') === 'basic') {
     return { state: 'none' as SubscriptionState, isTrial: false, daysLeft: null as number | null, expiresAt: null as Date | null, usableUntil: null as Date | null };
   }
   const daysLeft = Math.ceil((expiresMs - now) / DAY);
   let state: SubscriptionState;
   if (expiresMs > now) state = isTrial ? 'trial' : 'active';
-  else if (!isTrial && now - expiresMs < PAID_GRACE_DAYS * DAY) state = 'grace';
+  else if (now - expiresMs < graceDays * DAY) state = 'grace';
   else state = 'blocked';
   // Último día que lo puede usar si vence un mes pago (vencimiento + tolerancia)
-  const usableUntil = new Date(expiresMs + (isTrial ? 0 : PAID_GRACE_DAYS * DAY));
+  const usableUntil = new Date(expiresMs + graceDays * DAY);
   return { state, isTrial, daysLeft, expiresAt: new Date(expiresMs), usableUntil };
 }
 

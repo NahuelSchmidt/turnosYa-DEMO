@@ -14,6 +14,7 @@ import { SUBSCRIPTION_PRICES, money } from '@/lib/pricing';
 import { toMillis } from '@/lib/deposit-server';
 
 const MP_API = 'https://api.mercadopago.com';
+const fmtDate = (ms: number | null) => ms ? new Date(ms).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: '2-digit', month: '2-digit' }) : 'que venza';
 const DAY = 24 * 60 * 60 * 1000;
 /** Mientras llega el primer cobro, la cuenta queda activa unos días. */
 const PROVISIONAL_DAYS = 3;
@@ -115,7 +116,7 @@ export async function handlePreapproval(preapprovalId: string) {
   } else if (pre.status === 'cancelled' || pre.status === 'paused') {
     await notifyOnce(`${pre.status}_${pre.id}`, {
       title: pre.status === 'cancelled' ? 'Canceló la suscripción' : 'Pausó la suscripción',
-      body: `${salon.name || salonDoc.id} · ${PLAN_LABELS[plan]} · sigue activo hasta que venza lo que ya pagó`,
+      body: `${salon.name || salonDoc.id} · ${PLAN_LABELS[plan]} · puede usarlo hasta el ${fmtDate(toMillis(salon.subscriptionExpiresAt))} y después se bloquea`,
     });
   }
 
@@ -153,7 +154,7 @@ export async function handleAuthorizedPayment(authorizedPaymentId: string) {
   if (result.duplicate) return { recorded: false, status: 'duplicate' };
 
   await notifyAdmins(result.firstPayment
-    ? { title: 'Nueva suscripción 🎉', body: `${salon.name || link.salonId} · ${PLAN_LABELS[plan]} · ${money(amount)} por Mercado Pago`, path: '/super-admin' }
+    ? { title: 'Nueva suscripción', body: `${salon.name || link.salonId} · ${PLAN_LABELS[plan]} · ${money(amount)} por Mercado Pago`, path: '/super-admin' }
     : { title: 'Renovación', body: `${salon.name || link.salonId} pagó otro mes · ${PLAN_LABELS[plan]} · ${money(amount)}`, path: '/super-admin' });
   return { recorded: true };
 }

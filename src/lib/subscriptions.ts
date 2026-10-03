@@ -8,7 +8,7 @@ import { es } from 'date-fns/locale';
 import { adminDb } from '@/lib/firebase-admin';
 import { notifyAdmins, notifySalon } from '@/lib/push';
 import { toMillis } from '@/lib/deposit-server';
-import { EXPIRY_WARNING_DAYS, PAID_GRACE_DAYS } from '@/lib/subscription-status';
+import { EXPIRY_WARNING_DAYS, PAID_GRACE_DAYS, isAutoRenew, isSubscriptionCancelled } from '@/lib/subscription-status';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 const DAY = 24 * 60 * 60 * 1000;
@@ -58,6 +58,7 @@ export async function recordPayment(input: RecordPaymentInput) {
       plan: input.plan,
       subscriptionExpiresAt: to,
       subscriptionStatus: 'active',
+      ...(input.method !== 'mercadopago' && salon.mpSubscriptionStatus === 'cancelled' ? { mpSubscriptionStatus: FieldValue.delete() } : {}),
       ...(input.extra || {}),
       updatedAt: FieldValue.serverTimestamp(),
     });
@@ -84,7 +85,8 @@ function fmt(ms: number) {
 /**
  * Revisa los vencimientos y avisa al administrador una sola vez por cada caso:
  * - Prueba gratis: el día anterior a que termine, y cuando terminó.
- * - Suscripción paga: 3 días antes y el día que vence.
+ * - Suscripción paga: 4 días antes y el día que vence (salvo que Mercado Pago la cobre sola).
+ * - Suscripción cancelada: 4 días antes y cuando se bloquea.
  * Se llama desde el cron que ya corre para los recordatorios.
  */
 export async function checkSubscriptionAlerts() {
@@ -101,6 +103,9 @@ export async function checkSubscriptionAlerts() {
 
     const left = expiry - now;
     const trial = salon.subscriptionStatus === 'trial';
+    const cancelled = isSubscriptionCancelled(salon);
+    // Con Mercado Pago activo se cobra solo: no hay que avisar que va a vencer
+    if (!trial && isAutoRenew(salon) && left > 0) continue;
     const plan = PLAN_LABELS[salon.plan || 'basic'] || salon.plan;
     const name = salon.name || doc.id;
 
@@ -120,6 +125,16 @@ export async function checkSubscriptionAlerts() {
       body = `${name} · ${plan} · escribile para que siga`;
       ownerTitle = 'Terminó tu prueba gratis';
       ownerBody = 'Entrá a Turnify para activar el plan Pro o seguir gratis con Basic.';
+    } else if (cancelled && left > 0 && left <= EXPIRY_WARNING_DAYS * DAY) {
+      key = 'cancelled-4d'; title = 'Termina una suscripción cancelada';
+      body = `${name} · ${plan} · se bloquea el ${fmt(expiry)}`;
+      ownerTitle = 'Tu plan termina pronto';
+      ownerBody = `Cancelaste la suscripción: podés usar Turnify hasta el ${fmt(expiry)}. Si querés seguir, volvé a suscribirte desde tu panel.`;
+    } else if (cancelled && left <= 0 && left > -7 * DAY) {
+      key = 'cancelled-ended'; title = 'Se bloqueó una cuenta que canceló';
+      body = `${name} · ${plan} · terminó el ${fmt(expiry)}`;
+      ownerTitle = 'Terminó tu plan';
+      ownerBody = 'Tu cuenta quedó en pausa. Entrá a Turnify para volver a suscribirte o seguir gratis con Basic.';
     } else if (!trial && left > 0 && left <= EXPIRY_WARNING_DAYS * DAY) {
       key = 'paid-4d'; title = 'Suscripción por vencer';
       body = `${name} · ${plan} · vence el ${fmt(expiry)}`;
