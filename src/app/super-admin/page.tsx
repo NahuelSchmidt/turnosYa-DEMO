@@ -5,7 +5,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { collection, doc, query, orderBy, serverTimestamp } from "firebase/firestore";
-import { Loader2, Store, ExternalLink, Calendar, Search, ShieldCheck, Trash2, ShieldAlert, LogOut, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Power, PowerOff, Mail, MessageCircle, LayoutDashboard } from "lucide-react";
+import { Loader2, Store, ExternalLink, Calendar, Search, ShieldCheck, Trash2, ShieldAlert, LogOut, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Power, PowerOff, Mail, MessageCircle, LayoutDashboard, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { useState, useMemo, useEffect, useCallback } from "react";
@@ -365,9 +365,14 @@ export default function SuperAdminPage() {
                   </Button>
                   <div className="flex gap-3">
                     <RecordPaymentDialog salon={salon} onRecorded={loadMonthIncome} />
-                    <Button variant="outline" size="lg" className="flex-1 rounded-2xl font-bold hover:bg-primary hover:text-primary-foreground" asChild>
+                    <Button variant="outline" size="lg" className="flex-1 px-2 rounded-2xl font-bold hover:bg-primary hover:text-primary-foreground" asChild title="Página de reservas">
                       <Link href={`/book/${salon.id}`} target="_blank">
-                        <ExternalLink className="mr-2 h-4 w-4" /> Ver Web
+                        <ExternalLink className="mr-1.5 h-4 w-4" /> Reservas
+                      </Link>
+                    </Button>
+                    <Button variant="outline" size="lg" className="flex-1 px-2 rounded-2xl font-bold hover:bg-primary hover:text-primary-foreground" asChild title="Página de perfil">
+                      <Link href={`/negocio/${salon.id}`} target="_blank">
+                        <UserCircle className="mr-1.5 h-4 w-4" /> Perfil
                       </Link>
                     </Button>
                     {isActive ? (
