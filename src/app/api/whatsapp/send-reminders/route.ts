@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendWhatsAppMessage, waitBetweenMessages } from '@/lib/whatsapp';
-import { queryConfirmedAppointments, getSalonById, getServicesForSalon, updateAppointmentReminder } from '@/lib/firestore-server';
+import { queryConfirmedAppointments, getSalonById, getServicesForSalon, updateAppointmentReminder, markAppointmentCompleted } from '@/lib/firestore-server';
+import { isCronAuthorized } from '@/lib/cron-auth';
 import { formatInTimeZone } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
 import { adminDb, isAdminConfigured } from '@/lib/firebase-admin';
@@ -38,22 +39,10 @@ function countClassAttendees(
   }).length;
 }
 
-// Protege el endpoint con un secreto para que solo lo llame el cron
-function isAuthorized(req: NextRequest): boolean {
-  // Vercel llama los crons con Authorization: Bearer <CRON_SECRET>
-  const authHeader = req.headers.get('authorization');
-  if (authHeader?.startsWith('Bearer ')) return true;
-
-  const secret = process.env.REMINDER_CRON_SECRET;
-  if (!secret) return true; // si no hay secret configurado, permite (útil en dev)
-  const auth = req.headers.get('x-cron-secret') || req.nextUrl.searchParams.get('secret');
-  return auth === secret;
-}
-
 const PROD_DOMAIN = 'https://www.turnify.pro';
 
 export async function GET(req: NextRequest) {
-  if (!isAuthorized(req)) {
+  if (!isCronAuthorized(req)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
@@ -133,11 +122,7 @@ export async function GET(req: NextRequest) {
     // Auto-completar turnos pasados que siguen como confirmados
     const endTime = apt.endTime instanceof Date ? apt.endTime : (apt.endTime ? new Date(apt.endTime) : new Date(startMs + 60 * 60 * 1000));
     if (!isNaN(endTime.getTime()) && endTime < now) {
-      await fetch(`https://firestore.googleapis.com/v1/projects/studio-6398913436-7a565/databases/(default)/documents/appointments/${apt.id}?updateMask.fieldPaths=status&key=AIzaSyBc1gttodLpfA3SFufoYdPQZPxx9XCCGLI`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fields: { status: { stringValue: 'completed' } } }),
-      });
+      await markAppointmentCompleted(apt.id).catch(e => console.error('[Recordatorios] No se pudo completar', apt.id, e?.message));
       autoCompleted++;
       if (!needs24h && !needsSameDay && !needsReviewTime) continue;
     }

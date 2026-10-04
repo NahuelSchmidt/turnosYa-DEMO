@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { queryConfirmedAppointments, getSalonById } from '@/lib/firestore-server';
+import { isCronAuthorized } from '@/lib/cron-auth';
+import { adminDb } from '@/lib/firebase-admin';
 import { formatInTimeZone } from 'date-fns-tz';
 import { es } from 'date-fns/locale';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
-function isAuthorized(req: NextRequest): boolean {
-  const secret = process.env.REMINDER_CRON_SECRET;
-  if (!secret) return true;
-  const auth = req.headers.get('x-cron-secret') || req.nextUrl.searchParams.get('secret');
-  return auth === secret;
-}
-
 export async function GET(req: NextRequest) {
-  if (!isAuthorized(req)) {
+  if (!isCronAuthorized(req)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
@@ -51,6 +46,13 @@ export async function GET(req: NextRequest) {
     if (!salon?.whatsappNumber || !salon?.evolutionInstanceName) continue;
 
     const credentials = { instanceName: salon.evolutionInstanceName };
+
+    // Un solo resumen por negocio y por día, aunque el cron se llame varias veces
+    try {
+      await adminDb().collection('cronRuns').doc(`daily_${salonId}_${todayStr}`).create({ sentAt: Date.now() });
+    } catch {
+      continue;
+    }
 
     // Ordenar por hora
     apts.sort((a, b) => {

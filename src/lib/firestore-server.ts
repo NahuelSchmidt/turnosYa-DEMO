@@ -1,5 +1,6 @@
-// Acceso a Firestore desde el servidor (API routes) usando la REST API.
-// No requiere firebase-admin ni service account key.
+// Acceso a Firestore desde el servidor. Lo público (negocios y servicios) se lee por la
+// REST API; los turnos se leen y escriben con firebase-admin (las reglas no los exponen).
+import { adminDb } from '@/lib/firebase-admin';
 
 const PROJECT_ID = 'studio-6398913436-7a565';
 export const API_KEY = 'AIzaSyBc1gttodLpfA3SFufoYdPQZPxx9XCCGLI';
@@ -28,39 +29,17 @@ function parseDoc(doc: any): Record<string, any> {
   return result;
 }
 
+/** Turnos confirmados y completados (para recordatorios y reseñas). Lee con acceso de servidor. */
 export async function queryConfirmedAppointments(): Promise<Record<string, any>[]> {
-  const url = `${BASE_URL}:runQuery?key=${API_KEY}`;
-  // Trae confirmed Y completed para poder mandar reseñas después del turno
-  const body = {
-    structuredQuery: {
-      from: [{ collectionId: 'appointments' }],
-      where: {
-        compositeFilter: {
-          op: 'OR',
-          filters: [
-            { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: { stringValue: 'confirmed' } } },
-            { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: { stringValue: 'completed' } } },
-          ],
-        },
-      },
-    },
-  };
+  const snap = await adminDb().collection('appointments').where('status', 'in', ['confirmed', 'completed']).get();
+  return snap.docs.map(d => withDates({ id: d.id, ...d.data() }));
+}
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Firestore query failed: ${res.status} ${text}`);
-  }
-
-  const results = await res.json();
-  return results
-    .filter((r: any) => r.document)
-    .map((r: any) => parseDoc(r.document));
+/** Convierte los Timestamp de Firestore en Date, como devolvía la versión REST. */
+function withDates(data: Record<string, any>) {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(data)) out[k] = v && typeof v.toDate === 'function' ? v.toDate() : v;
+  return out;
 }
 
 export async function getSalonById(salonId: string): Promise<Record<string, any> | null> {
@@ -83,21 +62,16 @@ export async function updateAppointmentReminder(
   appointmentId: string,
   field: 'reminderSent24h' | 'reminderSentSameDay' | 'reviewSent'
 ): Promise<boolean> {
-  const url = `${BASE_URL}/appointments/${appointmentId}?updateMask.fieldPaths=${field}&key=${API_KEY}`;
   try {
-    const res = await fetch(url, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields: { [field]: { booleanValue: true } } }),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      console.error(`[updateAppointmentReminder] Error ${res.status} para ${appointmentId}/${field}:`, text);
-      return false;
-    }
+    await adminDb().collection('appointments').doc(appointmentId).update({ [field]: true });
     return true;
   } catch (e) {
-    console.error(`[updateAppointmentReminder] Excepción para ${appointmentId}/${field}:`, e);
+    console.error(`[updateAppointmentReminder] Error para ${appointmentId}/${field}:`, e);
     return false;
   }
+}
+
+/** Turno que ya pasó y seguía confirmado: queda como completado. */
+export async function markAppointmentCompleted(appointmentId: string): Promise<void> {
+  await adminDb().collection('appointments').doc(appointmentId).update({ status: 'completed' });
 }

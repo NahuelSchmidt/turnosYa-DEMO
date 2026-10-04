@@ -1,5 +1,6 @@
 "use client";
 
+import { authJsonHeaders } from "@/lib/auth-headers";
 import { useState, useMemo, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -151,20 +152,11 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
           const ubicacionLine = locationAddress ? `\n📍 ${locationAddress}` : '';
           const message = `*Turno Confirmado* ✅\n\nHola ${customerName}! Tu turno esta confirmado:\n\n🗓 ${formattedDate}\n📋 ${serviceName}${professional ? `\n👤 Con ${professional.name}` : ''}${ubicacionLine}\n\nGestioná tu turno: ${turnoLink}\n\n¡Te esperamos!`;
 
-          fetch('/api/whatsapp/send-confirmation', {
+          authJsonHeaders().then(headers => fetch('/api/whatsapp/send-confirmation', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phone: customerPhone,
-              message,
-              tenantId,
-              customerName,
-              customerPhone,
-              appointmentDate: formattedDate,
-              serviceNames: serviceName,
-              professionalName: professional?.name,
-            }),
-          }).then(async (res) => {
+            headers,
+            body: JSON.stringify({ appointmentId: id, message }),
+          })).then(async (res) => {
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data.sent) {
               console.warn('[WhatsApp] Envío automático falló, abriendo wa.me como respaldo', data);

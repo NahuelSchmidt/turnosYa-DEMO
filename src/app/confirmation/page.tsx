@@ -1,5 +1,8 @@
 "use client";
 
+import { authJsonHeaders } from "@/lib/auth-headers";
+import { useDoc, useFirestore, useMemoFirebase } from "@/firebase";
+import { doc } from "firebase/firestore";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, useMemo, Suspense } from "react";
@@ -36,14 +39,18 @@ function ConfirmationContent() {
   const appointmentId = searchParams.get("appointmentId");
   const tenantId = searchParams.get("tenantId") || "default";
 
-  const { appointments, loading: aLoading, getClassAttendeeCount } = useAppointments(tenantId);
+  const { loading: aLoading, getClassAttendeeCount } = useAppointments(tenantId, { publicView: true });
+  const db = useFirestore();
+  const aptRef = useMemoFirebase(() => (db && appointmentId ? doc(db, "appointments", appointmentId) : null), [db, appointmentId]);
+  const { data: ownAppointment, isLoading: ownLoading } = useDoc<any>(aptRef);
+  const appointments = ownAppointment ? [{ ...ownAppointment, id: appointmentId }] : [];
   const { services, loading: sLoading } = useServices(tenantId);
   const { professionals, loading: pLoading } = useProfessionals(tenantId);
   const { salon } = useSalon(tenantId);
 
   const [appointment, setAppointment] = useState<PopulatedAppointment | null>(null);
   const [waSent, setWaSent] = useState(false);
-  const loading = aLoading || sLoading || pLoading;
+  const loading = aLoading || sLoading || pLoading || ownLoading;
 
   useEffect(() => {
     if (!loading && appointmentId) {
@@ -97,20 +104,11 @@ function ConfirmationContent() {
     setWaSent(true);
 
     // Intentar envío automático vía API
-    fetch('/api/whatsapp/send-confirmation', {
+    authJsonHeaders().then(headers => fetch('/api/whatsapp/send-confirmation', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        phone: customerPhone,
-        message,
-        tenantId,
-        customerName,
-        customerPhone,
-        appointmentDate: formattedDate,
-        serviceNames,
-        professionalName: professional?.name,
-      }),
-    }).then(async res => {
+      headers,
+      body: JSON.stringify({ appointmentId: appointment.id }),
+    })).then(async res => {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.sent) {
         // Fallback: abrir wa.me si el envío automático falló

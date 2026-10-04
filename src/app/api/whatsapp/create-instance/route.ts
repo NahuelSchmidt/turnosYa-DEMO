@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSalonAdmin } from '@/lib/api-auth';
-import { BASE_URL, API_KEY } from '@/lib/firestore-server';
+import { adminDb } from '@/lib/firebase-admin';
 
 const EVOLUTION_URL = process.env.EVOLUTION_API_URL;
 const EVOLUTION_KEY = process.env.EVOLUTION_API_KEY;
@@ -46,17 +46,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Guardamos el vínculo con el token del usuario: las reglas de Firestore validan que sea admin del salón
+  // Lo guarda el servidor: el dueño no puede cambiar la instancia desde el navegador
   if (auth.salon.evolutionInstanceName !== instanceName) {
-    const patch = await fetch(
-      `${BASE_URL}/salons/${tenantId}?updateMask.fieldPaths=evolutionInstanceName&key=${API_KEY}`,
-      {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.idToken}` },
-        body: JSON.stringify({ fields: { evolutionInstanceName: { stringValue: instanceName } } }),
-      }
-    );
-    if (!patch.ok) {
+    try {
+      await adminDb().collection('salons').doc(tenantId).update({ evolutionInstanceName: instanceName });
+    } catch {
       return NextResponse.json({ error: 'No se pudo vincular la instancia al negocio' }, { status: 502 });
     }
   }

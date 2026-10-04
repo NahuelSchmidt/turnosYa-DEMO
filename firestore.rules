@@ -62,7 +62,8 @@ service cloud.firestore {
         !request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'isActive', 'plan', 'subscriptionExpiresAt', 'subscriptionStatus', 'subscriptionId',
           'trialEndsAt', 'adminMembers', 'createdBy', 'mpConnected', 'mpUserId', 'mpConnectedAt',
-          'mpPreapprovalId', 'mpSubscriptionStatus', 'mpPayerEmail', 'mpPendingFirstPayment', 'mpCheckout'
+          'mpPreapprovalId', 'mpSubscriptionStatus', 'mpPayerEmail', 'mpPendingFirstPayment', 'mpCheckout',
+          'evolutionInstanceName', 'email'
         ])
       );
       allow delete: if isGlobalAdmin();
@@ -108,9 +109,14 @@ service cloud.firestore {
         isSalonAdmin(resource.data.salonId) ||
         isGlobalAdmin()
       );
-      // TODO(seguridad): cualquier usuario logueado puede listar todos los turnos
-      // (lo necesita el flujo de reserva para ver horarios ocupados).
-      allow list: if isSignedIn();
+      // Los turnos tienen datos de los clientes: solo los listan el negocio, el admin
+      // de Turnify o el propio cliente. La página de reservas pide los horarios
+      // ocupados al servidor (/api/availability), sin nombres ni teléfonos.
+      allow list: if isSignedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        isSalonAdmin(resource.data.salonId) ||
+        isGlobalAdmin()
+      );
       // Si el negocio cobra seña, el cliente solo puede crear el turno "esperando seña"
       // (lo confirma el servidor con Mercado Pago, o el dueño si es por transferencia).
       allow create: if isSignedIn()
@@ -125,16 +131,8 @@ service cloud.firestore {
             request.resource.data.paymentExpiresAt is timestamp &&
             request.resource.data.paymentExpiresAt < request.time + duration.value(1450, 'm'))
         );
-      // El cron (sin auth) solo puede tocar los flags de recordatorio/reseña o
-      // auto-completar un turno que ya pasó (confirmed -> completed).
-      allow update: if (
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['reminderSent24h', 'reminderSentSameDay', 'reviewSent'])
-      ) || (
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
-        resource.data.status == 'confirmed' &&
-        request.resource.data.status == 'completed'
-      ) || (isSignedIn() && (
+      // El cron ahora escribe con acceso de servidor: nadie sin sesión puede tocar turnos.
+      allow update: if (isSignedIn() && (
         isSalonAdmin(resource.data.salonId) ||
         isGlobalAdmin()
       )) || (
@@ -142,7 +140,8 @@ service cloud.firestore {
         isSignedIn() && resource.data.customerId == request.auth.uid &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'depositStatus', 'depositAmount', 'depositPaidAmount', 'depositPaymentId',
-          'depositNeedsRefund', 'paymentExpiresAt', 'depositMethod', 'transferNotifiedAt'
+          'depositNeedsRefund', 'paymentExpiresAt', 'depositMethod', 'transferNotifiedAt',
+          'salonId', 'customerId', 'confirmationSentAt', 'cancellationNotifiedAt', 'ownerNotifiedAt'
         ]) &&
         (request.resource.data.status == resource.data.status ||
           request.resource.data.status in ['cancelled', 'completed']) &&
@@ -171,6 +170,9 @@ service cloud.firestore {
       allow read, write: if false;
     }
     match /payments/{paymentId} {
+      allow read, write: if false;
+    }
+    match /cronRuns/{id} {
       allow read, write: if false;
     }
   }

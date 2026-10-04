@@ -5,9 +5,10 @@ import { collection, query, where, serverTimestamp, doc, setDoc } from 'firebase
 import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Appointment } from '@/lib/data';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
-export function useAppointments(tenantId: string = 'default') {
+export function useAppointments(tenantId: string = 'default', opts: { publicView?: boolean } = {}) {
+  const publicView = !!opts.publicView;
   const db = useFirestore();
   const { user, isUserLoading } = useUser();
   
@@ -18,13 +19,30 @@ export function useAppointments(tenantId: string = 'default') {
     return collection(db, 'appointments');
   }, [db]);
 
+  // En la página de reservas no se leen los turnos (tienen datos de los clientes):
+  // se piden al servidor solo los horarios ocupados.
   const tenantQuery = useMemoFirebase(() => {
-    if (!appointmentsRef || !tenantId || !user) return null;
+    if (publicView || !appointmentsRef || !tenantId || !user) return null;
     return query(appointmentsRef, where('salonId', '==', tenantId));
-  }, [appointmentsRef, tenantId, user]);
+  }, [appointmentsRef, tenantId, user, publicView]);
 
   const { data: rawAppointments, isLoading: isCollectionLoading } = useCollection<Appointment>(tenantQuery);
-  const appointments = rawAppointments || [];
+  const [publicSlots, setPublicSlots] = useState<Appointment[] | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  useEffect(() => {
+    if (!publicView || !tenantId) return;
+    let alive = true;
+    const load = () => fetch(`/api/availability?tenantId=${encodeURIComponent(tenantId)}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : { slots: [] })
+      .then(d => { if (alive) setPublicSlots(d.slots || []); })
+      .catch(() => { if (alive) setPublicSlots(prev => prev || []); });
+    load();
+    const t = setInterval(load, 20000);
+    const onFocus = () => load();
+    window.addEventListener('focus', onFocus);
+    return () => { alive = false; clearInterval(t); window.removeEventListener('focus', onFocus); };
+  }, [publicView, tenantId, refreshKey]);
+  const appointments = (publicView ? publicSlots : rawAppointments) || [];
 
   /**
    * Devuelve los horarios "HH:MM" ya ocupados para un profesional en una fecha dada.
@@ -178,7 +196,7 @@ export function useAppointments(tenantId: string = 'default') {
 
   // Auto-completar turnos confirmados cuyo endTime ya pasó
   useEffect(() => {
-    if (!db || !appointments.length) return;
+    if (publicView || !db || !appointments.length) return;
     const now = new Date();
     appointments.forEach(apt => {
       if (apt.status !== 'confirmed') return;
@@ -188,7 +206,7 @@ export function useAppointments(tenantId: string = 'default') {
         updateDocumentNonBlocking(apptRef, { status: 'completed', updatedAt: serverTimestamp() });
       }
     });
-  }, [appointments, db]);
+  }, [appointments, db, publicView]);
 
   const appointmentsThisMonth = (() => {
     const now = new Date();
@@ -211,7 +229,7 @@ export function useAppointments(tenantId: string = 'default') {
     getBookedSlotsForDate,
     getClassAttendeeCount,
     appointmentsThisMonth,
-    loading: isCollectionLoading || isUserLoading,
+    loading: publicView ? publicSlots === null : (isCollectionLoading || isUserLoading),
     customerId
   };
 }

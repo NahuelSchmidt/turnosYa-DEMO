@@ -40,7 +40,7 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
   const [customerPhone, setCustomerPhone] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const { addAppointment, addPendingAppointment, cancelAppointment, getBookedSlotsForDate, getClassAttendeeCount } = useAppointments(tenantId);
+  const { addAppointment, addPendingAppointment, cancelAppointment, getBookedSlotsForDate, getClassAttendeeCount } = useAppointments(tenantId, { publicView: true });
   const { salon } = useSalon(tenantId);
   const { features } = usePlan(tenantId);
   const { services, loading: servicesLoading } = useServices(tenantId);

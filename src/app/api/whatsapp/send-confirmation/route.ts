@@ -1,38 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
-import { getSalonById } from '@/lib/firestore-server';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { isAdminConfigured } from '@/lib/firebase-admin';
+import { toMillis } from '@/lib/deposit-server';
+import {
+  buildBusinessNewBooking, buildCustomerConfirmation, callerUid, canManageSalon,
+  loadAppointmentWithRetry, markOnce,
+} from '@/lib/wa-notify';
 
+const MAX_MESSAGE = 1500;
+
+/**
+ * WhatsApp al cliente de un turno. Siempre va al teléfono guardado en el turno.
+ * - El negocio (dueño o admin de Turnify) puede mandar su mensaje: confirmación de un
+ *   turno que cargó, reprogramación o cancelación.
+ * - El cliente que acaba de reservar solo puede pedir su confirmación, una vez, y el
+ *   texto lo arma el servidor.
+ */
 export async function POST(req: NextRequest) {
   try {
-    const { phone, message, tenantId, customerName, customerPhone, appointmentDate, serviceNames, professionalName } = await req.json();
+    const { appointmentId, message } = await req.json().catch(() => ({}));
+    if (!appointmentId) return NextResponse.json({ error: 'Falta appointmentId' }, { status: 400 });
+    if (!isAdminConfigured()) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 500 });
 
-    if (!phone || !message) {
-      return NextResponse.json({ error: 'Faltan campos: phone, message' }, { status: 400 });
+    const uid = await callerUid(req);
+    if (!uid) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+
+    const ctx = await loadAppointmentWithRetry(String(appointmentId));
+    if (!ctx) return NextResponse.json({ error: 'Turno no encontrado' }, { status: 404 });
+    const { apt, salon } = ctx;
+    const isManager = await canManageSalon(uid, ctx);
+    if (!isManager && apt.customerId !== uid) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 });
+    if (!apt.customerPhone) return NextResponse.json({ sent: false });
+    const credentials = salon?.evolutionInstanceName ? { instanceName: salon.evolutionInstanceName } : undefined;
+    if (!credentials) return NextResponse.json({ sent: false });
+
+    // El negocio manda su propio mensaje a su cliente
+    if (isManager) {
+      const text = String(message || '').slice(0, MAX_MESSAGE) || buildCustomerConfirmation(ctx);
+      const sent = await sendWhatsAppMessage(apt.customerPhone, text, credentials);
+      return NextResponse.json({ sent });
     }
 
-    let credentials;
-    let salon;
-    if (tenantId) {
-      salon = await getSalonById(tenantId);
-      if (salon?.evolutionInstanceName) {
-        credentials = { instanceName: salon.evolutionInstanceName };
-      }
+    // El cliente pide la confirmación de la reserva que acaba de hacer
+    if (apt.status !== 'confirmed' || apt.depositStatus === 'paid' || apt.depositStatus === 'pending') {
+      return NextResponse.json({ sent: false });
     }
+    const createdMs = toMillis(apt.createdAt) || 0;
+    if (createdMs && Date.now() - createdMs > 60 * 60 * 1000) return NextResponse.json({ sent: false });
+    if (!(await markOnce(ctx, 'confirmationSentAt'))) return NextResponse.json({ sent: true, already: true });
 
-    // 1. Enviar confirmación al cliente
-    const sent = await sendWhatsAppMessage(phone, message, credentials);
-
-    // 2. Notificar al negocio del nuevo turno por WhatsApp
-    //    (la notificación del celu la manda /api/appointments/notify-new al guardarse el turno)
-    if (salon?.whatsappNumber && credentials) {
-      const businessMsg = `📬 *Nuevo turno reservado*\n\n👤 ${customerName || 'Cliente'}\n📱 ${customerPhone || phone}\n🗓 ${appointmentDate || ''}\n📋 ${serviceNames || ''}${professionalName ? `\n👤 Con ${professionalName}` : ''}`;
-      await sendWhatsAppMessage(salon.whatsappNumber, businessMsg, credentials);
-    }
-
+    const sent = await sendWhatsAppMessage(apt.customerPhone, buildCustomerConfirmation(ctx), credentials);
+    if (salon?.whatsappNumber) await sendWhatsAppMessage(salon.whatsappNumber, buildBusinessNewBooking(ctx), credentials);
     return NextResponse.json({ sent });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    console.error('[WhatsApp] send-confirmation:', e?.message);
+    return NextResponse.json({ error: 'No se pudo enviar' }, { status: 500 });
   }
 }

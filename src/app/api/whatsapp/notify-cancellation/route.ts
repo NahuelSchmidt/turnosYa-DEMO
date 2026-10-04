@@ -1,32 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
-import { getSalonById } from '@/lib/firestore-server';
+import { isAdminConfigured } from '@/lib/firebase-admin';
 import { notifySalon } from '@/lib/push';
+import { buildBusinessCancellation, formatTurnoDate, loadAppointmentWithRetry, markOnce } from '@/lib/wa-notify';
 
+/**
+ * El cliente canceló su turno: avisa al negocio (celu y WhatsApp) una sola vez.
+ * Solo funciona si el turno está de verdad cancelado; el texto lo arma el servidor.
+ */
 export async function POST(req: NextRequest) {
   try {
-    const { tenantId, customerName, customerPhone, appointmentDate, serviceNames } = await req.json();
+    const { appointmentId } = await req.json().catch(() => ({}));
+    if (!appointmentId) return NextResponse.json({ error: 'Falta appointmentId' }, { status: 400 });
+    if (!isAdminConfigured()) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 500 });
 
-    if (!tenantId) {
-      return NextResponse.json({ error: 'Falta tenantId' }, { status: 400 });
+    // La cancelación la guarda el navegador: le damos unos segundos para que llegue
+    let ctx = null;
+    for (let i = 0; i < 5; i++) {
+      ctx = await loadAppointmentWithRetry(String(appointmentId), 1);
+      if (ctx?.apt.status === 'cancelled') break;
+      await new Promise(r => setTimeout(r, 1000));
     }
+    if (!ctx || ctx.apt.status !== 'cancelled') return NextResponse.json({ sent: false });
+    if (!(await markOnce(ctx, 'cancellationNotifiedAt'))) return NextResponse.json({ sent: false, already: true });
 
-    await notifySalon(tenantId, {
+    await notifySalon(ctx.apt.salonId, {
       title: 'Turno cancelado',
-      body: [customerName || 'Un cliente', appointmentDate, 'canceló su turno'].filter(Boolean).join(' · '),
+      body: [ctx.apt.customerName || 'Un cliente', formatTurnoDate(ctx, "dd/MM 'a las' HH:mm'hs'"), 'canceló su turno'].filter(Boolean).join(' · '),
     });
 
-    const salon = await getSalonById(tenantId);
-    if (!salon?.whatsappNumber || !salon?.evolutionInstanceName) {
-      return NextResponse.json({ sent: false });
-    }
-
-    const credentials = { instanceName: salon.evolutionInstanceName };
-    const msg = `❌ *Turno cancelado*\n\n👤 ${customerName}\n📱 ${customerPhone}\n🗓 ${appointmentDate}\n📋 ${serviceNames}\n\nEl cliente canceló su turno.`;
-
-    const sent = await sendWhatsAppMessage(salon.whatsappNumber, msg, credentials);
+    const salon = ctx.salon;
+    if (!salon?.whatsappNumber || !salon?.evolutionInstanceName) return NextResponse.json({ sent: false });
+    const sent = await sendWhatsAppMessage(salon.whatsappNumber, buildBusinessCancellation(ctx), { instanceName: salon.evolutionInstanceName });
     return NextResponse.json({ sent });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    console.error('[WhatsApp] notify-cancellation:', e?.message);
+    return NextResponse.json({ error: 'No se pudo avisar' }, { status: 500 });
   }
 }

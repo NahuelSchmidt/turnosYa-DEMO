@@ -1,8 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
-import { useFirestore, useMemoFirebase, useDoc, useCollection } from "@/firebase";
-import { doc, collection, query, where } from "firebase/firestore";
+import { use, useEffect, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +18,6 @@ import { useServices } from "@/hooks/use-services";
 import { useProfessionals } from "@/hooks/use-professionals";
 import { LoadingScreen } from "@/components/shared/LoadingScreen";
 import { useSalon } from "@/hooks/use-salon";
-import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -37,32 +34,27 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 };
 
 function TurnoContent({ appointmentId }: { appointmentId: string }) {
-  const db = useFirestore();
   const [cancelled, setCancelled] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
-  const aptRef = useMemoFirebase(() => {
-    if (!db || !appointmentId) return null;
-    return doc(db, "appointments", appointmentId);
-  }, [db, appointmentId]);
+  // El turno lo trae el servidor: el link funciona desde cualquier celu o navegador
+  const [apt, setApt] = useState<any>(null);
+  const [classCountApi, setClassCountApi] = useState(0);
+  const [aptLoading, setAptLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/turno/${encodeURIComponent(appointmentId)}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!alive) return; setApt(d?.apt || null); setClassCountApi(d?.classCount || 0); })
+      .catch(() => {})
+      .finally(() => { if (alive) setAptLoading(false); });
+    return () => { alive = false; };
+  }, [appointmentId]);
 
-  const { data: apt, isLoading: aptLoading } = useDoc<any>(aptRef);
   const tenantId = apt?.salonId || "";
   const { services, loading: sLoading } = useServices(tenantId);
   const { professionals, loading: pLoading } = useProfessionals(tenantId);
   const { salon } = useSalon(tenantId);
-
-  // Consulta acotada (solo turnos confirmados de este profesional) para contar
-  // cupo de clase — evita traer todo el historial de turnos del salón.
-  const profAppointmentsQuery = useMemoFirebase(() => {
-    if (!db || !tenantId || !apt?.professionalId) return null;
-    return query(
-      collection(db, "appointments"),
-      where("salonId", "==", tenantId),
-      where("professionalId", "==", apt.professionalId),
-      where("status", "==", "confirmed"),
-    );
-  }, [db, tenantId, apt?.professionalId]);
-  const { data: profAppointments } = useCollection<any>(profAppointmentsQuery);
 
   if (aptLoading || sLoading || pLoading) {
     return (
@@ -97,13 +89,7 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
   const dateObj = parseFirestoreDate(apt.startTime);
   const classService = aptServices.length === 1 ? aptServices[0] : undefined;
   const isClassAppt = classService && (classService as any).type === 'clase';
-  const classCount = isClassAppt
-    ? (profAppointments || []).filter((a: any) => {
-        if (!(a.serviceIds || []).includes(classService!.id)) return false;
-        const aDate = parseFirestoreDate(a.startTime);
-        return format(aDate, 'yyyy-MM-dd') === format(dateObj, 'yyyy-MM-dd') && format(aDate, 'HH:mm') === format(dateObj, 'HH:mm');
-      }).length
-    : 0;
+  const classCount = isClassAppt ? classCountApi : 0;
   const displayAddress = (isClassAppt && (classService as any)?.address) || salon?.address;
   const currentStatus = cancelled ? "cancelled" : apt.status;
   const isCancelled = currentStatus === "cancelled";
@@ -116,31 +102,24 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
   const domain = host.includes('localhost') ? PROD_DOMAIN : host;
   const bookLink = `${domain}/book/${tenantId}`;
 
-  const handleCancel = () => {
-    if (!db) return;
-    // Solo tocamos "status": las reglas de Firestore permiten este campo sin
-    // autenticación (para que el cliente pueda cancelar aunque su sesión anónima
-    // actual no coincida con la que hizo la reserva). Cualquier otro campo acá
-    // (ej: updatedAt) hace que el update sea rechazado por permisos.
-    updateDocumentNonBlocking(doc(db, "appointments", appointmentId), { status: "cancelled" });
+  const handleCancel = async () => {
+    setCancelError(null);
+    // Lo cancela el servidor, que también le avisa al negocio
+    const res = await fetch(`/api/turno/${encodeURIComponent(appointmentId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'cancel' }),
+    }).catch(() => null);
+    if (!res || !res.ok) {
+      const data = await res?.json().catch(() => ({}));
+      setCancelError(data?.error || 'No se pudo cancelar. Probá de nuevo o escribile al negocio.');
+      return;
+    }
     setCancelled(true);
 
     const serviceNames = isClassAppt
       ? `${classService!.name} (cupo ${Math.max(0, classCount - 1)}/${(classService as any)?.capacity || '∞'})`
       : aptServices.map((s: any) => s?.name).join(", ");
-
-    // Notificar al negocio automáticamente
-    fetch('/api/whatsapp/notify-cancellation', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tenantId,
-        customerName: apt.customerName,
-        customerPhone: apt.customerPhone,
-        appointmentDate: fmtAR(dateObj, "dd/MM 'a las' HH:mm'hs'"),
-        serviceNames,
-      }),
-    });
 
     // También abrir chat de WhatsApp para que el cliente escriba si quiere
     if (salon?.whatsappNumber) {
@@ -239,6 +218,7 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
               </div>
             ) : !isCancelled && (
               canCancel ? (
+                <>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="outline" className="w-full border-destructive text-destructive hover:bg-destructive/10">
@@ -261,6 +241,8 @@ function TurnoContent({ appointmentId }: { appointmentId: string }) {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+                {cancelError && <p className="text-sm text-destructive text-center mt-2">{cancelError}</p>}
+                </>
               ) : (
                 <div className="rounded-xl border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800 p-4 text-sm text-center space-y-2">
                   <p className="font-bold text-orange-700 dark:text-orange-400">No podés cancelar este turno</p>

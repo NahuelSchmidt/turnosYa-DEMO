@@ -1,5 +1,6 @@
 "use client";
 
+import { authJsonHeaders } from "@/lib/auth-headers";
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAppointments } from '@/hooks/use-appointments';
 import { useServices } from '@/hooks/use-services';
@@ -537,11 +538,11 @@ function AppointmentDetailDialog({ apt, tenantId, onUpdate, onReschedule, onClos
       const serviceName = apt.services.map(s => s.name).join(', ') || (apt as any).customServiceName || '';
       const turnoLink = `${window.location.origin}/turno/${apt.id}`;
       const message = `📅 *Turno Reprogramado*\n\nHola ${apt.customerName}! Tu turno fue reprogramado para:\n\n🗓 ${formattedDate}${serviceName ? `\n📋 ${serviceName}` : ''}${apt.professional ? `\n👤 Con ${apt.professional.name}` : ''}\n\nGestioná tu turno: ${turnoLink}\n\n¡Te esperamos!`;
-      fetch('/api/whatsapp/send-confirmation', {
+      authJsonHeaders().then(headers => fetch('/api/whatsapp/send-confirmation', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: apt.customerPhone, message, tenantId }),
-      });
+        headers,
+        body: JSON.stringify({ appointmentId: apt.id, message }),
+      }));
     }
 
     onClose();
@@ -1160,11 +1161,11 @@ export function ProfessionalAgenda({ tenantId }: ProfessionalAgendaProps) {
         const message = isClassAppointment(apt)
           ? `❌ *Cupo cancelado*\n\nHola ${apt.customerName}, lamentablemente tu cupo en *${apt.services[0].name}* del ${formattedDate} fue cancelado.\n\nPodés reservar otro horario cuando quieras acá:\n${bookLink}\n\n¡Disculpá las molestias!`
           : `❌ *Turno Cancelado*\n\nHola ${apt.customerName}, lamentablemente tu turno del ${formattedDate} fue cancelado.\n\n📋 ${apt.services.map((s: any) => s?.name).join(', ')}\n\nPodés sacar un nuevo turno cuando quieras acá:\n${bookLink}\n\n¡Disculpá las molestias!`;
-        fetch('/api/whatsapp/send-confirmation', {
+        authJsonHeaders().then(headers => fetch('/api/whatsapp/send-confirmation', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: apt.customerPhone, message, tenantId }),
-        });
+          headers,
+          body: JSON.stringify({ appointmentId: apt.id, message }),
+        }));
       }
     }
   };
