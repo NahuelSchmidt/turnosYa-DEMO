@@ -5,7 +5,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc, deleteDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { collection, doc, query, orderBy, serverTimestamp } from "firebase/firestore";
-import { Loader2, Store, ExternalLink, Calendar, Search, ShieldCheck, Trash2, ShieldAlert, LogOut, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Power, PowerOff, Mail, MessageCircle } from "lucide-react";
+import { Loader2, Store, ExternalLink, Calendar, Search, ShieldCheck, Trash2, ShieldAlert, LogOut, AlertTriangle, CheckCircle2, XCircle, RefreshCw, Power, PowerOff, Mail, MessageCircle, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { useState, useMemo, useEffect, useCallback } from "react";
@@ -358,6 +358,11 @@ export default function SuperAdminPage() {
                     </div>
                   </div>
 
+                  <Button size="lg" className="w-full rounded-2xl font-bold mb-3" asChild>
+                    <Link href={`/dashboard?salon=${encodeURIComponent(salon.id)}`}>
+                      <LayoutDashboard className="mr-2 h-4 w-4" /> Ver panel
+                    </Link>
+                  </Button>
                   <div className="flex gap-3">
                     <RecordPaymentDialog salon={salon} onRecorded={loadMonthIncome} />
                     <Button variant="outline" size="lg" className="flex-1 rounded-2xl font-bold hover:bg-primary hover:text-primary-foreground" asChild>

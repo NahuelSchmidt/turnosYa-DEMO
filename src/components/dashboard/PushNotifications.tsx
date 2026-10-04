@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
+import { useAdminView } from '@/hooks/use-is-global-admin';
 
 function IosInstallSteps() {
   return (
@@ -19,7 +20,8 @@ function IosInstallSteps() {
 
 /** Tarjeta en Ajustes para activar, probar o desactivar las notificaciones en este dispositivo. */
 export function PushNotificationsCard({ tenantId, title, description }: { tenantId: string; title?: string; description?: string }) {
-  const { status, busy, enable, disable, sendTest } = usePushNotifications(tenantId);
+  const adminView = useAdminView();
+  const { status, busy, enable, disable, sendTest } = usePushNotifications(adminView ? '' : tenantId);
   const { toast } = useToast();
   const [testing, setTesting] = useState(false);
 
@@ -42,6 +44,8 @@ export function PushNotificationsCard({ tenantId, title, description }: { tenant
     }
     setTesting(false);
   };
+
+  if (adminView) return null;
 
   return (
     <Card>
@@ -107,7 +111,8 @@ const DISMISS_KEY = 'turnify-push-prompt-dismissed';
 
 /** Aviso chico arriba de la agenda para que el dueño active las notificaciones. */
 export function PushNotificationsPrompt({ tenantId }: { tenantId: string }) {
-  const { status, busy, enable } = usePushNotifications(tenantId);
+  const adminView = useAdminView();
+  const { status, busy, enable } = usePushNotifications(adminView ? '' : tenantId);
   const { toast } = useToast();
   const [dismissed, setDismissed] = useState(true);
 
@@ -115,7 +120,7 @@ export function PushNotificationsPrompt({ tenantId }: { tenantId: string }) {
     try { setDismissed(localStorage.getItem(DISMISS_KEY) === '1'); } catch { setDismissed(false); }
   }, []);
 
-  if (dismissed || (status !== 'off' && status !== 'ios-install')) return null;
+  if (adminView || dismissed || (status !== 'off' && status !== 'ios-install')) return null;
 
   const dismiss = () => {
     setDismissed(true);

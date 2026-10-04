@@ -13,6 +13,7 @@ import { collection, doc, query, where } from "firebase/firestore";
 import { PlanBadge } from "@/components/ui/plan-badge";
 import { usePlan } from "@/hooks/use-plan";
 import { PlanType } from "@/lib/data";
+import { useIsGlobalAdmin } from "@/hooks/use-is-global-admin";
 
 function useSalonPlan() {
   const { user } = useUser();
@@ -30,24 +31,12 @@ function useSalonPlan() {
   return { tenantId, plan: tenantId ? plan : null };
 }
 
-/** ¿El usuario es administrador de Turnify? (las reglas solo le dejan leer su propio registro) */
-function useIsGlobalAdmin() {
-  const { user } = useUser();
-  const db = useFirestore();
-  const ref = useMemoFirebase(() => {
-    if (!db || !user?.uid || user.isAnonymous) return null;
-    return doc(db, "globalAdmins", user.uid);
-  }, [db, user?.uid, user?.isAnonymous]);
-  const { data } = useDoc(ref);
-  return !!data;
-}
-
 export function Header() {
   const pathname = usePathname();
   const [isDark, setIsDark] = useState(false);
   const { user } = useUser();
   const { tenantId, plan } = useSalonPlan();
-  const isGlobalAdmin = useIsGlobalAdmin();
+  const { isGlobalAdmin } = useIsGlobalAdmin();
 
   useEffect(() => {
     const theme = localStorage.getItem("theme");

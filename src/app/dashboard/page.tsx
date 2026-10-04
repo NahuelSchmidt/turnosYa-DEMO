@@ -16,10 +16,10 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useUser, useAuth as useFirebaseAuth, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { useUser, useAuth as useFirebaseAuth, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
 import { LoadingScreen } from "@/components/shared/LoadingScreen";
 import { signInWithEmailAndPassword, signOut, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { collection, query, where } from "firebase/firestore";
+import { collection, doc, query, where } from "firebase/firestore";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAppointments } from "@/hooks/use-appointments";
 import { useServices } from "@/hooks/use-services";
@@ -30,6 +30,8 @@ import { Trophy, Clock, Star, TrendingUp, Phone, MessageCircle } from "lucide-re
 import { AccountDeactivated } from "@/components/shared/AccountDeactivated";
 import { SubscriptionPaywall, TrialBanner } from "@/components/dashboard/SubscriptionPaywall";
 import { isSubscriptionBlocked } from "@/lib/subscription-status";
+import { AdminViewContext, useIsGlobalAdmin } from "@/hooks/use-is-global-admin";
+import Link from "next/link";
 
 const chartConfig = {
   Ingresos: { label: "Ingresos ($)", color: "hsl(var(--primary))" },
@@ -404,8 +406,18 @@ export default function DashboardPage() {
     return query(collection(db, "salons"), where(`adminMembers.${user.uid}`, "==", true));
   }, [db, user?.uid, user?.isAnonymous]);
 
-  const { data: userSalons, isLoading: isSalonsLoading } = useCollection(salonsQuery);
-  const currentSalon = userSalons?.[0];
+  const { data: userSalons, isLoading: isOwnSalonsLoading } = useCollection(salonsQuery);
+
+  // El administrador de Turnify puede abrir el panel de cualquier negocio con ?salon=ID
+  const [viewSalonId, setViewSalonId] = useState<string | null>(null);
+  useEffect(() => { setViewSalonId(new URLSearchParams(window.location.search).get("salon")); }, []);
+  const { isGlobalAdmin, isLoading: isAdminLoading } = useIsGlobalAdmin();
+  const adminView = !!viewSalonId && isGlobalAdmin;
+  const viewSalonRef = useMemoFirebase(() => (db && viewSalonId && isGlobalAdmin ? doc(db, "salons", viewSalonId) : null), [db, viewSalonId, isGlobalAdmin]);
+  const { data: viewedSalon, isLoading: isViewedLoading } = useDoc<any>(viewSalonRef);
+
+  const currentSalon: any = adminView ? viewedSalon : userSalons?.[0];
+  const isSalonsLoading = isOwnSalonsLoading || (!!viewSalonId && (isAdminLoading || (isGlobalAdmin && isViewedLoading)));
   const tenantId = currentSalon?.id;
 
   const { plan, features } = usePlan(tenantId || '');
@@ -486,15 +498,26 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-        ) : currentSalon?.isActive === false ? (
+        ) : currentSalon?.isActive === false && !adminView ? (
           <AccountDeactivated salonName={currentSalon?.name} onLogout={handleLogout} />
 
-        ) : isSubscriptionBlocked(currentSalon) ? (
+        ) : isSubscriptionBlocked(currentSalon) && !adminView ? (
           <SubscriptionPaywall salon={currentSalon} onLogout={handleLogout} />
 
         ) : (
           /* Panel del negocio */
+          <AdminViewContext.Provider value={adminView}>
           <div className="space-y-6">
+            {adminView && (
+              <div className="rounded-xl border border-blue-300 bg-blue-50 dark:bg-blue-950/30 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2 text-sm">
+                <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 hidden sm:block" />
+                <p className="flex-1">
+                  Estás viendo el panel de <strong>{currentSalon?.name}</strong> como administrador. Los cambios que hagas se guardan en su negocio.
+                  {(currentSalon?.isActive === false || isSubscriptionBlocked(currentSalon)) && <span className="font-semibold text-red-600"> Al dueño le aparece bloqueado.</span>}
+                </p>
+                <Link href="/super-admin" className="font-bold underline underline-offset-2 shrink-0">Volver al super-admin</Link>
+              </div>
+            )}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-muted/30 p-4 rounded-lg border">
               <div>
                 <div className="flex items-center gap-2">
@@ -504,12 +527,14 @@ export default function DashboardPage() {
                 </div>
                 <p className="text-xs text-muted-foreground uppercase">ID: {tenantId}</p>
               </div>
-              <Button variant="ghost" size="sm" onClick={handleLogout} className="text-destructive">
-                <LogOut className="mr-2 h-4 w-4" /> Cerrar Sesión
-              </Button>
+              {!adminView && (
+                <Button variant="ghost" size="sm" onClick={handleLogout} className="text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" /> Cerrar Sesión
+                </Button>
+              )}
             </div>
 
-            <TrialBanner salon={currentSalon} />
+            {!adminView && <TrialBanner salon={currentSalon} />}
 
             <Tabs value={dashboardTab} onValueChange={setDashboardTab}>
               <TabsList className="mb-4 w-full">
@@ -552,6 +577,7 @@ export default function DashboardPage() {
               <TabsContent value="settings"><AdminSettings tenantId={tenantId} /></TabsContent>
             </Tabs>
           </div>
+          </AdminViewContext.Provider>
         )}
       </main>
       <Footer />

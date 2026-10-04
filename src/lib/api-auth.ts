@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSalonById, API_KEY } from '@/lib/firestore-server';
+import { adminDb, isAdminConfigured } from '@/lib/firebase-admin';
 
 type SalonAdminResult =
   | { ok: true; uid: string; idToken: string; salon: Record<string, any> }
@@ -7,7 +8,7 @@ type SalonAdminResult =
 
 /**
  * Verifica que el request venga de un usuario logueado (ID token de Firebase en
- * el header Authorization) que sea admin del salón indicado.
+ * el header Authorization) que sea admin del salón indicado, o administrador de Turnify.
  */
 export async function requireSalonAdmin(req: NextRequest, tenantId: string): Promise<SalonAdminResult> {
   const idToken = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
@@ -26,7 +27,8 @@ export async function requireSalonAdmin(req: NextRequest, tenantId: string): Pro
 
   const uid: string | undefined = (await lookup.json()).users?.[0]?.localId;
   const salon = await getSalonById(tenantId);
-  if (!uid || !salon || salon.adminMembers?.[uid] !== true) {
+  const isGlobalAdmin = async () => !!uid && isAdminConfigured() && (await adminDb().collection('globalAdmins').doc(uid).get()).exists;
+  if (!uid || !salon || (salon.adminMembers?.[uid] !== true && !(await isGlobalAdmin()))) {
     return { ok: false, response: NextResponse.json({ error: 'Sin permiso sobre este negocio' }, { status: 403 }) };
   }
 
