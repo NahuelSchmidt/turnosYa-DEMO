@@ -919,6 +919,143 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
       </Card>
       )}
 
+      {/* ── EQUIPO ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5" /> Equipo de Trabajo</CardTitle>
+          <CardDescription>Cargá primero a las personas que atienden: después, en cada servicio, elegís quién lo hace.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-2">
+            {(professionals || []).map(p => (
+              <div key={p.id} className="rounded-xl border bg-card overflow-hidden">
+                <div className="flex items-center gap-4 p-3">
+                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-xl shrink-0">
+                    {(p as any).emoji || p.name.charAt(0)}
+                  </div>
+                  <div className="flex-grow min-w-0">
+                    <p className="font-bold truncate">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">{p.specialty}</p>
+                    {(p as any).weekSchedule && (
+                      <span className="text-[10px] text-primary font-bold">Horario personalizado</span>
+                    )}
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Configurar horarios"
+                      onClick={() => {
+                        if (expandedProfSchedule === p.id) {
+                          setExpandedProfSchedule(null);
+                        } else {
+                          initProfSchedule(p);
+                          setExpandedProfSchedule(p.id);
+                        }
+                      }}
+                    >
+                      <CalendarClock className="w-4 h-4 text-primary" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => { setEditingProfId(p.id); setProfForm(p as any); }}><Edit className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => updateProfessionals((professionals || []).filter(i => i.id !== p.id))} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                  </div>
+                </div>
+
+                {/* Panel de horarios del profesional */}
+                {expandedProfSchedule === p.id && profSchedule[p.id] && (
+                  <div className="border-t bg-muted/10 p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold flex items-center gap-2"><CalendarClock className="w-4 h-4 text-primary" /> Horario de {p.name}</p>
+                      {(p as any).weekSchedule && (
+                        <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => clearProfSchedule(p.id)}>
+                          Usar horario del negocio
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Si configurás horario propio, reemplaza al horario general del negocio solo para este profesional.</p>
+                    <div className="grid gap-2">
+                      {DIAS_KEY.map(dayKey => {
+                        const dayNames: Record<string, string> = { lun: 'Lunes', mar: 'Martes', mie: 'Miércoles', jue: 'Jueves', vie: 'Viernes', sab: 'Sábado', dom: 'Domingo' };
+                        const d = profSchedule[p.id][dayKey] || { enabled: false, slots: [] };
+                        return (
+                          <div key={dayKey} className="rounded-lg border bg-card p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={d.enabled}
+                                  onChange={() => toggleProfDay(p.id, dayKey)}
+                                  className="w-4 h-4 accent-primary"
+                                />
+                                <span className="text-sm font-semibold">{dayNames[dayKey]}</span>
+                              </label>
+                              <span className="text-xs text-muted-foreground">{d.slots.length} horario{d.slots.length !== 1 ? 's' : ''}</span>
+                            </div>
+                            {d.enabled && (
+                              <div className="space-y-2">
+                                <div className="flex flex-wrap gap-1">
+                                  {d.slots.map(slot => (
+                                    <span key={slot} className="flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">
+                                      {slot}
+                                      <button onClick={() => removeProfSlot(p.id, dayKey, slot)}><X className="w-3 h-3" /></button>
+                                    </span>
+                                  ))}
+                                </div>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="time"
+                                    value={profSlotInput[p.id]?.[dayKey] || ''}
+                                    onChange={e => setProfSlotInput(prev => ({ ...prev, [p.id]: { ...prev[p.id], [dayKey]: e.target.value } }))}
+                                    className="text-sm border rounded-md px-2 py-1 bg-background"
+                                  />
+                                  <Button size="sm" variant="outline" onClick={() => addProfSlot(p.id, dayKey)}>
+                                    <Plus className="w-3 h-3 mr-1" /> Agregar
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={() => saveProfSchedule(p.id)} className="flex-1">Guardar horarios</Button>
+                      <Button variant="ghost" onClick={() => setExpandedProfSchedule(null)}>Cancelar</Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="p-4 border rounded-xl bg-muted/10 space-y-3">
+            <p className="text-sm font-bold">{editingProfId ? "Editar Profesional" : "Agregar Profesional"}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1"><Label>Nombre</Label><Input placeholder="Nombre" value={profForm.name} onChange={e => setProfForm({ ...profForm, name: e.target.value })} /></div>
+              <div className="space-y-1"><Label>Especialidad</Label><Input placeholder="Ej: Estilista" value={profForm.specialty} onChange={e => setProfForm({ ...profForm, specialty: e.target.value })} /></div>
+              <div className="space-y-1 md:col-span-2">
+                <Label>Emoji representativo</Label>
+                <Input placeholder="Ej: ✂️  💇  🧔  💆  💅  👨‍⚕️" value={(profForm as any).emoji || ""} onChange={e => setProfForm({ ...profForm, emoji: e.target.value } as any)} className="text-xl" />
+                <p className="text-xs text-muted-foreground mt-1">Pegá un emoji que represente a este profesional.</p>
+              </div>
+            </div>
+            {!editingProfId && (professionals || []).length >= features.maxProfessionals && (
+              <p className="text-sm text-destructive font-medium">Límite de profesionales alcanzado para tu plan.</p>
+            )}
+            <div className="flex gap-2">
+              <Button
+                onClick={handleProfSubmit}
+                variant="secondary"
+                className="flex-1"
+                disabled={!editingProfId && (professionals || []).length >= features.maxProfessionals}
+              >
+                {editingProfId ? "Actualizar" : "Agregar al Equipo"}
+              </Button>
+              {editingProfId && <Button variant="ghost" onClick={() => { setEditingProfId(null); setProfForm({ name: "", specialty: "", avatarUrl: "", avatarHint: "", emoji: "" } as any); }}>Cancelar</Button>}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* ── SERVICIOS ── */}
       <Card>
         <CardHeader>
@@ -1023,6 +1160,11 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
                   </div>
                   <p className="text-xs text-muted-foreground">Si no seleccionás ninguno, el servicio estará disponible con todos.</p>
                 </div>
+              )}
+              {(professionals || []).length === 0 && (
+                <p className="md:col-span-2 text-xs text-muted-foreground bg-muted/40 border rounded-lg p-3">
+                  Todavía no cargaste a tu equipo. Cargalo arriba, en <strong>Equipo de Trabajo</strong>, para elegir quién hace cada servicio.
+                </p>
               )}
             </div>
             {serviceForm.serviceType === 'whatsapp' && (
@@ -1282,141 +1424,6 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
         <LockedFeature featureName="Múltiples Sucursales" requiredPlan="premium" />
       )}
 
-      {/* ── EQUIPO ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5" /> Equipo de Trabajo</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-2">
-            {(professionals || []).map(p => (
-              <div key={p.id} className="rounded-xl border bg-card overflow-hidden">
-                <div className="flex items-center gap-4 p-3">
-                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-xl shrink-0">
-                    {(p as any).emoji || p.name.charAt(0)}
-                  </div>
-                  <div className="flex-grow min-w-0">
-                    <p className="font-bold truncate">{p.name}</p>
-                    <p className="text-xs text-muted-foreground">{p.specialty}</p>
-                    {(p as any).weekSchedule && (
-                      <span className="text-[10px] text-primary font-bold">Horario personalizado</span>
-                    )}
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Configurar horarios"
-                      onClick={() => {
-                        if (expandedProfSchedule === p.id) {
-                          setExpandedProfSchedule(null);
-                        } else {
-                          initProfSchedule(p);
-                          setExpandedProfSchedule(p.id);
-                        }
-                      }}
-                    >
-                      <CalendarClock className="w-4 h-4 text-primary" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => { setEditingProfId(p.id); setProfForm(p as any); }}><Edit className="w-4 h-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => updateProfessionals((professionals || []).filter(i => i.id !== p.id))} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
-                  </div>
-                </div>
-
-                {/* Panel de horarios del profesional */}
-                {expandedProfSchedule === p.id && profSchedule[p.id] && (
-                  <div className="border-t bg-muted/10 p-4 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold flex items-center gap-2"><CalendarClock className="w-4 h-4 text-primary" /> Horario de {p.name}</p>
-                      {(p as any).weekSchedule && (
-                        <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => clearProfSchedule(p.id)}>
-                          Usar horario del negocio
-                        </Button>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">Si configurás horario propio, reemplaza al horario general del negocio solo para este profesional.</p>
-                    <div className="grid gap-2">
-                      {DIAS_KEY.map(dayKey => {
-                        const dayNames: Record<string, string> = { lun: 'Lunes', mar: 'Martes', mie: 'Miércoles', jue: 'Jueves', vie: 'Viernes', sab: 'Sábado', dom: 'Domingo' };
-                        const d = profSchedule[p.id][dayKey] || { enabled: false, slots: [] };
-                        return (
-                          <div key={dayKey} className="rounded-lg border bg-card p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={d.enabled}
-                                  onChange={() => toggleProfDay(p.id, dayKey)}
-                                  className="w-4 h-4 accent-primary"
-                                />
-                                <span className="text-sm font-semibold">{dayNames[dayKey]}</span>
-                              </label>
-                              <span className="text-xs text-muted-foreground">{d.slots.length} horario{d.slots.length !== 1 ? 's' : ''}</span>
-                            </div>
-                            {d.enabled && (
-                              <div className="space-y-2">
-                                <div className="flex flex-wrap gap-1">
-                                  {d.slots.map(slot => (
-                                    <span key={slot} className="flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full">
-                                      {slot}
-                                      <button onClick={() => removeProfSlot(p.id, dayKey, slot)}><X className="w-3 h-3" /></button>
-                                    </span>
-                                  ))}
-                                </div>
-                                <div className="flex gap-2">
-                                  <input
-                                    type="time"
-                                    value={profSlotInput[p.id]?.[dayKey] || ''}
-                                    onChange={e => setProfSlotInput(prev => ({ ...prev, [p.id]: { ...prev[p.id], [dayKey]: e.target.value } }))}
-                                    className="text-sm border rounded-md px-2 py-1 bg-background"
-                                  />
-                                  <Button size="sm" variant="outline" onClick={() => addProfSlot(p.id, dayKey)}>
-                                    <Plus className="w-3 h-3 mr-1" /> Agregar
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button onClick={() => saveProfSchedule(p.id)} className="flex-1">Guardar horarios</Button>
-                      <Button variant="ghost" onClick={() => setExpandedProfSchedule(null)}>Cancelar</Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="p-4 border rounded-xl bg-muted/10 space-y-3">
-            <p className="text-sm font-bold">{editingProfId ? "Editar Profesional" : "Agregar Profesional"}</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Nombre</Label><Input placeholder="Nombre" value={profForm.name} onChange={e => setProfForm({ ...profForm, name: e.target.value })} /></div>
-              <div className="space-y-1"><Label>Especialidad</Label><Input placeholder="Ej: Estilista" value={profForm.specialty} onChange={e => setProfForm({ ...profForm, specialty: e.target.value })} /></div>
-              <div className="space-y-1 md:col-span-2">
-                <Label>Emoji representativo</Label>
-                <Input placeholder="Ej: ✂️  💇  🧔  💆  💅  👨‍⚕️" value={(profForm as any).emoji || ""} onChange={e => setProfForm({ ...profForm, emoji: e.target.value } as any)} className="text-xl" />
-                <p className="text-xs text-muted-foreground mt-1">Pegá un emoji que represente a este profesional.</p>
-              </div>
-            </div>
-            {!editingProfId && (professionals || []).length >= features.maxProfessionals && (
-              <p className="text-sm text-destructive font-medium">Límite de profesionales alcanzado para tu plan.</p>
-            )}
-            <div className="flex gap-2">
-              <Button
-                onClick={handleProfSubmit}
-                variant="secondary"
-                className="flex-1"
-                disabled={!editingProfId && (professionals || []).length >= features.maxProfessionals}
-              >
-                {editingProfId ? "Actualizar" : "Agregar al Equipo"}
-              </Button>
-              {editingProfId && <Button variant="ghost" onClick={() => { setEditingProfId(null); setProfForm({ name: "", specialty: "", avatarUrl: "", avatarHint: "", emoji: "" } as any); }}>Cancelar</Button>}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
     </div>
   );

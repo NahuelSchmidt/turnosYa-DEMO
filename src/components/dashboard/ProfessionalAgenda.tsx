@@ -966,9 +966,9 @@ function GettingStarted({ tenantId, salonName }: { tenantId: string; salonName?:
   const helpUrl = `https://wa.me/${TURNIFY_WHATSAPP}?text=${encodeURIComponent(helpText)}`;
   const bookingLink = typeof window !== 'undefined' ? `${window.location.origin}/book/${tenantId}` : '';
   const steps = [
-    { title: 'Cargá tus servicios', text: 'Nombre, precio y cuánto dura cada uno.' },
-    { title: 'Elegí tus días y horarios', text: 'Los horarios en los que tus clientes pueden reservar.' },
-    { title: 'Compartí tu link', text: 'Ponelo en tu Instagram o mandalo por WhatsApp.' },
+    { title: 'Cargá tu equipo', text: 'Quiénes atienden. Si trabajás solo, cargate vos.' },
+    { title: 'Cargá tus servicios', text: 'Nombre, precio, duración y quién lo hace.' },
+    { title: 'Elegí horarios y compartí tu link', text: 'Ponelo en tu Instagram o mandalo por WhatsApp.' },
   ];
   return (
     <div className="rounded-2xl border bg-primary/5 p-5 space-y-4">
