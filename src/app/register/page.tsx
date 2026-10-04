@@ -86,7 +86,7 @@ export default function RegisterPage() {
               <form onSubmit={submit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="r-name">Nombre de tu negocio</Label>
-                  <Input id="r-name" required value={form.businessName} onChange={e => setForm({ ...form, businessName: e.target.value })} placeholder="Ej: Barbería Ro" className="h-12" />
+                  <Input id="r-name" required value={form.businessName} onChange={e => setForm({ ...form, businessName: e.target.value })} placeholder="Ej: Barbería Blessed" className="h-12" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="r-email">Mail</Label>
