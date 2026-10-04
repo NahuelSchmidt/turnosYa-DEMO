@@ -72,7 +72,7 @@ export default function RegisterPage() {
               ))}
             </ul>
             <p className="text-sm text-muted-foreground">
-              Después de la prueba, el plan Pro sale $19.900 por mes, sin permanencia. Si no querés pagar, podés seguir con el{" "}
+              Al terminar la prueba elegís si seguís con el plan Pro, sin permanencia. Si no, podés seguir con el{" "}
               <Link href="/#planes" className="underline font-semibold">plan gratis</Link>.
             </p>
           </div>
