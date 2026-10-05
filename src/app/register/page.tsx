@@ -161,12 +161,9 @@ export default function RegisterPage() {
               Probá Turnify gratis {SELF_SIGNUP_TRIAL_DAYS} días
             </h1>
             <p className="text-muted-foreground text-lg">
-              Tu página de reservas: tus clientes eligen servicio y horario solos, y vos ves todo en tu agenda. Sin tarjeta.
+              Creá tu cuenta en un minuto, con todo el plan Pro, y compartí tu link de reservas hoy mismo.
             </p>
-            <DemoVideo />
-            <div className="hidden md:block space-y-5">
-              <Perks />
-            </div>
+            <Perks />
           </div>
 
           <Card className="shadow-lg min-w-0">
@@ -240,35 +237,10 @@ export default function RegisterPage() {
               </div>
             </CardContent>
           </Card>
-          {/* En el celu los beneficios van debajo del formulario, para no alejarlo */}
-          <div className="md:hidden space-y-5">
-            <Perks />
-          </div>
         </div>
       </main>
       <Footer />
     </div>
-  );
-}
-
-/** Video corto de cómo funciona (sin sonido hasta que lo toquen). */
-function DemoVideo() {
-  return (
-    <figure className="mx-auto md:mx-0 w-full max-w-[200px] md:max-w-[240px]">
-      <video
-        src="/videos/turnify-demo.mp4"
-        poster="/videos/turnify-demo.jpg"
-        autoPlay
-        muted
-        loop
-        playsInline
-        controls
-        preload="metadata"
-        onVolumeChange={e => { if (!e.currentTarget.muted) trackPixelCustom("ActivoSonidoVideo", undefined, true); }}
-        className="w-full aspect-[9/16] rounded-2xl border shadow-md bg-muted object-cover"
-      />
-      <figcaption className="mt-2 text-center text-xs text-muted-foreground">Así funciona, en 19 segundos</figcaption>
-    </figure>
   );
 }
 
