@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Check, Loader2, MessageCircle } from "lucide-react";
 import { SELF_SIGNUP_TRIAL_DAYS } from "@/lib/subscription-status";
+import { trackPixel, trackPixelCustom } from "@/lib/meta-pixel";
 
 // WhatsApp de Turnify para el que prefiere preguntar antes de registrarse
 const HELP_WHATSAPP_URL = `https://wa.me/542216229441?text=${encodeURIComponent("¡Hola! Estoy por probar Turnify y tengo una duda:")}`;
@@ -31,7 +32,12 @@ function GoogleIcon() {
 
 /** Meta Pixel: cuenta el contacto por WhatsApp desde la página de registro. */
 function trackContact() {
-  try { (window as any).fbq?.("track", "Contact", { content_name: "WhatsApp desde registro" }); } catch {}
+  trackPixel("Contact", { content_name: "WhatsApp desde registro" });
+}
+
+/** Meta Pixel: el registro falló (para saber si la gente se va por un error). */
+function trackSignupError(motivo: string, metodo: "mail" | "google") {
+  trackPixelCustom("ErrorRegistro", { motivo: motivo.slice(0, 80), metodo });
 }
 
 const PERKS = [
@@ -52,6 +58,11 @@ export default function RegisterPage() {
   const [googleEmail, setGoogleEmail] = useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  // Meta Pixel: entró a la página de registro
+  useEffect(() => { trackPixel("ViewContent", { content_name: "Página de registro" }); }, []);
+  // Meta Pixel: empezó a completar el formulario (una sola vez)
+  const trackStarted = () => trackPixelCustom("EmpezoRegistro", undefined, true);
+
   const googleRegister = async (body: Record<string, any>) => {
     const token = await auth.currentUser?.getIdToken();
     const res = await fetch("/api/register/google", {
@@ -67,6 +78,7 @@ export default function RegisterPage() {
   const startGoogle = async () => {
     setError("");
     setGoogleLoading(true);
+    trackPixelCustom("ClicGoogle", undefined, true);
     try {
       const cred = await signInWithPopup(auth, new GoogleAuthProvider());
       const { existing } = await googleRegister({ check: true });
@@ -78,6 +90,9 @@ export default function RegisterPage() {
       else if (err?.code === "auth/account-exists-with-different-credential") setError("Ese mail ya tiene una cuenta con clave. Iniciá sesión con tu mail y clave.");
       else if (err?.code === "auth/popup-blocked") setError("El navegador bloqueó la ventana de Google. Permitila o registrate con tu mail.");
       else setError(err?.message || "No se pudo entrar con Google");
+      if (err?.code !== "auth/popup-closed-by-user" && err?.code !== "auth/cancelled-popup-request") {
+        trackSignupError(err?.code || err?.message || "google", "google");
+      }
     }
     setGoogleLoading(false);
   };
@@ -112,6 +127,7 @@ export default function RegisterPage() {
         router.push("/dashboard");
       } catch (err: any) {
         setError(err.message || "No se pudo crear la cuenta");
+        trackSignupError(err.message || "error", "google");
         setLoading(false);
       }
       return;
@@ -130,6 +146,7 @@ export default function RegisterPage() {
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || "No se pudo crear la cuenta");
+      trackSignupError(err.message || "error", "mail");
       setLoading(false);
     }
   };
@@ -144,19 +161,12 @@ export default function RegisterPage() {
               Probá Turnify gratis {SELF_SIGNUP_TRIAL_DAYS} días
             </h1>
             <p className="text-muted-foreground text-lg">
-              Creá tu cuenta en un minuto, con todo el plan Pro, y compartí tu link de reservas hoy mismo.
+              Tu página de reservas: tus clientes eligen servicio y horario solos, y vos ves todo en tu agenda. Sin tarjeta.
             </p>
-            <ul className="space-y-3">
-              {PERKS.map(p => (
-                <li key={p} className="flex items-center gap-3 text-sm font-medium">
-                  <Check className="w-5 h-5 text-primary shrink-0" /> {p}
-                </li>
-              ))}
-            </ul>
-            <p className="text-sm text-muted-foreground">
-              Al terminar la prueba elegís si seguís con el plan Pro, sin permanencia. Si no, podés seguir con el{" "}
-              <Link href="/#planes" className="underline font-semibold">plan gratis</Link>.
-            </p>
+            <DemoVideo />
+            <div className="hidden md:block space-y-5">
+              <Perks />
+            </div>
           </div>
 
           <Card className="shadow-lg min-w-0">
@@ -181,7 +191,7 @@ export default function RegisterPage() {
                   <button type="button" onClick={cancelGoogle} className="text-xs underline text-muted-foreground shrink-0">Cambiar</button>
                 </div>
               )}
-              <form onSubmit={submit} className="space-y-4">
+              <form onSubmit={submit} onFocusCapture={trackStarted} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="r-name">Nombre de tu negocio</Label>
                   <Input id="r-name" required value={form.businessName} onChange={e => setForm({ ...form, businessName: e.target.value })} placeholder="Ej: Barbería Blessed" className="h-12" />
@@ -230,9 +240,52 @@ export default function RegisterPage() {
               </div>
             </CardContent>
           </Card>
+          {/* En el celu los beneficios van debajo del formulario, para no alejarlo */}
+          <div className="md:hidden space-y-5">
+            <Perks />
+          </div>
         </div>
       </main>
       <Footer />
     </div>
+  );
+}
+
+/** Video corto de cómo funciona (sin sonido hasta que lo toquen). */
+function DemoVideo() {
+  return (
+    <figure className="mx-auto md:mx-0 w-full max-w-[200px] md:max-w-[240px]">
+      <video
+        src="/videos/turnify-demo.mp4"
+        poster="/videos/turnify-demo.jpg"
+        autoPlay
+        muted
+        loop
+        playsInline
+        controls
+        preload="metadata"
+        onVolumeChange={e => { if (!e.currentTarget.muted) trackPixelCustom("ActivoSonidoVideo", undefined, true); }}
+        className="w-full aspect-[9/16] rounded-2xl border shadow-md bg-muted object-cover"
+      />
+      <figcaption className="mt-2 text-center text-xs text-muted-foreground">Así funciona, en 19 segundos</figcaption>
+    </figure>
+  );
+}
+
+function Perks() {
+  return (
+    <>
+      <ul className="space-y-3">
+        {PERKS.map(p => (
+          <li key={p} className="flex items-center gap-3 text-sm font-medium">
+            <Check className="w-5 h-5 text-primary shrink-0" /> {p}
+          </li>
+        ))}
+      </ul>
+      <p className="text-sm text-muted-foreground">
+        Al terminar la prueba elegís si seguís con el plan Pro, sin permanencia. Si no, podés seguir con el{" "}
+        <Link href="/#planes" className="underline font-semibold">plan gratis</Link>.
+      </p>
+    </>
   );
 }

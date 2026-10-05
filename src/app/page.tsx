@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { FeaturesAccordion } from "@/components/landing/FeaturesAccordion";
 import { PricingSection } from "@/components/landing/PricingSection";
 import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
 import Link from "next/link";
+import { watchLandingFunnel } from "@/lib/meta-pixel";
 import { Badge } from "@/components/ui/badge";
 
 function DashboardDemo() {
@@ -177,6 +178,9 @@ const STEPS = [
 
 export default function Home() {
   const demoTenantId = "admin-tenant-1";
+
+  // Meta Pixel: hasta dónde llega el que entra desde un anuncio
+  useEffect(() => watchLandingFunnel(), []);
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground transition-colors duration-300">
