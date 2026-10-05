@@ -12,8 +12,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Check, Loader2 } from "lucide-react";
+import { AlertCircle, Check, Loader2, MessageCircle } from "lucide-react";
 import { SELF_SIGNUP_TRIAL_DAYS } from "@/lib/subscription-status";
+
+// WhatsApp de Turnify para el que prefiere preguntar antes de registrarse
+const HELP_WHATSAPP_URL = `https://wa.me/542216229441?text=${encodeURIComponent("¡Hola! Estoy por probar Turnify y tengo una duda:")}`;
+
+/** Meta Pixel: cuenta el contacto por WhatsApp desde la página de registro. */
+function trackContact() {
+  try { (window as any).fbq?.("track", "Contact", { content_name: "WhatsApp desde registro" }); } catch {}
+}
 
 const PERKS = [
   "Tus clientes reservan solos desde tu link",
@@ -118,6 +126,14 @@ export default function RegisterPage() {
                   ¿Ya tenés cuenta? <Link href="/dashboard" className="underline">Iniciá sesión</Link>
                 </p>
               </form>
+              <div className="mt-5 pt-5 border-t text-center space-y-2">
+                <p className="text-sm text-muted-foreground">¿Tenés dudas antes de empezar?</p>
+                <Button asChild variant="outline" className="w-full h-11 font-semibold">
+                  <a href={HELP_WHATSAPP_URL} target="_blank" rel="noopener noreferrer" onClick={trackContact}>
+                    <MessageCircle className="w-4 h-4 mr-2 text-[#25D366]" /> Escribinos por WhatsApp
+                  </a>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
