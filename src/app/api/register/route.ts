@@ -1,24 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHash } from 'crypto';
-import { adminDb, isAdminConfigured } from '@/lib/firebase-admin';
+import { isAdminConfigured } from '@/lib/firebase-admin';
+import { allowSignup, clientIp } from '@/lib/signup-limit';
 import { BusinessError, createBusinessAccount, isValidEmail } from '@/lib/business';
 import { notifyAdmins } from '@/lib/push';
 import { SELF_SIGNUP_TRIAL_DAYS } from '@/lib/subscription-status';
-
-const MAX_SIGNUPS_PER_HOUR = 3;
-
-/** Cuenta registros por IP en la última hora para frenar abusos. */
-async function allowSignup(ip: string): Promise<boolean> {
-  const ref = adminDb().collection('signupLimits').doc(createHash('sha256').update(ip).digest('hex'));
-  return adminDb().runTransaction(async tx => {
-    const snap = await tx.get(ref);
-    const hourAgo = Date.now() - 60 * 60 * 1000;
-    const recent = ((snap.data()?.times as number[]) || []).filter(t => t > hourAgo);
-    if (recent.length >= MAX_SIGNUPS_PER_HOUR) return false;
-    tx.set(ref, { times: [...recent, Date.now()] });
-    return true;
-  });
-}
 
 /**
  * Registro público: crea la cuenta del dueño y su negocio en plan Pro con prueba gratis.
@@ -40,8 +25,7 @@ export async function POST(req: NextRequest) {
   if (!isValidEmail(email)) return NextResponse.json({ error: 'El mail no es válido' }, { status: 400 });
   if (password.length < 6) return NextResponse.json({ error: 'La clave tiene que tener al menos 6 caracteres' }, { status: 400 });
 
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
-  if (!(await allowSignup(ip))) {
+  if (!(await allowSignup(clientIp(req)))) {
     return NextResponse.json({ error: 'Demasiados registros seguidos. Probá de nuevo en un rato.' }, { status: 429 });
   }
 

@@ -489,9 +489,12 @@ export default function DashboardPage() {
           <Card className="max-w-md mx-auto text-center">
             <CardHeader>
               <CardTitle>Sin negocio asignado</CardTitle>
-              <CardDescription>Tu cuenta no tiene un negocio vinculado. Contactá al administrador.</CardDescription>
+              <CardDescription>Tu cuenta todavía no tiene un negocio. Crealo gratis y probá el plan Pro 14 días.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-2">
+              <Button asChild className="w-full">
+                <Link href="/register">Crear mi negocio</Link>
+              </Button>
               <Button variant="outline" onClick={handleLogout} className="w-full">
                 <LogOut className="mr-2 h-4 w-4" /> Cerrar sesión
               </Button>

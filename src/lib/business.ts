@@ -55,15 +55,35 @@ export async function createBusinessAccount(input: CreateBusinessInput) {
     throw new BusinessError('Ese mail ya tiene una cuenta. Iniciá sesión desde el panel.');
   }
 
+  const { salonId, trialEndsAt } = await createSalonForUser({
+    uid, email, name: input.name, plan: input.plan, trialDays: input.trialDays,
+    whatsappNumber: input.whatsappNumber, createdBy: input.createdBy,
+  });
+  return { salonId, uid, existingUser, trialEndsAt };
+}
+
+interface CreateSalonInput {
+  uid: string;
+  email: string;
+  name: string;
+  plan: Plan;
+  trialDays: number;
+  whatsappNumber: string;
+  createdBy: string;
+}
+
+/** Crea el negocio de un usuario que ya existe (registro con mail o con Google). */
+export async function createSalonForUser(input: CreateSalonInput) {
+  const db = adminDb();
   const salonId = `${slugify(input.name)}-${randomBytes(3).toString('hex')}`;
   const trialEndsAt = input.trialDays > 0 ? new Date(Date.now() + input.trialDays * 24 * 60 * 60 * 1000) : null;
 
   await db.collection('salons').doc(salonId).set({
     id: salonId,
     name: input.name,
-    email,
+    email: input.email,
     plan: input.plan,
-    adminMembers: { [uid]: true },
+    adminMembers: { [input.uid]: true },
     isActive: true,
     primaryColor: '#000000',
     whatsappNumber: input.whatsappNumber,
@@ -74,13 +94,19 @@ export async function createBusinessAccount(input: CreateBusinessInput) {
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  await db.collection('userProfiles').doc(uid).set({
-    id: uid,
-    externalAuthId: uid,
-    email,
+  await db.collection('userProfiles').doc(input.uid).set({
+    id: input.uid,
+    externalAuthId: input.uid,
+    email: input.email,
     role: 'owner',
     createdAt: FieldValue.serverTimestamp(),
   }, { merge: true });
 
-  return { salonId, uid, existingUser, trialEndsAt };
+  return { salonId, trialEndsAt };
+}
+
+/** ¿Este usuario ya administra algún negocio? */
+export async function userHasSalon(uid: string) {
+  const snap = await adminDb().collection('salons').where(`adminMembers.${uid}`, '==', true).limit(1).get();
+  return !snap.empty;
 }
