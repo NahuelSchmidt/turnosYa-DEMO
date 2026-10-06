@@ -31,11 +31,11 @@ export default function BookingSummary({
                 <Package className="w-4 h-4" />
                 <h4 className="font-semibold text-foreground">Servicios</h4>
             </div>
-            <ul className="list-disc list-inside pl-2 space-y-1 text-sm">
+            <ul className="pl-6 space-y-1 text-sm">
                 {services.map((s) => (
-                <li key={s.id} className="flex justify-between">
-                    <span>{s.name}</span>
-                    <span>${s.price}</span>
+                <li key={s.id} className="flex justify-between gap-3">
+                    <span className="min-w-0">{s.name}</span>
+                    <span className="shrink-0 font-medium">${s.price.toLocaleString("es-AR")}</span>
                 </li>
                 ))}
             </ul>
@@ -75,7 +75,7 @@ export default function BookingSummary({
             <Tag className="w-4 h-4 text-muted-foreground" />
             <span>Total a Pagar</span>
         </div>
-        <span>${total}</span>
+        <span>${total.toLocaleString("es-AR")}</span>
       </div>
     </div>
   );

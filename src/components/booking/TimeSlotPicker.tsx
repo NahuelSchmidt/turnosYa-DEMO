@@ -85,8 +85,9 @@ export default function TimeSlotPicker({
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
       <h2 className="text-2xl font-bold mb-4 font-headline">Elige Fecha y Hora</h2>
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className="flex justify-center">
+      {/* Calendario y horarios lado a lado solo en pantallas anchas; si no, uno abajo del otro */}
+      <div className="grid xl:grid-cols-2 gap-6 xl:gap-8">
+        <div className="flex justify-center min-w-0">
           <Calendar
             mode="single"
             selected={selectedDate}
@@ -96,11 +97,11 @@ export default function TimeSlotPicker({
             locale={es}
           />
         </div>
-        <div className="flex flex-col">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold">Horarios Disponibles</h3>
+        <div className="flex flex-col min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h3 className="font-semibold">Horarios disponibles</h3>
             {selectedDate && (
-              <span className="text-xs text-muted-foreground capitalize">
+              <span className="text-xs text-muted-foreground capitalize shrink-0">
                 {format(selectedDate, "eeee dd/MM", { locale: es })}
               </span>
             )}
