@@ -61,7 +61,7 @@ export default function BookingSummary({
       <Separator />
 
       {totalDuration > 0 && (
-        <div className="flex justify-between items-center text-sm">
+        <div className="flex justify-between items-center gap-3 text-sm">
             <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-muted-foreground" />
                 <span className="font-semibold">Duración Total</span>
@@ -70,12 +70,12 @@ export default function BookingSummary({
         </div>
       )}
       
-      <div className="flex justify-between items-center font-bold text-lg">
+      <div className="flex justify-between items-center gap-3 font-bold text-lg">
         <div className="flex items-center gap-2">
             <Tag className="w-4 h-4 text-muted-foreground" />
             <span>Total a Pagar</span>
         </div>
-        <span>${total.toLocaleString("es-AR")}</span>
+        <span className="shrink-0">${total.toLocaleString("es-AR")}</span>
       </div>
     </div>
   );
