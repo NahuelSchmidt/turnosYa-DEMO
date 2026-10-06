@@ -62,10 +62,14 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
     [selectedDate, getSlotsForDate, isClassBooking]
   );
 
+  const totalDuration = (selectedService ? serviceDuration(selectedService, selectedProfessionalId) : 0) + extraDuration;
+
   const bookedSlots = useMemo(
-    () => getBookedSlotsForDate(selectedProfessionalId || null, selectedDate, availableSlots, blockedSlots),
-    [selectedProfessionalId, selectedDate, availableSlots, getBookedSlotsForDate, blockedSlots]
+    () => getBookedSlotsForDate(selectedProfessionalId || null, selectedDate, availableSlots, blockedSlots, undefined, isClassBooking ? 0 : totalDuration),
+    [selectedProfessionalId, selectedDate, availableSlots, getBookedSlotsForDate, blockedSlots, isClassBooking, totalDuration]
   );
+
+
 
   const classSlotInfo = useMemo(() => {
     if (!isClassBooking || !selectedProfessionalId || !selectedService) return undefined;
@@ -104,7 +108,6 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
   }, [availableSlots, bookedSlots, selectedDate, isClassBooking, classSlotInfo]);
 
   const total = selectedService?.price ?? 0;
-  const totalDuration = (selectedService ? serviceDuration(selectedService, selectedProfessionalId) : 0) + extraDuration;
 
   const handleSubmit = () => {
     const serviceOk = freeTextService ? !!customServiceName.trim() : !!selectedServiceId;

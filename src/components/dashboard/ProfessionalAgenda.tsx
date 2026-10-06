@@ -402,7 +402,7 @@ function ListView({ agenda, onUpdate, onReschedule, tenantId, getBookedSlotsForD
   onUpdate: (id: string, status: AppStatus) => void;
   onReschedule: (id: string, newStart: Date, newEnd: Date) => void;
   tenantId: string;
-  getBookedSlotsForDate: (professionalId: string | null, date: Date | undefined, slots: string[], blockedSlots: any[], excludeId?: string) => string[];
+  getBookedSlotsForDate: (professionalId: string | null, date: Date | undefined, slots: string[], blockedSlots: any[], excludeId?: string, duration?: number) => string[];
 }) {
   const [rescheduleApt, setRescheduleApt] = useState<PopulatedAppointment | null>(null);
   const now = new Date();
@@ -494,7 +494,7 @@ function AppointmentDetailDialog({ apt, tenantId, onUpdate, onReschedule, onClos
   onUpdate: (id: string, status: AppStatus) => void;
   onReschedule: (id: string, newStart: Date, newEnd: Date) => void;
   onClose: () => void;
-  getBookedSlotsForDate: (professionalId: string | null, date: Date | undefined, slots: string[], blockedSlots: any[], excludeId?: string) => string[];
+  getBookedSlotsForDate: (professionalId: string | null, date: Date | undefined, slots: string[], blockedSlots: any[], excludeId?: string, duration?: number) => string[];
 }) {
   const [mode, setMode] = useState<'detail' | 'reschedule'>('detail');
   const [rescheduleDate, setRescheduleDate] = useState<Date | undefined>(undefined);
@@ -511,7 +511,8 @@ function AppointmentDetailDialog({ apt, tenantId, onUpdate, onReschedule, onClos
 
   const slots = useMemo(() => getSlotsForDate(rescheduleDate), [rescheduleDate, getSlotsForDate]);
   const booked = useMemo(
-    () => apt ? getBookedSlotsForDate(apt.professional?.id || null, rescheduleDate, slots, [], apt.id) : [],
+    () => apt ? getBookedSlotsForDate(apt.professional?.id || null, rescheduleDate, slots, [], apt.id,
+      apt.endTime ? Math.max(0, Math.round((parseFirestoreDate(apt.endTime).getTime() - parseFirestoreDate(apt.startTime).getTime()) / 60000)) : 0) : [],
     [apt, rescheduleDate, slots, getBookedSlotsForDate]
   );
   const freeSlots = useMemo(() => slots.filter(s => !booked.includes(s)), [slots, booked]);
@@ -658,7 +659,7 @@ function GridView({ agenda, onUpdate, onReschedule, tenantId, initialWeekOffset 
   tenantId: string;
   initialWeekOffset?: number;
   onDayClick?: (day: Date) => void;
-  getBookedSlotsForDate: (professionalId: string | null, date: Date | undefined, slots: string[], blockedSlots: any[], excludeId?: string) => string[];
+  getBookedSlotsForDate: (professionalId: string | null, date: Date | undefined, slots: string[], blockedSlots: any[], excludeId?: string, duration?: number) => string[];
   professionals: Professional[];
   getSlotsForDate: (date?: Date, professional?: any, forClass?: boolean) => string[];
   blockedSlots: { date: string; time: string }[];

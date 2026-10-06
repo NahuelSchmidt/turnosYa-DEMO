@@ -47,6 +47,8 @@ export function useAppointments(tenantId: string = 'default', opts: { publicView
   /**
    * Devuelve los horarios "HH:MM" ya ocupados para un profesional en una fecha dada.
    * Bloquea el slot exacto y todos los slots dentro de la duración del turno.
+   * Con `duration` (minutos del turno nuevo) también bloquea los horarios donde ese turno
+   * no entra completo: pisaría otro turno, un horario bloqueado o se pasaría del horario de atención.
    */
   const getBookedSlotsForDate = (
     professionalId: string | null,
@@ -54,6 +56,7 @@ export function useAppointments(tenantId: string = 'default', opts: { publicView
     timeSlots: string[] = [],
     blockedSlots: { date: string; time: string }[] = [],
     excludeAppointmentId?: string,
+    duration = 0,
   ): string[] => {
     if (!date || !professionalId) return [];
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -89,6 +92,10 @@ export function useAppointments(tenantId: string = 'default', opts: { publicView
     blockedSlots
       .filter((bs) => bs.date === dateStr)
       .forEach((bs) => blocked.add(bs.time));
+
+    if (duration > 0 && timeSlots.length > 0) {
+      slotsWhereItDoesNotFit(timeSlots, blocked, duration).forEach((slot) => blocked.add(slot));
+    }
 
     return Array.from(blocked);
   };
@@ -232,6 +239,32 @@ export function useAppointments(tenantId: string = 'default', opts: { publicView
     loading: publicView ? publicSlots === null : (isCollectionLoading || isUserLoading),
     customerId
   };
+}
+
+const toMinutes = (slot: string) => {
+  const [h, m] = slot.split(':').map(Number);
+  return h * 60 + m;
+};
+
+/**
+ * Horarios donde un turno de `duration` minutos no entra: durante todo el turno, cada
+ * horario de la grilla tiene que ser de atención y estar libre. Así no pisa el turno
+ * siguiente, un corte (por ejemplo al mediodía) ni se pasa de la hora de cierre.
+ */
+export function slotsWhereItDoesNotFit(timeSlots: string[], taken: Set<string>, duration: number): string[] {
+  const mins = Array.from(new Set(timeSlots.map(toMinutes))).sort((a, b) => a - b);
+  if (!mins.length) return [];
+  const gaps = mins.slice(1).map((m, i) => m - mins[i]).filter(g => g > 0);
+  const step = gaps.length ? Math.min(...gaps) : duration;
+  const working = new Set(mins);
+  const takenMins = new Set(Array.from(taken).map(toMinutes));
+  return timeSlots.filter((slot) => {
+    const start = toMinutes(slot);
+    for (let t = start; t < start + duration; t += step) {
+      if (!working.has(t) || takenMins.has(t)) return true;
+    }
+    return false;
+  });
 }
 
 /** Un turno ocupa el horario si está confirmado o esperando una seña que todavía no venció. */

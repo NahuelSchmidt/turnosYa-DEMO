@@ -91,8 +91,8 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
 
   const bookedSlots = useMemo(() => {
     const salonBlockedSlots = (salon as any)?.blockedSlots || [];
-    return getBookedSlotsForDate(selectedProfessional?.id ?? null, selectedDate, timeSlots, salonBlockedSlots);
-  }, [selectedProfessional, selectedDate, timeSlots, getBookedSlotsForDate, salon]);
+    return getBookedSlotsForDate(selectedProfessional?.id ?? null, selectedDate, timeSlots, salonBlockedSlots, undefined, isClassBooking ? 0 : totalDuration);
+  }, [selectedProfessional, selectedDate, timeSlots, getBookedSlotsForDate, salon, isClassBooking, totalDuration]);
 
   const slotCapacity = useMemo(() => {
     if (!isClassBooking || !selectedProfessional) return undefined;
