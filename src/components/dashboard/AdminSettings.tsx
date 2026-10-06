@@ -286,8 +286,8 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  type SForm = { name: string; description: string; price: number; duration: number; serviceType: ServiceType; professionalIds: string[]; durationByProfessional: Record<string, number> };
-  const emptyForm: SForm = { name: "", description: "", price: 0, duration: 0, serviceType: 'normal', professionalIds: [], durationByProfessional: {} };
+  type SForm = { name: string; description: string; price: number; duration: number; serviceType: ServiceType; professionalIds: string[]; durationByProfessional: Record<string, number>; category: string };
+  const emptyForm: SForm = { name: "", description: "", price: 0, duration: 0, serviceType: 'normal', professionalIds: [], durationByProfessional: {}, category: "" };
   const [serviceForm, setServiceForm] = useState<SForm>(emptyForm);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
 
@@ -334,6 +334,29 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
     setProfSchedule(prev => ({
       ...prev,
       [profId]: { ...prev[profId], [dayKey]: { ...prev[profId][dayKey], slots: prev[profId][dayKey].slots.filter(s => s !== slot) } }
+    }));
+  };
+
+  // Completar rápido: genera los horarios de inicio "desde–hasta cada X min" en todos los días marcados
+  const [profRange, setProfRange] = useState<{ from: string; to: string; every: number }>({ from: '09:00', to: '18:00', every: 30 });
+  const fillProfRange = (profId: string) => {
+    const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+    const from = toMin(profRange.from), to = toMin(profRange.to), every = profRange.every;
+    if (!(every > 0) || Number.isNaN(from) || Number.isNaN(to) || to < from) {
+      toast({ variant: "destructive", title: "Revisá el rango", description: "El último turno tiene que ser después del primero." });
+      return;
+    }
+    const slots: string[] = [];
+    for (let t = from; t <= to; t += every) slots.push(`${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`);
+    const current = profSchedule[profId] || {};
+    const enabledDays = DIAS_KEY.filter(d => current[d]?.enabled);
+    if (!enabledDays.length) {
+      toast({ variant: "destructive", title: "Marcá primero los días que trabaja" });
+      return;
+    }
+    setProfSchedule(prev => ({
+      ...prev,
+      [profId]: Object.fromEntries(DIAS_KEY.map(d => [d, enabledDays.includes(d) ? { enabled: true, slots } : (prev[profId]?.[d] || { enabled: false, slots: [] })])),
     }));
   };
 
@@ -384,6 +407,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
       ...(isSpecial && { type: serviceForm.serviceType }),
       ...(serviceForm.professionalIds.length > 0 && { professionalIds: serviceForm.professionalIds }),
       ...(serviceForm.serviceType !== 'whatsapp' && Object.keys(ownDurations).length > 0 && { durationByProfessional: ownDurations }),
+      ...(serviceForm.serviceType !== 'whatsapp' && serviceForm.category.trim() && { category: serviceForm.category.trim().slice(0, 60) }),
     };
     const updated = editingServiceId
       ? (services || []).map(s => s.id === editingServiceId ? serviceData : s)
@@ -979,6 +1003,21 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">Si configurás horario propio, reemplaza al horario general del negocio solo para este profesional.</p>
+                    <div className="rounded-lg border bg-card p-3 space-y-2">
+                      <p className="text-sm font-semibold">Completar rápido</p>
+                      <p className="text-xs text-muted-foreground">Marcá abajo los días que trabaja y poné el primer y el último turno: se cargan en todos esos días.</p>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <label className="space-y-1"><span className="block text-xs text-muted-foreground">Primer turno</span>
+                          <input type="time" value={profRange.from} onChange={e => setProfRange(r => ({ ...r, from: e.target.value }))} className="text-sm border rounded-md px-2 py-1 bg-background" /></label>
+                        <label className="space-y-1"><span className="block text-xs text-muted-foreground">Último turno</span>
+                          <input type="time" value={profRange.to} onChange={e => setProfRange(r => ({ ...r, to: e.target.value }))} className="text-sm border rounded-md px-2 py-1 bg-background" /></label>
+                        <label className="space-y-1"><span className="block text-xs text-muted-foreground">Cada</span>
+                          <select value={profRange.every} onChange={e => setProfRange(r => ({ ...r, every: Number(e.target.value) }))} className="text-sm border rounded-md px-2 py-1.5 bg-background">
+                            {[15, 20, 30, 45, 60, 90, 120].map(m => <option key={m} value={m}>{m} min</option>)}
+                          </select></label>
+                        <Button size="sm" variant="outline" onClick={() => fillProfRange(p.id)}>Aplicar a los días marcados</Button>
+                      </div>
+                    </div>
                     <div className="grid gap-2">
                       {DIAS_KEY.map(dayKey => {
                         const dayNames: Record<string, string> = { lun: 'Lunes', mar: 'Martes', mie: 'Miércoles', jue: 'Jueves', vie: 'Viernes', sab: 'Sábado', dom: 'Domingo' };
@@ -1086,12 +1125,12 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
                       )}
                     </div>
                     {s.description && <p className="text-xs text-muted-foreground truncate">{s.description}</p>}
-                    {typeKey !== 'whatsapp' && <p className="text-xs font-semibold mt-0.5">${s.price.toLocaleString('es-AR')} · {durationLabel(s)}</p>}
+                        {typeKey !== 'whatsapp' && <p className="text-xs font-semibold mt-0.5">{s.category ? `${s.category} · ` : ''}${s.price.toLocaleString('es-AR')} · {durationLabel(s)}</p>}
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <Button variant="ghost" size="icon" onClick={() => {
                       setEditingServiceId(s.id);
-                      setServiceForm({ name: s.name, description: s.description, price: s.price, duration: s.duration, serviceType: typeKey, professionalIds: (s as any).professionalIds || [], durationByProfessional: s.durationByProfessional || {} });
+                      setServiceForm({ name: s.name, description: s.description, price: s.price, duration: s.duration, serviceType: typeKey, professionalIds: (s as any).professionalIds || [], durationByProfessional: s.durationByProfessional || {}, category: s.category || "" });
                     }}>
                       <Edit className="w-4 h-4" />
                     </Button>
@@ -1132,6 +1171,16 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
                 <Label>Descripción <span className="text-muted-foreground text-xs">(opcional)</span></Label>
                 <Input placeholder="Descripción del servicio" value={serviceForm.description} onChange={e => setServiceForm({ ...serviceForm, description: e.target.value })} />
               </div>
+              {serviceForm.serviceType !== 'whatsapp' && (
+                <div className="space-y-1 md:col-span-2">
+                  <Label>Categoría <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+                  <Input list="service-categories" placeholder="Ej: Baño y corte" value={serviceForm.category} onChange={e => setServiceForm({ ...serviceForm, category: e.target.value })} />
+                  <datalist id="service-categories">
+                    {Array.from(new Set((services || []).map(sv => sv.category).filter(Boolean))).map(c => <option key={c} value={c} />)}
+                  </datalist>
+                  <p className="text-xs text-muted-foreground">Los servicios con la misma categoría se muestran juntos: el cliente toca la categoría y elige la opción (por ejemplo, el tamaño).</p>
+                </div>
+              )}
               {serviceForm.serviceType !== 'whatsapp' && (
                 <>
                   <div className="space-y-1">

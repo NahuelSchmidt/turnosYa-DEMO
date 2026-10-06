@@ -1,10 +1,11 @@
 "use client";
 
-import { Service, durationLabel } from "@/lib/data";
+import { useState } from "react";
+import { Service, durationLabel, optionLabel } from "@/lib/data";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { CheckCircle2, Circle, Tag, Percent, Users } from "lucide-react";
+import { CheckCircle2, Circle, Tag, Percent, Users, ChevronDown } from "lucide-react";
 import { useSalon } from "@/hooks/use-salon";
 
 interface ServiceSelectorProps {
@@ -22,6 +23,7 @@ const WA_ICON = (
 
 export default function ServiceSelector({ allServices, selectedServices, onSelectService, tenantId = "default" }: ServiceSelectorProps) {
   const { salon } = useSalon(tenantId);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   const openWhatsApp = (service: Service) => {
     const phone = salon?.whatsappNumber || "5491112345678";
@@ -33,7 +35,7 @@ export default function ServiceSelector({ allServices, selectedServices, onSelec
   const classServices = servicesList.filter(s => (s as any).type === 'clase');
   const regularServices = servicesList.filter(s => (s as any).type !== 'clase');
 
-  const renderServiceCard = (service: Service) => {
+  const renderServiceCard = (service: Service, label = service.name, hideDescription = false) => {
     const sType = (service as any).type;
     const isSelected = selectedServices.some(s => s.id === service.id);
 
@@ -79,7 +81,7 @@ export default function ServiceSelector({ allServices, selectedServices, onSelec
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className={`font-semibold text-sm ${isSelected ? "text-background" : "text-foreground"}`}>
-              {service.name}
+              {label}
             </p>
             {isCombo && !isSelected && (
               <Badge variant="outline" className="border-blue-400 text-blue-700 bg-blue-50 dark:bg-blue-950/30 text-[10px] px-1.5 py-0 flex items-center gap-0.5 shrink-0">
@@ -97,7 +99,7 @@ export default function ServiceSelector({ allServices, selectedServices, onSelec
               </Badge>
             )}
           </div>
-          {service.description && (
+          {service.description && !hideDescription && (
             <p className={`text-xs mt-0.5 ${isSelected ? "text-background/70" : "text-muted-foreground"}`}>
               {service.description}
             </p>
@@ -115,13 +117,47 @@ export default function ServiceSelector({ allServices, selectedServices, onSelec
     );
   };
 
+  // Categoría (ej: "Baño y corte"): una tarjeta que al tocarla muestra las opciones (ej: por peso)
+  const renderGroup = (category: string, services: Service[]) => {
+    const chosen = services.find(s => selectedServices.some(sel => sel.id === s.id));
+    const isOpen = openGroup === category || (!!chosen && openGroup !== `-${category}`);
+    const minPrice = Math.min(...services.map(s => s.price));
+    // Si todas las opciones tienen la misma descripción, se muestra una sola vez arriba
+    const shared = services.every(s => s.description && s.description === services[0].description) ? services[0].description : '';
+    return (
+      <div key={`cat-${category}`} className={`rounded-xl border-2 transition-colors ${chosen ? "border-foreground" : "border-border"} bg-card`}>
+        <button
+          type="button"
+          onClick={() => setOpenGroup(isOpen ? `-${category}` : category)}
+          className="w-full flex items-center gap-3 p-3 text-left"
+        >
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm text-foreground">{category}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {chosen ? `Elegiste: ${optionLabel(chosen)}` : `${services.length} opciones · desde $${minPrice.toLocaleString("es-AR")}`}
+            </p>
+          </div>
+          <ChevronDown className={`w-5 h-5 shrink-0 text-muted-foreground transition-transform ${isOpen ? "rotate-180" : ""}`} />
+        </button>
+        {isOpen && (
+          <div className="grid gap-2 px-3 pb-3">
+            {shared && <p className="text-xs text-muted-foreground -mt-1 mb-1">{shared}</p>}
+            {services.map(s => renderServiceCard(s, optionLabel(s), !!shared))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
       <h2 className="text-2xl font-bold mb-4 font-headline">Elige tus Servicios</h2>
       <ScrollArea className="h-[400px] pr-4">
         <div className="space-y-5">
           <div className="grid gap-3">
-            {regularServices.map(renderServiceCard)}
+            {groupByCategory(regularServices).map(item => item.kind === 'single'
+              ? renderServiceCard(item.service)
+              : renderGroup(item.category, item.services))}
             {servicesList.length === 0 && (
               <p className="text-center text-muted-foreground py-8">No hay servicios disponibles.</p>
             )}
@@ -134,7 +170,7 @@ export default function ServiceSelector({ allServices, selectedServices, onSelec
                 <h3 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Clases</h3>
               </div>
               <div className="grid gap-3">
-                {classServices.map(renderServiceCard)}
+                {classServices.map(s => renderServiceCard(s))}
               </div>
             </div>
           )}
@@ -142,4 +178,23 @@ export default function ServiceSelector({ allServices, selectedServices, onSelec
       </ScrollArea>
     </div>
   );
+}
+type ServiceItem = { kind: 'single'; service: Service } | { kind: 'group'; category: string; services: Service[] };
+
+/** Junta los servicios de una misma categoría en el lugar donde aparece el primero. */
+function groupByCategory(services: Service[]): ServiceItem[] {
+  const items: ServiceItem[] = [];
+  const groups = new Map<string, Service[]>();
+  for (const s of services) {
+    const cat = s.type === 'whatsapp' ? '' : s.category?.trim();
+    if (!cat) { items.push({ kind: 'single', service: s }); continue; }
+    const key = cat.toLowerCase();
+    if (!groups.has(key)) {
+      groups.set(key, []);
+      items.push({ kind: 'group', category: cat, services: groups.get(key)! });
+    }
+    groups.get(key)!.push(s);
+  }
+  // Una categoría con un solo servicio se muestra como servicio normal
+  return items.map(it => it.kind === 'group' && it.services.length === 1 ? { kind: 'single', service: it.services[0] } : it);
 }

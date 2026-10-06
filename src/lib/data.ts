@@ -57,6 +57,7 @@ export interface Service {
   type?: 'whatsapp' | 'combo' | 'oferta' | 'clase';
   professionalIds?: string[];
   durationByProfessional?: Record<string, number>; // minutos con un profesional en particular, si tarda distinto
+  category?: string; // agrupa variantes en la reserva (ej: "Baño y corte" → por peso del perro)
   capacity?: number; // cupo máximo de clientes por horario, solo para type: 'clase'
   address?: string; // ubicación propia, solo para type: 'clase' — si no está, se usa la del negocio
 }
@@ -72,6 +73,18 @@ export function durationLabel(service: Service): string {
   const all = [service.duration, ...Object.values(service.durationByProfessional || {}).filter(d => d > 0)];
   const min = Math.min(...all), max = Math.max(...all);
   return min === max ? `${min}min` : `${min}–${max}min`;
+}
+
+/** Nombre de la opción dentro de su categoría: "Baño y corte · hasta 10 kg" → "hasta 10 kg". */
+export function optionLabel(service: Service): string {
+  const cat = service.category?.trim();
+  if (!cat) return service.name;
+  const rest = service.name.trim();
+  if (rest.toLowerCase().startsWith(cat.toLowerCase())) {
+    const stripped = rest.slice(cat.length).replace(/^\s*[·\-–—:|,]\s*/, '').trim();
+    if (stripped) return stripped.charAt(0).toUpperCase() + stripped.slice(1);
+  }
+  return rest;
 }
 
 export interface Professional {
