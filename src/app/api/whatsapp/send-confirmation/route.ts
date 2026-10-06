@@ -3,7 +3,7 @@ import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { isAdminConfigured } from '@/lib/firebase-admin';
 import { toMillis } from '@/lib/deposit-server';
 import {
-  buildBusinessNewBooking, buildCustomerConfirmation, callerUid, canManageSalon,
+  buildBusinessNewBooking, buildCustomerConfirmation, buildProfessionalNewBooking, callerUid, canManageSalon, notifyProfessional,
   loadAppointmentWithRetry, markOnce,
 } from '@/lib/wa-notify';
 
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
 
     const sent = await sendWhatsAppMessage(apt.customerPhone, buildCustomerConfirmation(ctx), credentials);
     if (salon?.whatsappNumber) await sendWhatsAppMessage(salon.whatsappNumber, buildBusinessNewBooking(ctx), credentials);
+    await notifyProfessional(ctx, buildProfessionalNewBooking(ctx));
     return NextResponse.json({ sent });
   } catch (e: any) {
     console.error('[WhatsApp] send-confirmation:', e?.message);

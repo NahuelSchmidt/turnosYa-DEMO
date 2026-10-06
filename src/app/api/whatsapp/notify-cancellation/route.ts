@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { isAdminConfigured } from '@/lib/firebase-admin';
 import { notifySalon } from '@/lib/push';
-import { buildBusinessCancellation, formatTurnoDate, loadAppointmentWithRetry, markOnce } from '@/lib/wa-notify';
+import { buildBusinessCancellation, buildProfessionalCancellation, formatTurnoDate, loadAppointmentWithRetry, markOnce, notifyProfessional, withProfessional } from '@/lib/wa-notify';
 
 /**
  * El cliente canceló su turno: avisa al negocio (celu y WhatsApp) una sola vez.
@@ -26,8 +26,9 @@ export async function POST(req: NextRequest) {
 
     await notifySalon(ctx.apt.salonId, {
       title: 'Turno cancelado',
-      body: [ctx.apt.customerName || 'Un cliente', formatTurnoDate(ctx, "dd/MM 'a las' HH:mm'hs'"), 'canceló su turno'].filter(Boolean).join(' · '),
+      body: [ctx.apt.customerName || 'Un cliente', formatTurnoDate(ctx, "dd/MM 'a las' HH:mm'hs'"), withProfessional(ctx), 'canceló su turno'].filter(Boolean).join(' · '),
     });
+    await notifyProfessional(ctx, buildProfessionalCancellation(ctx));
 
     const salon = ctx.salon;
     if (!salon?.whatsappNumber || !salon?.evolutionInstanceName) return NextResponse.json({ sent: false });

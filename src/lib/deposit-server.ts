@@ -6,6 +6,7 @@ import { adminDb } from '@/lib/firebase-admin';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { APP_URL, getAccessToken, getPayment } from '@/lib/mercadopago';
 import { notifySalon } from '@/lib/push';
+import { sendToProfessional } from '@/lib/staff-contacts';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -104,14 +105,17 @@ export async function sendDepositConfirmation(ctx: AppointmentContext, appointme
 
   if (apt.customerPhone) await sendWhatsAppMessage(apt.customerPhone, customerMsg, credentials);
 
+  await notifySalon(apt.salonId, {
+    title: 'Nuevo turno con seña',
+    body: [apt.customerName || 'Cliente', formattedDate, professional ? `con ${professional.name}` : '', `seña ${money(paidAmount)} pagada`].filter(Boolean).join(' · '),
+  });
   if (salon?.whatsappNumber && credentials) {
-    await notifySalon(apt.salonId, {
-      title: 'Nuevo turno con seña',
-      body: `${apt.customerName || 'Cliente'} · ${formattedDate} · seña ${money(paidAmount)} pagada`,
-    });
-    const businessMsg = `📬 *Nuevo turno con seña*\n\n👤 ${apt.customerName || 'Cliente'}\n📱 ${apt.customerPhone || ''}\n🗓 ${formattedDate}\n📋 ${serviceNames}${professional ? `\n👤 Con ${professional.name}` : ''}\n💳 Seña cobrada por Mercado Pago: ${money(paidAmount)}`;
+    const businessMsg = `📬 *Nuevo turno con seña*\n\n👤 ${apt.customerName || 'Cliente'}\n📱 ${apt.customerPhone || ''}\n🗓 ${formattedDate}\n📋 ${serviceNames}${professional ? `\n👤 Con ${professional.name}` : ''}\n💳 Seña pagada: ${money(paidAmount)}`;
     await sendWhatsAppMessage(salon.whatsappNumber, businessMsg, credentials);
   }
+  // A la persona que lo atiende, sin datos de pago
+  const staffMsg = `📬 *Tenés un turno nuevo*\n\n👤 ${apt.customerName || 'Cliente'}\n📱 ${apt.customerPhone || ''}\n🗓 ${formattedDate}\n📋 ${serviceNames}`;
+  await sendToProfessional(apt.salonId, salon, apt.professionalId, staffMsg);
 }
 
 /**
@@ -132,7 +136,7 @@ export async function sendTransferInstructions(ctx: AppointmentContext, appointm
 
   await notifySalon(apt.salonId, {
     title: 'Nuevo turno pendiente',
-    body: `${apt.customerName || 'Cliente'} · ${formattedDate} · seña ${money(amount)} por transferencia`,
+    body: [apt.customerName || 'Cliente', formattedDate, professional ? `con ${professional.name}` : '', `seña ${money(amount)} por transferencia`].filter(Boolean).join(' · '),
     path: `/dashboard?tab=agenda&turno=${appointmentId}`,
   });
 

@@ -8,6 +8,7 @@ import { NextRequest } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { loadAppointmentContext, toMillis, type AppointmentContext } from '@/lib/deposit-server';
 import { APP_URL } from '@/lib/mercadopago';
+import { sendToProfessional } from '@/lib/staff-contacts';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -71,6 +72,26 @@ export function buildBusinessNewBooking(ctx: AppointmentContext) {
 export function buildBusinessCancellation(ctx: AppointmentContext) {
   const { apt } = ctx;
   return `❌ *Turno cancelado*\n\n👤 ${apt.customerName || 'Cliente'}\n📱 ${apt.customerPhone || ''}\n🗓 ${formatTurnoDate(ctx, "dd/MM 'a las' HH:mm'hs'")}\n📋 ${serviceNamesOf(ctx)}\n\nEl cliente canceló su turno.`;
+}
+
+/** " · con Cintia" para los avisos al dueño, si el turno tiene profesional. */
+export function withProfessional(ctx: AppointmentContext) {
+  return ctx.professional?.name ? `con ${ctx.professional.name}` : '';
+}
+
+/** Aviso a la persona que va a atender el turno (no lleva datos de pago). */
+export function buildProfessionalNewBooking(ctx: AppointmentContext) {
+  const { apt } = ctx;
+  return `📬 *Tenés un turno nuevo*\n\n👤 ${apt.customerName || 'Cliente'}\n📱 ${apt.customerPhone || ''}\n🗓 ${formatTurnoDate(ctx)}\n📋 ${serviceNamesOf(ctx)}`;
+}
+
+export function buildProfessionalCancellation(ctx: AppointmentContext) {
+  const { apt } = ctx;
+  return `❌ *Se canceló un turno tuyo*\n\n👤 ${apt.customerName || 'Cliente'}\n🗓 ${formatTurnoDate(ctx, "dd/MM 'a las' HH:mm'hs'")}\n📋 ${serviceNamesOf(ctx)}\n\nEse horario quedó libre.`;
+}
+
+export function notifyProfessional(ctx: AppointmentContext, text: string) {
+  return sendToProfessional(ctx.apt.salonId, ctx.salon, ctx.apt.professionalId, text);
 }
 
 /**

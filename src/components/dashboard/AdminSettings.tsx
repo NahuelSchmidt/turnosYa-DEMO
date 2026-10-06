@@ -19,6 +19,7 @@ import { ImageUpload } from "@/components/ui/image-upload";
 import { WhatsAppConnect } from "./WhatsAppConnect";
 import { DepositSettings } from "./DepositSettings";
 import { PushNotificationsCard } from "./PushNotifications";
+import { StaffWhatsApp } from "./StaffWhatsApp";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -1032,6 +1033,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
               </div>
             ))}
           </div>
+          <StaffWhatsApp tenantId={tenantId} professionals={professionals || []} />
           <div className="p-4 border rounded-xl bg-muted/10 space-y-3">
             <p className="text-sm font-bold">{editingProfId ? "Editar Profesional" : "Agregar Profesional"}</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

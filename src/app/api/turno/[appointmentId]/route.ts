@@ -3,7 +3,7 @@ import { adminDb, isAdminConfigured } from '@/lib/firebase-admin';
 import { loadAppointmentContext, toMillis } from '@/lib/deposit-server';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { notifySalon } from '@/lib/push';
-import { buildBusinessCancellation, formatTurnoDate, markOnce } from '@/lib/wa-notify';
+import { buildBusinessCancellation, buildProfessionalCancellation, formatTurnoDate, markOnce, notifyProfessional, withProfessional } from '@/lib/wa-notify';
 
 /** Con al menos estas horas de anticipación el cliente puede cancelar solo. */
 const MIN_HOURS_TO_CANCEL = 12;
@@ -74,12 +74,13 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (await markOnce(ctx, 'cancellationNotifiedAt')) {
     await notifySalon(apt.salonId, {
       title: 'Turno cancelado',
-      body: [apt.customerName || 'Un cliente', formatTurnoDate(ctx, "dd/MM 'a las' HH:mm'hs'"), 'canceló su turno'].filter(Boolean).join(' · '),
+      body: [apt.customerName || 'Un cliente', formatTurnoDate(ctx, "dd/MM 'a las' HH:mm'hs'"), withProfessional(ctx), 'canceló su turno'].filter(Boolean).join(' · '),
     });
     const salon = ctx.salon;
     if (salon?.whatsappNumber && salon?.evolutionInstanceName) {
       await sendWhatsAppMessage(salon.whatsappNumber, buildBusinessCancellation(ctx), { instanceName: salon.evolutionInstanceName });
     }
+    await notifyProfessional(ctx, buildProfessionalCancellation(ctx));
   }
   return NextResponse.json({ ok: true });
 }

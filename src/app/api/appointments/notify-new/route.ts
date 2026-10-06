@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   await notifySalon(ctx.apt.salonId, {
     title: 'Nuevo turno',
-    body: [ctx.apt.customerName || 'Cliente', when, serviceNames].filter(Boolean).join(' · '),
+    body: [ctx.apt.customerName || 'Cliente', when, serviceNames, ctx.professional?.name ? `con ${ctx.professional.name}` : ''].filter(Boolean).join(' · '),
   });
   return NextResponse.json({ ok: true });
 }
