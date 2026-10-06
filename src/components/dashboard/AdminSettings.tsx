@@ -6,7 +6,7 @@ import { useProfessionals } from "@/hooks/use-professionals";
 import { useSchedules } from "@/hooks/use-schedules";
 import { useSalon } from "@/hooks/use-salon";
 import { useBranches } from "@/hooks/use-branches";
-import { Service, Professional } from "@/lib/data";
+import { Service, Professional, durationLabel } from "@/lib/data";
 import { LockedFeature } from "@/components/ui/locked-feature";
 import { usePlan } from "@/hooks/use-plan";
 import { Button } from "@/components/ui/button";
@@ -285,8 +285,8 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  type SForm = { name: string; description: string; price: number; duration: number; serviceType: ServiceType; professionalIds: string[] };
-  const emptyForm: SForm = { name: "", description: "", price: 0, duration: 0, serviceType: 'normal', professionalIds: [] };
+  type SForm = { name: string; description: string; price: number; duration: number; serviceType: ServiceType; professionalIds: string[]; durationByProfessional: Record<string, number> };
+  const emptyForm: SForm = { name: "", description: "", price: 0, duration: 0, serviceType: 'normal', professionalIds: [], durationByProfessional: {} };
   const [serviceForm, setServiceForm] = useState<SForm>(emptyForm);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
 
@@ -370,6 +370,10 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
       return;
     }
     const isSpecial = serviceForm.serviceType !== 'normal';
+    // Solo se guardan las duraciones propias que son distintas de la general y de profesionales que hacen el servicio
+    const ownDurations = Object.fromEntries(Object.entries(serviceForm.durationByProfessional).filter(([pid, d]) =>
+      d > 0 && d !== serviceForm.duration && (professionals || []).some(p => p.id === pid) &&
+      (serviceForm.professionalIds.length === 0 || serviceForm.professionalIds.includes(pid))));
     const serviceData: any = {
       id: editingServiceId || `ser-${Date.now()}`,
       name: serviceForm.name,
@@ -378,6 +382,7 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
       duration: serviceForm.serviceType === 'whatsapp' ? 0 : serviceForm.duration,
       ...(isSpecial && { type: serviceForm.serviceType }),
       ...(serviceForm.professionalIds.length > 0 && { professionalIds: serviceForm.professionalIds }),
+      ...(serviceForm.serviceType !== 'whatsapp' && Object.keys(ownDurations).length > 0 && { durationByProfessional: ownDurations }),
     };
     const updated = editingServiceId
       ? (services || []).map(s => s.id === editingServiceId ? serviceData : s)
@@ -1079,12 +1084,12 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
                       )}
                     </div>
                     {s.description && <p className="text-xs text-muted-foreground truncate">{s.description}</p>}
-                    {typeKey !== 'whatsapp' && <p className="text-xs font-semibold mt-0.5">${s.price.toLocaleString('es-AR')} · {s.duration}min</p>}
+                    {typeKey !== 'whatsapp' && <p className="text-xs font-semibold mt-0.5">${s.price.toLocaleString('es-AR')} · {durationLabel(s)}</p>}
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <Button variant="ghost" size="icon" onClick={() => {
                       setEditingServiceId(s.id);
-                      setServiceForm({ name: s.name, description: s.description, price: s.price, duration: s.duration, serviceType: typeKey, professionalIds: (s as any).professionalIds || [] });
+                      setServiceForm({ name: s.name, description: s.description, price: s.price, duration: s.duration, serviceType: typeKey, professionalIds: (s as any).professionalIds || [], durationByProfessional: s.durationByProfessional || {} });
                     }}>
                       <Edit className="w-4 h-4" />
                     </Button>
@@ -1161,6 +1166,29 @@ export function AdminSettings({ tenantId }: AdminSettingsProps) {
                   <p className="text-xs text-muted-foreground">Si no seleccionás ninguno, el servicio estará disponible con todos.</p>
                 </div>
               )}
+              {serviceForm.serviceType !== 'whatsapp' && (professionals || []).length > 1 && (() => {
+                const who = (professionals || []).filter(p => serviceForm.professionalIds.length === 0 || serviceForm.professionalIds.includes(p.id));
+                if (who.length === 0) return null;
+                return (
+                  <details className="md:col-span-2 rounded-lg border p-3" open={Object.values(serviceForm.durationByProfessional).some(d => d > 0)}>
+                    <summary className="text-sm font-medium cursor-pointer">¿Alguien tarda distinto en este servicio?</summary>
+                    <p className="text-xs text-muted-foreground mt-2 mb-3">
+                      Poné los minutos solo para quien tarda distinto. Si lo dejás vacío, usa la duración general{serviceForm.duration ? ` (${serviceForm.duration} min)` : ""}.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {who.map(p => (
+                        <label key={p.id} className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm truncate flex-1 min-w-0">{(p as any).emoji || ''} {p.name}</span>
+                          <Input type="number" inputMode="numeric" className="w-24 h-9" placeholder={serviceForm.duration ? String(serviceForm.duration) : "min"}
+                            value={serviceForm.durationByProfessional[p.id] || ""}
+                            onChange={e => setServiceForm(prev => ({ ...prev, durationByProfessional: { ...prev.durationByProfessional, [p.id]: Number(e.target.value) } }))} />
+                          <span className="text-xs text-muted-foreground">min</span>
+                        </label>
+                      ))}
+                    </div>
+                  </details>
+                );
+              })()}
               {(professionals || []).length === 0 && (
                 <p className="md:col-span-2 text-xs text-muted-foreground bg-muted/40 border rounded-lg p-3">
                   Todavía no cargaste a tu equipo. Cargalo arriba, en <strong>Equipo de Trabajo</strong>, para elegir quién hace cada servicio.

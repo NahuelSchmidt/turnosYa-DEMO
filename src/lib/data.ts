@@ -56,8 +56,22 @@ export interface Service {
   duration: number;
   type?: 'whatsapp' | 'combo' | 'oferta' | 'clase';
   professionalIds?: string[];
+  durationByProfessional?: Record<string, number>; // minutos con un profesional en particular, si tarda distinto
   capacity?: number; // cupo máximo de clientes por horario, solo para type: 'clase'
   address?: string; // ubicación propia, solo para type: 'clase' — si no está, se usa la del negocio
+}
+
+/** Duración del servicio con un profesional (si tiene una propia) o la general. */
+export function serviceDuration(service: Service, professionalId?: string | null): number {
+  const own = professionalId ? service.durationByProfessional?.[professionalId] : undefined;
+  return own && own > 0 ? own : service.duration;
+}
+
+/** Texto de la duración: "60min", o "60–90min" si depende del profesional. */
+export function durationLabel(service: Service): string {
+  const all = [service.duration, ...Object.values(service.durationByProfessional || {}).filter(d => d > 0)];
+  const min = Math.min(...all), max = Math.max(...all);
+  return min === max ? `${min}min` : `${min}–${max}min`;
 }
 
 export interface Professional {

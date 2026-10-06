@@ -1,6 +1,6 @@
 "use client";
 
-import { Service } from "@/lib/data";
+import { Service, durationLabel } from "@/lib/data";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -108,7 +108,7 @@ export default function ServiceSelector({ allServices, selectedServices, onSelec
             ${service.price.toLocaleString("es-AR")}
           </p>
           <p className={`text-xs ${isSelected ? "text-background/70" : "text-muted-foreground"}`}>
-            {service.duration}min
+            {durationLabel(service)}
           </p>
         </div>
       </div>

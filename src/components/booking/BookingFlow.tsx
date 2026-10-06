@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Service, Professional } from "@/lib/data";
+import { Service, Professional, serviceDuration } from "@/lib/data";
 import { useAppointments } from "@/hooks/use-appointments";
 import { useServices } from "@/hooks/use-services";
 import { useProfessionals } from "@/hooks/use-professionals";
@@ -70,7 +70,7 @@ export default function BookingFlow({ tenantId, branchId, branchData }: BookingF
   const { toast } = useToast();
 
   const total = selectedServices.reduce((sum, s) => sum + s.price, 0);
-  const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration, 0);
+  const totalDuration = selectedServices.reduce((sum, s) => sum + serviceDuration(s, selectedProfessional?.id), 0);
 
   const depositConfig = getDepositConfig(salon);
   const depositAmount = computeDepositAmount(depositConfig, total);

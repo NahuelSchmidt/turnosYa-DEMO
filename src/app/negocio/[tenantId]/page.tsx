@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { MapPin, Clock, Star, CalendarCheck, Loader2, Send } from "lucide-react";
 import Link from "next/link";
+import { durationLabel } from "@/lib/data";
 import { useFirestore, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, query, where, addDoc, serverTimestamp } from "firebase/firestore";
 import { format } from "date-fns";
@@ -258,7 +259,7 @@ function ProfileContent({ tenantId }: { tenantId: string }) {
                         <div>
                           <p className="font-bold text-sm">{s.name}</p>
                           {s.description && <p className="text-xs text-muted-foreground">{s.description}</p>}
-                          <p className="text-xs text-muted-foreground mt-0.5">{s.duration} min</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{durationLabel(s)}</p>
                         </div>
                         <p className="font-black text-sm shrink-0">${s.price.toLocaleString('es-AR')}</p>
                       </div>

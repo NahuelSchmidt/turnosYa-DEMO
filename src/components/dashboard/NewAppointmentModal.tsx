@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAppointments } from "@/hooks/use-appointments";
 import { useSchedules } from "@/hooks/use-schedules";
 import { useSalon } from "@/hooks/use-salon";
-import { Service, Professional } from "@/lib/data";
+import { Service, Professional, serviceDuration, durationLabel } from "@/lib/data";
 import { es } from "date-fns/locale";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -104,7 +104,7 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
   }, [availableSlots, bookedSlots, selectedDate, isClassBooking, classSlotInfo]);
 
   const total = selectedService?.price ?? 0;
-  const totalDuration = (selectedService?.duration ?? 0) + extraDuration;
+  const totalDuration = (selectedService ? serviceDuration(selectedService, selectedProfessionalId) : 0) + extraDuration;
 
   const handleSubmit = () => {
     const serviceOk = freeTextService ? !!customServiceName.trim() : !!selectedServiceId;
@@ -236,7 +236,7 @@ export function NewAppointmentModal({ open, onClose, tenantId, services, profess
                 </SelectTrigger>
                 <SelectContent>
                   {bookableServices.map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.name} — {s.duration}min</SelectItem>
+                    <SelectItem key={s.id} value={s.id}>{s.name} — {durationLabel(s)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
