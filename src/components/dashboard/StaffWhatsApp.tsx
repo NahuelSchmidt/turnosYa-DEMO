@@ -39,7 +39,7 @@ export function StaffWhatsApp({ tenantId, professionals }: { tenantId: string; p
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "No se pudo guardar");
       setPhones(data.phones || {});
-      toast({ title: "Guardado", description: "Cada uno va a recibir el aviso de sus turnos." });
+      toast({ title: "Guardado", description: "Cada mañana le va a llegar a cada uno su agenda del día." });
     } catch (e: any) {
       toast({ variant: "destructive", title: "No se pudo guardar", description: e.message });
     }
@@ -55,7 +55,7 @@ export function StaffWhatsApp({ tenantId, professionals }: { tenantId: string; p
           <MessageCircle className="w-4 h-4 text-[#25D366]" /> Avisos de turnos por WhatsApp
         </p>
         <p className="text-xs text-muted-foreground mt-1">
-          Cuando le reservan o le cancelan un turno a alguien de tu equipo, le llega el aviso a su WhatsApp desde el número que conectaste. Dejalo vacío si no hace falta. Los clientes no ven estos números.
+          Cada mañana le llega a cada uno su agenda del día por WhatsApp, desde el número que conectaste. Si se cancela un turno de ese mismo día, también le avisamos. Dejalo vacío si no hace falta. Los clientes no ven estos números.
         </p>
       </div>
       {!loaded ? (

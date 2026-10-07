@@ -3,7 +3,7 @@ import { adminDb, isAdminConfigured } from '@/lib/firebase-admin';
 import { loadAppointmentContext, toMillis } from '@/lib/deposit-server';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { notifySalon } from '@/lib/push';
-import { buildBusinessCancellation, buildProfessionalCancellation, formatTurnoDate, markOnce, notifyProfessional, withProfessional } from '@/lib/wa-notify';
+import { buildBusinessCancellation, formatTurnoDate, markOnce, notifyProfessionalSameDayCancellation, withProfessional } from '@/lib/wa-notify';
 
 /** Con al menos estas horas de anticipación el cliente puede cancelar solo. */
 const MIN_HOURS_TO_CANCEL = 12;
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (salon?.whatsappNumber && salon?.evolutionInstanceName) {
       await sendWhatsAppMessage(salon.whatsappNumber, buildBusinessCancellation(ctx), { instanceName: salon.evolutionInstanceName });
     }
-    await notifyProfessional(ctx, buildProfessionalCancellation(ctx));
+    await notifyProfessionalSameDayCancellation(ctx);
   }
   return NextResponse.json({ ok: true });
 }

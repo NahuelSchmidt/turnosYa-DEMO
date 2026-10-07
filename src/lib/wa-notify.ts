@@ -79,19 +79,21 @@ export function withProfessional(ctx: AppointmentContext) {
   return ctx.professional?.name ? `con ${ctx.professional.name}` : '';
 }
 
-/** Aviso a la persona que va a atender el turno (no lleva datos de pago). */
-export function buildProfessionalNewBooking(ctx: AppointmentContext) {
-  const { apt } = ctx;
-  return `📬 *Tenés un turno nuevo*\n\n👤 ${apt.customerName || 'Cliente'}\n📱 ${apt.customerPhone || ''}\n🗓 ${formatTurnoDate(ctx)}\n📋 ${serviceNamesOf(ctx)}`;
-}
-
 export function buildProfessionalCancellation(ctx: AppointmentContext) {
   const { apt } = ctx;
-  return `❌ *Se canceló un turno tuyo*\n\n👤 ${apt.customerName || 'Cliente'}\n🗓 ${formatTurnoDate(ctx, "dd/MM 'a las' HH:mm'hs'")}\n📋 ${serviceNamesOf(ctx)}\n\nEse horario quedó libre.`;
+  return `❌ *Se canceló un turno de hoy*\n\n👤 ${apt.customerName || 'Cliente'}\n🕐 ${formatTurnoDate(ctx, "HH:mm'hs'")}\n📋 ${serviceNamesOf(ctx)}\n\nEse horario te quedó libre.`;
 }
 
-export function notifyProfessional(ctx: AppointmentContext, text: string) {
-  return sendToProfessional(ctx.apt.salonId, ctx.salon, ctx.apt.professionalId, text);
+/**
+ * A la persona que atiende le llega su agenda cada mañana (resumen diario).
+ * Solo se le avisa aparte si se cancela un turno de ese mismo día, porque le cambia el día.
+ */
+export function notifyProfessionalSameDayCancellation(ctx: AppointmentContext) {
+  const ms = toMillis(ctx.apt.startTime);
+  if (!ms) return Promise.resolve(false);
+  const today = formatInTimeZone(new Date(), TZ, 'yyyy-MM-dd');
+  if (formatInTimeZone(new Date(ms), TZ, 'yyyy-MM-dd') !== today || ms < Date.now()) return Promise.resolve(false);
+  return sendToProfessional(ctx.apt.salonId, ctx.salon, ctx.apt.professionalId, buildProfessionalCancellation(ctx));
 }
 
 /**

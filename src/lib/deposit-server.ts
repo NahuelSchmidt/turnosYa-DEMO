@@ -6,7 +6,6 @@ import { adminDb } from '@/lib/firebase-admin';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
 import { APP_URL, getAccessToken, getPayment } from '@/lib/mercadopago';
 import { notifySalon } from '@/lib/push';
-import { sendToProfessional } from '@/lib/staff-contacts';
 
 const TZ = 'America/Argentina/Buenos_Aires';
 
@@ -113,9 +112,6 @@ export async function sendDepositConfirmation(ctx: AppointmentContext, appointme
     const businessMsg = `📬 *Nuevo turno con seña*\n\n👤 ${apt.customerName || 'Cliente'}\n📱 ${apt.customerPhone || ''}\n🗓 ${formattedDate}\n📋 ${serviceNames}${professional ? `\n👤 Con ${professional.name}` : ''}\n💳 Seña pagada: ${money(paidAmount)}`;
     await sendWhatsAppMessage(salon.whatsappNumber, businessMsg, credentials);
   }
-  // A la persona que lo atiende, sin datos de pago
-  const staffMsg = `📬 *Tenés un turno nuevo*\n\n👤 ${apt.customerName || 'Cliente'}\n📱 ${apt.customerPhone || ''}\n🗓 ${formattedDate}\n📋 ${serviceNames}`;
-  await sendToProfessional(apt.salonId, salon, apt.professionalId, staffMsg);
 }
 
 /**
