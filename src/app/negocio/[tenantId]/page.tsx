@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { MapPin, Clock, Star, CalendarCheck, Loader2, Send } from "lucide-react";
+import { MapPin, Clock, Star, CalendarCheck, Loader2, Send, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { durationLabel, optionLabel, type Service } from "@/lib/data";
 import { useFirestore, useMemoFirebase, useCollection } from "@/firebase";
@@ -255,22 +255,8 @@ function ProfileContent({ tenantId }: { tenantId: string }) {
                   <p className="font-bold">Servicios</p>
                   <div className="grid gap-2">
                     {groupServices(bookableServices).map(item => item.category ? (
-                      // Categoría: un recuadro con sus opciones (ej: "Baño y corte" por tamaño)
-                      <div key={`cat-${item.category}`} className="rounded-xl border bg-card overflow-hidden">
-                        <p className="font-bold text-sm px-3 pt-3 pb-2">{item.category}</p>
-                        <div className="divide-y">
-                          {item.services.map(s => (
-                            <div key={s.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium">{optionLabel(s)}</p>
-                                {s.description && <p className="text-xs text-muted-foreground">{s.description}</p>}
-                                <p className="text-xs text-muted-foreground mt-0.5">{durationLabel(s)}</p>
-                              </div>
-                              <p className="font-black text-sm shrink-0">${s.price.toLocaleString('es-AR')}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      // Categoría: se ve cerrada y al tocarla muestra las opciones con sus precios
+                      <CategoryCard key={`cat-${item.category}`} category={item.category} services={item.services} />
                     ) : item.services.map(s => (
                       <div key={s.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border bg-card">
                         <div className="min-w-0">
@@ -351,4 +337,34 @@ function groupServices(services: Service[]): { category: string; services: Servi
     byCat.get(key)!.push(s);
   }
   return items;
+}
+
+function CategoryCard({ category, services }: { category: string; services: Service[] }) {
+  const [open, setOpen] = useState(false);
+  const minPrice = Math.min(...services.map(s => s.price));
+  return (
+    <div className="rounded-xl border bg-card overflow-hidden">
+      <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between gap-3 p-3 text-left">
+        <div className="min-w-0">
+          <p className="font-bold text-sm">{category}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{services.length} opciones · desde ${minPrice.toLocaleString('es-AR')}</p>
+        </div>
+        <ChevronDown className={`w-5 h-5 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="divide-y border-t">
+          {services.map(s => (
+            <div key={s.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">{optionLabel(s)}</p>
+                {s.description && <p className="text-xs text-muted-foreground">{s.description}</p>}
+                <p className="text-xs text-muted-foreground mt-0.5">{durationLabel(s)}</p>
+              </div>
+              <p className="font-black text-sm shrink-0">${s.price.toLocaleString('es-AR')}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
