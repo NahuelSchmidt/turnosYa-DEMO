@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { MapPin, Clock, Star, CalendarCheck, Loader2, Send } from "lucide-react";
 import Link from "next/link";
-import { durationLabel } from "@/lib/data";
+import { durationLabel, optionLabel, type Service } from "@/lib/data";
 import { useFirestore, useMemoFirebase, useCollection } from "@/firebase";
 import { collection, query, where, addDoc, serverTimestamp } from "firebase/firestore";
 import { format } from "date-fns";
@@ -254,16 +254,33 @@ function ProfileContent({ tenantId }: { tenantId: string }) {
                 <div className="space-y-3">
                   <p className="font-bold">Servicios</p>
                   <div className="grid gap-2">
-                    {bookableServices.map(s => (
-                      <div key={s.id} className="flex items-center justify-between p-3 rounded-xl border bg-card">
-                        <div>
+                    {groupServices(bookableServices).map(item => item.category ? (
+                      // Categoría: un recuadro con sus opciones (ej: "Baño y corte" por tamaño)
+                      <div key={`cat-${item.category}`} className="rounded-xl border bg-card overflow-hidden">
+                        <p className="font-bold text-sm px-3 pt-3 pb-2">{item.category}</p>
+                        <div className="divide-y">
+                          {item.services.map(s => (
+                            <div key={s.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium">{optionLabel(s)}</p>
+                                {s.description && <p className="text-xs text-muted-foreground">{s.description}</p>}
+                                <p className="text-xs text-muted-foreground mt-0.5">{durationLabel(s)}</p>
+                              </div>
+                              <p className="font-black text-sm shrink-0">${s.price.toLocaleString('es-AR')}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : item.services.map(s => (
+                      <div key={s.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border bg-card">
+                        <div className="min-w-0">
                           <p className="font-bold text-sm">{s.name}</p>
                           {s.description && <p className="text-xs text-muted-foreground">{s.description}</p>}
                           <p className="text-xs text-muted-foreground mt-0.5">{durationLabel(s)}</p>
                         </div>
                         <p className="font-black text-sm shrink-0">${s.price.toLocaleString('es-AR')}</p>
                       </div>
-                    ))}
+                    )))}
                   </div>
                 </div>
               )}
@@ -320,4 +337,18 @@ function ProfileContent({ tenantId }: { tenantId: string }) {
 export default function NegocioPage({ params }: { params: Promise<{ tenantId: string }> }) {
   const { tenantId } = use(params);
   return <ProfileContent tenantId={tenantId} />;
+}
+
+/** Junta los servicios por categoría, en el orden en que aparece cada una. Los sueltos quedan solos. */
+function groupServices(services: Service[]): { category: string; services: Service[] }[] {
+  const items: { category: string; services: Service[] }[] = [];
+  const byCat = new Map<string, Service[]>();
+  for (const s of services) {
+    const cat = s.category?.trim();
+    if (!cat) { items.push({ category: '', services: [s] }); continue; }
+    const key = cat.toLowerCase();
+    if (!byCat.has(key)) { byCat.set(key, []); items.push({ category: cat, services: byCat.get(key)! }); }
+    byCat.get(key)!.push(s);
+  }
+  return items;
 }
